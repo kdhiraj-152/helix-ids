@@ -382,7 +382,26 @@ class SafeDataLoader:
         x_unsw_train_scaled = self.unsw_scaler.fit_transform(x_unsw_train)
         x_unsw_test_scaled = self.unsw_scaler.transform(x_unsw_test)
 
-        # Combine SCALED training data
+        # APPLY PER-DATASET NORMALIZATION + CLIPPING (CRITICAL: before combining)
+        # NSL-KDD dataset normalization
+        x_nsl_train_tensor = torch.from_numpy(x_nsl_train_scaled).float()
+        x_nsl_train_tensor = normalize_per_dataset(x_nsl_train_tensor)
+        x_nsl_train_scaled = x_nsl_train_tensor.numpy().astype(np.float32)
+
+        x_nsl_test_tensor = torch.from_numpy(x_nsl_test_scaled).float()
+        x_nsl_test_tensor = normalize_per_dataset(x_nsl_test_tensor)
+        x_nsl_test_scaled = x_nsl_test_tensor.numpy().astype(np.float32)
+
+        # UNSW-NB15 dataset normalization
+        x_unsw_train_tensor = torch.from_numpy(x_unsw_train_scaled).float()
+        x_unsw_train_tensor = normalize_per_dataset(x_unsw_train_tensor)
+        x_unsw_train_scaled = x_unsw_train_tensor.numpy().astype(np.float32)
+
+        x_unsw_test_tensor = torch.from_numpy(x_unsw_test_scaled).float()
+        x_unsw_test_tensor = normalize_per_dataset(x_unsw_test_tensor)
+        x_unsw_test_scaled = x_unsw_test_tensor.numpy().astype(np.float32)
+
+        # Combine SCALED + NORMALIZED training data
         X_train = np.vstack([x_nsl_train_scaled, x_unsw_train_scaled])
         y_train = np.hstack([y_nsl_train, y_unsw_train])
 
@@ -647,6 +666,10 @@ def evaluate_model(model, test_loader, device, dataset_name="", class_names=None
     )
     logger.info(f"Classification report keys: {list(report.keys())}")
 
+    # Compute balanced accuracy (handles class imbalance)
+    dataset_identity_balanced_accuracy = balanced_accuracy_score(all_targets, all_preds)
+    logger.info(f"Balanced Accuracy: {dataset_identity_balanced_accuracy:.4f}")
+
     return {
         "accuracy": float(metrics.accuracy),
         "f1_macro": float(metrics.macro_f1),
@@ -660,6 +683,7 @@ def evaluate_model(model, test_loader, device, dataset_name="", class_names=None
         "ci95_lower": float(metrics.ci95_lower),
         "ci95_upper": float(metrics.ci95_upper),
         "ci95_width": float(metrics.ci95_width),
+        "dataset_identity_balanced_accuracy": float(dataset_identity_balanced_accuracy),
     }
 
 
