@@ -1,0 +1,79 @@
+# Platform-Specific Model Configurations
+# ESP32: Ultra-lightweight, binary-only
+# RPi: Balanced, binary + family
+# Server: Full capability
+
+platforms:
+  esp32:
+    description: "Ultra-lightweight edge (ESP32, <520KB SRAM)"
+    constraints:
+      max_size_kb: 20
+      max_latency_us: 100
+      max_params: 5000
+    model:
+      type: "decision_tree"  # or "logistic" or "tiny_mlp"
+      depth: 5
+      hidden_dims: null  # Not applicable for DT
+    classification:
+      binary_only: true
+      family_head: false
+      finegrain_head: false
+    targets:
+      binary_accuracy: 0.88
+      
+  rpi_zero:
+    description: "Raspberry Pi Zero (512MB RAM)"
+    constraints:
+      max_size_kb: 500
+      max_latency_ms: 5
+      max_params: 50000
+    model:
+      type: "mlp"
+      hidden_dims: [64, 32]
+      dropout: 0.2
+    classification:
+      binary_only: false
+      family_head: true
+      finegrain_head: false
+    targets:
+      binary_accuracy: 0.92
+      family_accuracy: 0.85
+      
+  rpi_4:
+    description: "Raspberry Pi 4 (4-8GB RAM)"
+    constraints:
+      max_size_mb: 5
+      max_latency_ms: 5
+      max_params: 500000
+    model:
+      type: "hierarchical"
+      hidden_dims: [96, 64, 48]
+      dropout: 0.2
+    classification:
+      binary_only: false
+      family_head: true
+      finegrain_head: false
+    targets:
+      binary_accuracy: 0.95
+      family_accuracy: 0.90
+      
+  server:
+    description: "Server/Cloud deployment"
+    constraints:
+      max_size_mb: 50
+      max_latency_ms: 20
+      max_params: 5000000
+    model:
+      type: "hierarchical"
+      hidden_dims: [128, 96, 64, 48]
+      dropout: 0.3
+      use_attention: true
+    classification:
+      binary_only: false
+      family_head: true
+      finegrain_head: true
+      num_finegrain_classes: 5  # Can be 23 for full attack types
+    targets:
+      binary_accuracy: 0.98
+      family_accuracy: 0.95
+      finegrain_accuracy: 0.94

@@ -14,8 +14,10 @@ import numpy as np
 import pandas as pd
 
 # ============================================================================
-# Common Invariant Feature Space (15 features)
+# Common Invariant Feature Space (19 features)
 # ============================================================================
+
+PROTOCOL_FAMILY_INDICATOR = "protocol family indicator"
 
 COMMON_FEATURES_METADATA = {
     "duration_log": {"type": "numeric", "description": "log1p(duration_seconds)"},
@@ -26,10 +28,10 @@ COMMON_FEATURES_METADATA = {
         "type": "numeric",
         "description": "tanh(log1p(src_bytes) - log1p(dst_bytes))",
     },
-    "proto_tcp": {"type": "binary", "description": "protocol family indicator"},
-    "proto_udp": {"type": "binary", "description": "protocol family indicator"},
-    "proto_icmp": {"type": "binary", "description": "protocol family indicator"},
-    "proto_other": {"type": "binary", "description": "protocol family indicator"},
+    "proto_tcp": {"type": "binary", "description": PROTOCOL_FAMILY_INDICATOR},
+    "proto_udp": {"type": "binary", "description": PROTOCOL_FAMILY_INDICATOR},
+    "proto_icmp": {"type": "binary", "description": PROTOCOL_FAMILY_INDICATOR},
+    "proto_other": {"type": "binary", "description": PROTOCOL_FAMILY_INDICATOR},
     "state_error_indicator": {"type": "binary", "description": "connection/state error indicator"},
     "state_reset_retrans_indicator": {"type": "binary", "description": "reset/retrans indicator"},
     "rst_fraction": {
@@ -48,10 +50,26 @@ COMMON_FEATURES_METADATA = {
         "type": "numeric",
         "description": "destination-port interaction diversity proxy",
     },
+    "packet_direction_ratio": {
+        "type": "numeric",
+        "description": "(fwd_pkts - bwd_pkts) / (fwd_pkts + bwd_pkts + eps)",
+    },
+    "burstiness_index": {
+        "type": "numeric",
+        "description": "temporal burstiness proxy from IAT spread/variance",
+    },
+    "fin_fraction": {
+        "type": "numeric",
+        "description": "fraction of FIN-like terminations over connection control events",
+    },
+    "connection_attempt_rate": {
+        "type": "numeric",
+        "description": "attempt intensity proxy normalized by packet/session volume",
+    },
 }
 
 COMMON_FEATURES = list(COMMON_FEATURES_METADATA.keys())
-assert len(COMMON_FEATURES) == 15, f"Expected 15 common features, got {len(COMMON_FEATURES)}"
+assert len(COMMON_FEATURES) == 19, f"Expected 19 common features, got {len(COMMON_FEATURES)}"
 
 LEAKAGE_PRONE_FEATURES: set[str] = set()
 INVARIANT_FEATURES = COMMON_FEATURES.copy()
@@ -60,6 +78,36 @@ INVARIANT_FEATURES = COMMON_FEATURES.copy()
 def normalize_column_name(name: str) -> str:
     """Normalize a feature name for resilient matching across datasets."""
     return str(name).strip().lower().replace("_", " ")
+
+
+def normalize_per_dataset(X):
+    """
+    Normalize per-dataset tensor with z-score normalization.
+
+    CRITICAL: Apply PER DATASET ONLY, never mix statistics across datasets.
+    Prevents dataset identity leakage by ensuring normalized distributions.
+
+    Args:
+        X: PyTorch tensor of shape (batch_size, n_features)
+
+    Returns:
+        Normalized tensor with mean=0, std=1 per feature, clipped to [-5, 5]
+    """
+    import torch
+
+    mean = X.mean(dim=0, keepdim=True)
+    std = X.std(dim=0, keepdim=True)
+
+    # Prevent divide-by-zero for constant features
+    std[std < 1e-6] = 1.0
+
+    # Z-score normalization: (X - mean) / std
+    normalized = (X - mean) / std
+
+    # Clip to prevent extreme outliers
+    normalized = torch.clamp(normalized, -5.0, 5.0)
+
+    return normalized
 
 
 # ============================================================================
@@ -172,6 +220,10 @@ def create_nslkdd_mapping() -> FeatureMapping:
             "iat_std": [],
             "iat_max": [],
             "iat_min": [],
+            "fin_count": [],
+            "pkt_fwd_count": [],
+            "pkt_bwd_count": [],
+            "active_mean": [],
         },
     )
 
@@ -203,6 +255,10 @@ def create_unsw_mapping() -> FeatureMapping:
             "iat_min": [],
             "ct_src_ltm": ["ct_src_ltm"],
             "ct_src_dport_ltm": ["ct_src_dport_ltm"],
+            "fin_count": [],
+            "pkt_fwd_count": ["Spkts"],
+            "pkt_bwd_count": ["Dpkts"],
+            "active_mean": [],
         },
     )
 
@@ -234,6 +290,10 @@ def create_cicids_mapping() -> FeatureMapping:
             "iat_min": ["Fwd IAT Min", "Bwd IAT Min"],
             "ct_src_ltm": [],
             "ct_src_dport_ltm": [],
+            "fin_count": ["FIN Flag Cnt"],
+            "pkt_fwd_count": ["Tot Fwd Pkts", "Total Fwd Packets"],
+            "pkt_bwd_count": ["Tot Bwd Pkts", "Total Backward Packets"],
+            "active_mean": ["Active Mean"],
         },
     )
 
@@ -248,6 +308,7 @@ def _find_column(
     normalized_columns: Mapping[str, str],
     candidates: Sequence[str],
 ) -> Optional[str]:
+    _ = df
     for candidate in candidates:
         key = normalize_column_name(candidate)
         if key in normalized_columns:
@@ -367,6 +428,14 @@ def _series_or_default(series: Optional[pd.Series], index: pd.Index, default: fl
     return pd.to_numeric(series, errors="coerce").fillna(default).astype(np.float64)
 
 
+def _nonnegative_proxy(series: Optional[pd.Series], index: pd.Index, default: float = 0.0) -> pd.Series:
+    values = _series_or_default(series, index=index, default=default)
+    # Some preprocessed exports contain z-scored count-like fields; abs keeps magnitude signal.
+    if (values < 0).any():
+        values = values.abs()
+    return values.clip(lower=0.0)
+
+
 def _port_rarity(port_like: pd.Series) -> pd.Series:
     normalized = pd.to_numeric(port_like, errors="coerce").fillna(-1).astype(np.int64)
     frequency = normalized.value_counts(normalize=True)
@@ -374,7 +443,7 @@ def _port_rarity(port_like: pd.Series) -> pd.Series:
     return rarity.astype(np.float64)
 
 
-def harmonize_features(
+def harmonize_features(  # NOSONAR
     df: pd.DataFrame,
     mapping: FeatureMapping,
     label_col: str = "attack_type",
@@ -445,6 +514,10 @@ def harmonize_features(
         normalized_columns,
         mapping.feature_mapping.get("ct_src_dport_ltm", []),
     )
+    fin_count = _optional_numeric(df, normalized_columns, mapping.feature_mapping.get("fin_count", []))
+    pkt_fwd_count = _optional_average(df, normalized_columns, mapping.feature_mapping.get("pkt_fwd_count", []))
+    pkt_bwd_count = _optional_average(df, normalized_columns, mapping.feature_mapping.get("pkt_bwd_count", []))
+    active_mean = _optional_average(df, normalized_columns, mapping.feature_mapping.get("active_mean", []))
     service_col = _find_column(df, normalized_columns, mapping.feature_mapping.get("service", []))
     service_raw = df[service_col].astype(str).str.strip() if service_col is not None else None
 
@@ -510,6 +583,59 @@ def harmonize_features(
     else:
         unique_dst_ports_per_window = pd.Series(0.0, index=df.index, dtype=np.float64)
 
+    pkt_fwd = _nonnegative_proxy(pkt_fwd_count, df.index)
+    pkt_bwd = _nonnegative_proxy(pkt_bwd_count, df.index)
+    pkt_total = pkt_fwd + pkt_bwd
+    syn_proxy = _nonnegative_proxy(syn_count, df.index)
+    rst_proxy = _nonnegative_proxy(rst_count, df.index)
+    ack_proxy = _nonnegative_proxy(ack_count, df.index)
+    fin_proxy = _nonnegative_proxy(fin_count, df.index)
+
+    if pkt_fwd_count is not None or pkt_bwd_count is not None:
+        packet_direction_ratio = ((pkt_fwd - pkt_bwd) / (pkt_total + 1e-6)).clip(-1.0, 1.0)
+    else:
+        packet_direction_ratio = ((2.0 * (src / denom)) - 1.0).clip(-1.0, 1.0)
+
+    if fin_count is not None:
+        fin_fraction = (fin_proxy / (syn_proxy + ack_proxy + rst_proxy + fin_proxy + 1e-6)).clip(0.0, 1.0)
+    elif state_raw is not None:
+        state_lower = state_raw.astype(str).str.lower().str.strip()
+        fin_like = state_lower.str.contains(r"fin|sf", regex=True).astype(np.float64)
+        attempts_like = state_lower.str.contains(
+            r"syn|con|s0|s1|s2|s3|sf|sh|rst|rej|int|req|est",
+            regex=True,
+        ).astype(np.float64)
+        fin_fraction = (fin_like / (attempts_like + 1e-6)).clip(0.0, 1.0)
+    else:
+        fin_fraction = pd.Series(0.0, index=df.index, dtype=np.float64)
+
+    if syn_count is not None and (pkt_fwd_count is not None or pkt_bwd_count is not None):
+        connection_attempt_rate = (syn_proxy / (pkt_total + 1e-6)).clip(0.0, 1.0)
+    elif ct_src_ltm is not None:
+        src_ltm = _nonnegative_proxy(ct_src_ltm, df.index)
+        connection_attempt_rate = (src_ltm / (src_ltm + duration_num + 1e-6)).clip(0.0, 1.0)
+    elif count is not None:
+        c_all = _nonnegative_proxy(count, df.index)
+        connection_attempt_rate = (c_all / (c_all + duration_num + 1e-6)).clip(0.0, 1.0)
+    else:
+        connection_attempt_rate = (1.0 / (duration_num + 1.0)).clip(0.0, 1.0)
+
+    if iat_mean is not None and iat_std is not None:
+        iat_mean_proxy = _nonnegative_proxy(iat_mean, df.index)
+        iat_std_proxy = _nonnegative_proxy(iat_std, df.index)
+        burstiness_index = (iat_std_proxy / (iat_mean_proxy + 1e-6)).clip(0.0, 10.0)
+    elif iat_mean is not None and iat_max is not None and iat_min is not None:
+        iat_mean_proxy = _nonnegative_proxy(iat_mean, df.index)
+        iat_max_proxy = _nonnegative_proxy(iat_max, df.index)
+        iat_min_proxy = _nonnegative_proxy(iat_min, df.index)
+        burstiness_index = ((iat_max_proxy - iat_min_proxy).abs() / (iat_mean_proxy + 1e-6)).clip(0.0, 10.0)
+    elif active_mean is not None and iat_mean is not None:
+        active_proxy = _nonnegative_proxy(active_mean, df.index)
+        iat_mean_proxy = _nonnegative_proxy(iat_mean, df.index)
+        burstiness_index = (active_proxy / (iat_mean_proxy + 1e-6)).clip(0.0, 10.0)
+    else:
+        burstiness_index = iat_coefficient_of_variation.astype(np.float64).clip(0.0, 10.0)
+
     harmonized = pd.DataFrame(
         {
             "duration_log": np.log1p(duration_num),
@@ -527,6 +653,10 @@ def harmonize_features(
             "handshake_completion_rate": handshake_completion_rate,
             "iat_coefficient_of_variation": iat_coefficient_of_variation,
             "unique_dst_ports_per_window": unique_dst_ports_per_window,
+            "packet_direction_ratio": packet_direction_ratio,
+            "burstiness_index": burstiness_index,
+            "fin_fraction": fin_fraction,
+            "connection_attempt_rate": connection_attempt_rate,
         },
         index=df.index,
     )

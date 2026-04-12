@@ -1,0 +1,18 @@
+{
+  "source": "synthetic",
+  "features": 47,
+  "classes": [
+    "Normal",
+    "Fuzzers",
+    "Analysis",
+    "Backdoors",
+    "DoS",
+    "Exploits",
+    "Generic",
+    "Reconnaissance",
+    "Shellcode",
+    "Worms"
+  ],
+  "total_samples": 100000,
+  "reference": "Moustafa & Slay (2015)"
+}

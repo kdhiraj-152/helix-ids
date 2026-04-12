@@ -381,7 +381,7 @@ class MultiDatasetLoader:
         df[feature_cols] = self.scaler.transform(imputed)
         return df
 
-    def create_splits(
+    def create_splits(  # NOSONAR
         self,
         dfs: list[pd.DataFrame],
         test_size: float = 0.15,
@@ -625,6 +625,166 @@ class MultiDatasetLoader:
         logger.info(f"✅ Processed datasets saved to {output_dir}")
 
         return splits
+
+    def _downsample_majority_class(
+        self,
+        x: np.ndarray,
+        y: np.ndarray,
+        max_majority_ratio: float = 0.90,
+        random_state: Optional[int] = None,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Downsample majority class to achieve balanced representation.
+        
+        Args:
+            x: Feature array (n_samples, n_features)
+            y: Label array (n_samples,)
+            max_majority_ratio: Target max ratio for majority class (e.g., 0.90 = 90%)
+            random_state: Random seed for reproducibility
+            
+        Returns:
+            (x_balanced, y_balanced): Downsampled feature and label arrays
+        """
+        if random_state is None:
+            random_state = self.random_state
+            
+        rng = np.random.default_rng(random_state)
+        unique_classes, counts = np.unique(y, return_counts=True)
+        
+        if len(unique_classes) <= 1:
+            return x, y
+            
+        # Identify majority and minority classes
+        majority_class = unique_classes[np.argmax(counts)]
+        target_ratio = max_majority_ratio
+        total_samples = len(y)
+        
+        # Calculate how many majority samples we should keep
+        majority_mask = y == majority_class
+        majority_count = np.sum(majority_mask)
+        minority_count = total_samples - majority_count
+        
+        # We want: majority_count_new / total_new = target_ratio
+        # So: majority_count_new / (majority_count_new + minority_count) = target_ratio
+        # Solving: majority_count_new = target_ratio * minority_count / (1 - target_ratio)
+        target_majority_count = int(target_ratio * minority_count / (1.0 - target_ratio))
+        target_majority_count = max(1, min(target_majority_count, majority_count))
+        
+        # Randomly select which majority samples to keep
+        majority_indices = np.where(majority_mask)[0]
+        selected_majority_indices = rng.choice(
+            majority_indices,
+            size=target_majority_count,
+            replace=False,
+        )
+        
+        # Combine with all minority samples
+        minority_indices = np.where(~majority_mask)[0]
+        selected_indices = np.concatenate([selected_majority_indices, minority_indices])
+        selected_indices = np.sort(selected_indices)  # Maintain order
+        
+        return x[selected_indices], y[selected_indices]
+
+    def _fingerprint_rows(self, x: np.ndarray, y: np.ndarray) -> np.ndarray:
+        """Create deterministic fingerprints for rows to detect duplicates.
+        
+        Uses a combination of feature hash and label to create a unique identifier.
+        
+        Args:
+            x: Feature array (n_samples, n_features)
+            y: Label array (n_samples,)
+            
+        Returns:
+            fingerprints: Hash array of shape (n_samples,)
+        """
+        # Round to 4 decimal places for numerical stability
+        x_rounded = np.round(x, decimals=4)
+        
+        # Create fingerprints by concatenating rounded features with label
+        fingerprints = []
+        for i in range(len(x)):
+            # Convert row to tuple for hashing
+            row_tuple = tuple(x_rounded[i]) + (int(y[i]),)
+            # Use Python's hash for a simple fingerprint
+            fp = hash(row_tuple)
+            fingerprints.append(fp)
+            
+        return np.array(fingerprints, dtype=np.int64)
+
+    def _remove_cross_split_overlap(
+        self,
+        x_train: np.ndarray,
+        y_train: np.ndarray,
+        x_val: np.ndarray,
+        y_val: np.ndarray,
+        x_test: np.ndarray,
+        y_test: np.ndarray,
+        dataset_name: str = "unknown",
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """Remove duplicate rows between train/val/test splits.
+        
+        Ensures that no same row appears in multiple splits (data leakage prevention).
+        
+        Args:
+            x_train, y_train: Training set
+            x_val, y_val: Validation set
+            x_test, y_test: Test set
+            dataset_name: Name for logging
+            
+        Returns:
+            (x_train, y_train, x_val_clean, y_val_clean, x_test_clean, y_test_clean):
+                Training set unchanged, validation and test cleaned
+        """
+        train_fp = self._fingerprint_rows(x_train, y_train)
+        val_fp = self._fingerprint_rows(x_val, y_val)
+        test_fp = self._fingerprint_rows(x_test, y_test)
+        
+        # Find indices in val that don't exist in train
+        val_mask = ~np.isin(val_fp, train_fp)
+        x_val_clean = x_val[val_mask]
+        y_val_clean = y_val[val_mask]
+        
+        # Find indices in test that don't exist in train or val
+        test_mask = ~(np.isin(test_fp, train_fp) | np.isin(test_fp, val_fp[val_mask]))
+        x_test_clean = x_test[test_mask]
+        y_test_clean = y_test[test_mask]
+        
+        # Log statistics
+        logger.info(
+            f"{dataset_name}: Removed {len(y_val) - len(y_val_clean)} val duplicates, "
+            f"{len(y_test) - len(y_test_clean)} test duplicates"
+        )
+        
+        return x_train, y_train, x_val_clean, y_val_clean, x_test_clean, y_test_clean
+
+    def _build_group_keys(
+        self,
+        x: np.ndarray,
+        y: np.ndarray,
+        dataset_code: int = 0,
+    ) -> np.ndarray:
+        """Build group/session keys using coarse fingerprinting.
+        
+        Rows with similar features are grouped together (coarse fingerprint).
+        Useful for GroupShuffleSplit to prevent inter-group leakage.
+        
+        Args:
+            x: Feature array (n_samples, n_features)
+            y: Label array (n_samples,)
+            dataset_code: Integer code for the dataset (0=NSL-KDD, 1=UNSW, 2=CICIDS)
+            
+        Returns:
+            group_keys: Array of group identifiers (n_samples,)
+        """
+        # Coarse fingerprint: round to fewer decimal places
+        x_coarse = np.round(x, decimals=1)
+        
+        group_keys = []
+        for i in range(len(x)):
+            row_tuple = tuple(x_coarse[i]) + (int(y[i]),) + (int(dataset_code),)
+            group_key = hash(row_tuple)
+            group_keys.append(group_key)
+            
+        return np.array(group_keys, dtype=np.int64)
 
 
 # ============================================================================

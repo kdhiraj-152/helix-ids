@@ -29,7 +29,7 @@ class TestFeatureHarmonization:
     
     def test_common_features_count(self):
         """Verify invariant feature set size."""
-        assert len(COMMON_FEATURES) == 15
+        assert len(COMMON_FEATURES) == 19
         assert isinstance(COMMON_FEATURES, list)
     
     def test_attack_taxonomy_7class(self):
@@ -72,11 +72,15 @@ class TestFeatureHarmonization:
                 "SYN Flag Cnt": [10, 2],
                 "RST Flag Cnt": [0, 1],
                 "ACK Flag Cnt": [9, 1],
+                "FIN Flag Cnt": [1, 0],
+                "Tot Fwd Pkts": [12, 3],
+                "Tot Bwd Pkts": [9, 1],
                 "Flow IAT Mean": [100.0, 200.0],
                 "Fwd IAT Max": [130.0, 260.0],
                 "Fwd IAT Min": [70.0, 120.0],
                 "Bwd IAT Max": [110.0, 210.0],
                 "Bwd IAT Min": [50.0, 140.0],
+                "Active Mean": [20.0, 40.0],
                 "Label ": [" Benign", "Bot  "],
             }
         )
@@ -92,6 +96,156 @@ class TestFeatureHarmonization:
         """Column normalization should collapse spacing/case differences."""
         assert normalize_column_name(" Label ") == "label"
         assert normalize_column_name("Fwd_Pkt_Len_Mean") == "fwd pkt len mean"
+
+    @staticmethod
+    def _assert_invariant_feature_bounds(df: pd.DataFrame) -> None:
+        bounded_01 = [
+            "bytes_forward_ratio",
+            "rst_fraction",
+            "handshake_completion_rate",
+            "fin_fraction",
+            "connection_attempt_rate",
+        ]
+        bounded_m11 = [
+            "bytes_asymmetry",
+            "byte_direction_ratio",
+            "packet_direction_ratio",
+        ]
+        binary_cols = [
+            "proto_tcp",
+            "proto_udp",
+            "proto_icmp",
+            "proto_other",
+            "state_error_indicator",
+            "state_reset_retrans_indicator",
+        ]
+
+        assert (df["duration_log"] >= 0.0).all()
+        assert (df["total_bytes_log"] >= 0.0).all()
+
+        for col in bounded_01:
+            assert (df[col] >= 0.0).all(), f"{col} has values below 0"
+            assert (df[col] <= 1.0).all(), f"{col} has values above 1"
+
+        for col in bounded_m11:
+            assert (df[col] >= -1.0).all(), f"{col} has values below -1"
+            assert (df[col] <= 1.0).all(), f"{col} has values above 1"
+
+        for col in binary_cols:
+            assert set(np.unique(df[col].to_numpy())).issubset({0.0, 1.0})
+
+    def test_nsl_harmonization_shape_order_and_bounds(self):
+        """NSL harmonization must produce 19 invariant features in stable order."""
+        loader = MultiDatasetLoader()
+        df = pd.DataFrame(
+            {
+                "duration": [1.0, 4.0],
+                "src_bytes": [10.0, 100.0],
+                "dst_bytes": [5.0, 50.0],
+                "protocol_type": ["tcp", "udp"],
+                "service": ["http", "dns"],
+                "flag": ["SF", "REJ"],
+                "rerror_rate": [0.0, 0.2],
+                "srv_rerror_rate": [0.0, 0.1],
+                "dst_host_rerror_rate": [0.0, 0.1],
+                "serror_rate": [0.0, 0.3],
+                "srv_serror_rate": [0.0, 0.2],
+                "dst_host_serror_rate": [0.0, 0.2],
+                "count": [2.0, 10.0],
+                "srv_count": [2.0, 3.0],
+                "diff_srv_rate": [0.1, 0.6],
+                "label": ["Normal", "DoS"],
+            }
+        )
+
+        harmonized = loader.harmonize_nslkdd(df)
+        assert harmonized.shape[1] == 20
+        assert list(harmonized.columns[:-1]) == COMMON_FEATURES
+        assert np.isfinite(harmonized[COMMON_FEATURES].to_numpy()).all()
+        self._assert_invariant_feature_bounds(harmonized[COMMON_FEATURES])
+
+    def test_unsw_harmonization_shape_order_and_bounds(self):
+        """UNSW harmonization must produce 19 invariant features in stable order."""
+        loader = MultiDatasetLoader()
+        df = pd.DataFrame(
+            {
+                "dur": [0.1, 3.2],
+                "sbytes": [12.0, 140.0],
+                "dbytes": [6.0, 35.0],
+                "proto": ["tcp", "icmp"],
+                "service": ["http", "-"],
+                "state": ["CON", "RST"],
+                "ct_src_ltm": [3.0, 12.0],
+                "ct_srv_src": [2.0, 6.0],
+                "dsport": [80, 443],
+                "Sintpkt": [0.02, 0.50],
+                "Dintpkt": [0.01, 0.25],
+                "Sjit": [0.01, 0.20],
+                "Djit": [0.01, 0.20],
+                "ct_src_dport_ltm": [1.0, 4.0],
+                "Spkts": [10.0, 40.0],
+                "Dpkts": [5.0, 30.0],
+                "label": ["Normal", "Backdoors"],
+            }
+        )
+
+        harmonized = loader.harmonize_unsw(df)
+        assert harmonized.shape[1] == 20
+        assert list(harmonized.columns[:-1]) == COMMON_FEATURES
+        assert np.isfinite(harmonized[COMMON_FEATURES].to_numpy()).all()
+        self._assert_invariant_feature_bounds(harmonized[COMMON_FEATURES])
+
+    def test_cicids_harmonization_shape_order_and_bounds(self):
+        """CICIDS harmonization must produce 19 invariant features in stable order."""
+        loader = MultiDatasetLoader()
+        df = pd.DataFrame(
+            {
+                "Flow Duration": [1000.0, 2000.0],
+                "TotLen Fwd Pkts": [100.0, 350.0],
+                "TotLen Bwd Pkts": [50.0, 20.0],
+                "Protocol": [6, 17],
+                "SYN Flag Cnt": [6.0, 1.0],
+                "RST Flag Cnt": [0.0, 1.0],
+                "ACK Flag Cnt": [5.0, 1.0],
+                "Tot Fwd Pkts": [10.0, 15.0],
+                "Dst Port": [80, 443],
+                "Flow IAT Mean": [100.0, 300.0],
+                "Fwd IAT Mean": [80.0, 220.0],
+                "Bwd IAT Mean": [70.0, 190.0],
+                "Fwd IAT Max": [150.0, 320.0],
+                "Bwd IAT Max": [130.0, 300.0],
+                "Fwd IAT Min": [40.0, 90.0],
+                "Bwd IAT Min": [35.0, 80.0],
+                "Tot Bwd Pkts": [8.0, 4.0],
+                "Active Mean": [50.0, 30.0],
+                "Label": ["BENIGN", "DDoS"],
+            }
+        )
+
+        harmonized = loader.harmonize_cicids(df)
+        assert harmonized.shape[1] == 20
+        assert list(harmonized.columns[:-1]) == COMMON_FEATURES
+        assert np.isfinite(harmonized[COMMON_FEATURES].to_numpy()).all()
+        self._assert_invariant_feature_bounds(harmonized[COMMON_FEATURES])
+
+    def test_normalize_per_dataset_uses_dataset_specific_scalers(self):
+        """Fitting one dataset must not force another dataset's scaling contract."""
+        loader = MultiDatasetLoader()
+
+        df_nsl = pd.DataFrame({feat: np.array([0.0, 1.0, 2.0]) for feat in COMMON_FEATURES})
+        df_nsl["label"] = [0, 1, 0]
+
+        df_unsw = pd.DataFrame({feat: np.array([100.0, 101.0, 102.0]) for feat in COMMON_FEATURES})
+        df_unsw["label"] = [1, 1, 0]
+
+        nsl_scaled = loader.normalize_per_dataset(df_nsl, dataset_code=0, fit=True)
+        unsw_scaled = loader.normalize_per_dataset(df_unsw, dataset_code=1, fit=True)
+
+        for feat in COMMON_FEATURES:
+            assert nsl_scaled[feat].min() >= -1e-6
+            assert nsl_scaled[feat].max() <= 1.0 + 1e-6
+            assert unsw_scaled[feat].min() >= -1e-6
+            assert unsw_scaled[feat].max() <= 1.0 + 1e-6
 
 
 class TestMultiDatasetLoader:

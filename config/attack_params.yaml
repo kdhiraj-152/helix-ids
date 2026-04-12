@@ -1,0 +1,297 @@
+# HELIX-IDS Attack-Specific Parameters
+# These parameters are derived from experimental validation on NSL-KDD, UNSW-NB15, CICIDS-2018
+
+# =============================================================================
+# CLASS DEFINITIONS
+# =============================================================================
+classes:
+  nsl_kdd:
+    - name: Normal
+      id: 0
+      type: benign
+    - name: DoS
+      id: 1
+      type: attack
+      subtypes: [back, land, neptune, pod, smurf, teardrop]
+    - name: Probe
+      id: 2
+      type: attack
+      subtypes: [ipsweep, nmap, portsweep, satan]
+    - name: R2L
+      id: 3
+      type: attack
+      subtypes: [ftp_write, guess_passwd, imap, multihop, phf, spy, warezclient, warezmaster]
+    - name: U2R
+      id: 4
+      type: attack
+      subtypes: [buffer_overflow, loadmodule, perl, rootkit]
+
+  unsw_nb15:
+    - Normal
+    - Fuzzers
+    - Analysis
+    - Backdoors
+    - DoS
+    - Exploits
+    - Generic
+    - Reconnaissance
+    - Shellcode
+    - Worms
+
+  cicids_2018:
+    - BENIGN
+    - Bot
+    - DDoS
+    - DoS GoldenEye
+    - DoS Hulk
+    - DoS Slowhttptest
+    - DoS slowloris
+    - FTP-Patator
+    - Infiltration
+    - SSH-Patator
+    - Web Attack – Brute Force
+    - Web Attack – Sql Injection
+    - Web Attack – XSS
+
+# =============================================================================
+# THREAT SEVERITY WEIGHTS
+# =============================================================================
+# Used in Threat-Aware Focal Loss
+# Higher weight = more penalty for misclassification
+
+threat_weights:
+  # NSL-KDD 5-class
+  Normal: 1.0
+  DoS: 1.5        # Availability impact
+  Probe: 2.0      # Reconnaissance - precursor to attacks
+  R2L: 8.0        # Remote access - serious threat
+  U2R: 10.0       # Privilege escalation - critical threat
+
+  # Additional for UNSW-NB15
+  Fuzzers: 2.0
+  Analysis: 3.0
+  Backdoors: 9.0   # Persistent access
+  Exploits: 7.0    # Active exploitation
+  Generic: 2.0
+  Reconnaissance: 2.0
+  Shellcode: 8.0   # Code execution
+  Worms: 6.0       # Self-propagation
+
+# =============================================================================
+# ATTACK-SPECIFIC FEATURE SUBSETS
+# =============================================================================
+# Based on feature importance analysis
+
+attack_features:
+  DoS:
+    primary:
+      - src_bytes      # 0.15 importance
+      - count          # 0.18 importance
+      - srv_count
+      - same_srv_rate
+      - dst_host_count
+      - dst_host_srv_count
+    secondary:
+      - duration
+      - dst_bytes
+      - wrong_fragment
+    detection_window_sec: 1
+    
+  Probe:
+    primary:
+      - dst_host_diff_srv_rate  # 0.19 importance
+      - flag
+      - srv_diff_host_rate
+      - diff_srv_rate
+      - dst_host_same_src_port_rate
+    secondary:
+      - rerror_rate
+      - serror_rate
+      - dst_host_count
+    detection_window_sec: 30
+    
+  R2L:
+    primary:
+      - num_failed_logins  # 0.22 importance
+      - hot
+      - logged_in
+      - num_access_files
+      - num_shells
+      - num_file_creations
+      - is_guest_login
+    secondary:
+      - src_bytes
+      - duration
+      - num_compromised
+    detection_window_sec: 60
+    
+  U2R:
+    primary:
+      - num_root           # 0.35 importance - CRITICAL FEATURE
+      - root_shell
+      - su_attempted
+      - num_shells
+      - num_access_files
+      - num_outbound_cmds
+      - is_host_login
+    secondary:
+      - num_compromised
+      - num_file_creations
+    detection_window_sec: 5
+    critical_rule: "num_root > 0 triggers IMMEDIATE_ALERT"
+
+# =============================================================================
+# DETECTION THRESHOLDS
+# =============================================================================
+# Confidence thresholds for alerting
+
+detection_thresholds:
+  Normal:
+    confidence: 0.95
+    false_positive_tolerance: null
+    
+  DoS:
+    confidence: 0.70
+    false_positive_tolerance: 0.10  # 10% FP acceptable
+    volumetric_threshold:
+      packets_per_sec: 100
+      bytes_per_sec: 5000000  # 5MB/s
+      
+  Probe:
+    confidence: 0.60
+    false_positive_tolerance: 0.20  # 20% FP acceptable (security scans)
+    scan_detection:
+      destination_entropy: 0.6
+      different_srv_rate: 0.8
+      
+  R2L:
+    confidence: 0.50  # Lower threshold - prefer FPs over FNs
+    false_positive_tolerance: 0.02  # Only 2% FP acceptable
+    brute_force_detection:
+      failed_logins_per_minute: 5
+      
+  U2R:
+    confidence: 0.40  # Very low threshold - critical attack
+    false_positive_tolerance: 0.01  # 1% FP acceptable
+    privilege_escalation:
+      num_root_change: true  # Any 0→positive is alert
+
+# =============================================================================
+# DATA AUGMENTATION PARAMETERS
+# =============================================================================
+
+augmentation:
+  Normal:
+    method: null  # No augmentation needed
+    
+  DoS:
+    method: null  # Sufficient samples
+    
+  Probe:
+    method: light_smote
+    target_ratio: 0.15
+    k_neighbors: 5
+    
+  R2L:
+    method: smote_enn
+    target_ratio: 0.10
+    k_neighbors: 5
+    enn_neighbors: 3
+    noise_std: 0.01
+    
+  U2R:
+    method: adasyn_mixup
+    target_ratio: 0.05
+    adasyn_neighbors: 3
+    mixup_alpha: 0.4
+    noise_std: 0.01
+    min_batch_samples: 4  # Ensure U2R in every batch
+
+# =============================================================================
+# TRAINING PARAMETERS PER ATTACK
+# =============================================================================
+
+training:
+  Normal:
+    loss_weight: 1.0
+    learning_rate: 1.0e-3
+    dropout: 0.2
+    batch_fraction: 0.40
+    
+  DoS:
+    loss_weight: 1.5
+    learning_rate: 1.0e-3
+    dropout: 0.2
+    batch_fraction: 0.30
+    
+  Probe:
+    loss_weight: 2.0
+    learning_rate: 1.0e-3
+    dropout: 0.25
+    batch_fraction: 0.15
+    
+  R2L:
+    loss_weight: 8.0
+    learning_rate: 5.0e-4  # Lower LR for stability
+    dropout: 0.35         # Higher regularization
+    batch_fraction: 0.10
+    
+  U2R:
+    loss_weight: 10.0
+    learning_rate: 5.0e-4
+    dropout: 0.40
+    batch_fraction: 0.05
+    special_handling:
+      oversample_in_batch: true
+      min_batch_samples: 4
+
+# =============================================================================
+# DRIFT DETECTION PARAMETERS
+# =============================================================================
+
+drift_detection:
+  page_hinkley:
+    delta: 0.02        # 2% change threshold
+    lambda_threshold: 20
+    alpha: 0.9999      # Exponential weighting
+    
+  retraining_triggers:
+    accuracy_drop: 0.05      # 5% overall accuracy drop
+    r2l_f1_drop: 0.10        # 10% R2L F1 drop
+    u2r_f1_drop: 0.10        # 10% U2R F1 drop
+    consecutive_windows: 2    # 2+ consecutive drift detections
+    
+  retraining_urgency:
+    Normal: 24h
+    DoS: 12h
+    Probe: 6h
+    R2L: 1h
+    U2R: immediate
+
+# =============================================================================
+# EDGE DEPLOYMENT CONSTRAINTS
+# =============================================================================
+
+deployment:
+  esp32:
+    max_size_kb: 30
+    max_latency_ms: 1.0
+    sram_kb: 520
+    model_variant: nano
+    
+  rpi_zero:
+    max_size_kb: 200
+    max_latency_ms: 5.0
+    ram_mb: 512
+    model_variant: lite
+    
+  rpi_4:
+    max_size_kb: 2000
+    max_latency_ms: 10.0
+    ram_gb: 4
+    model_variant: full
+    
+  multi_tier:
+    tier1_confidence_threshold: 0.80
+    tier2_high_risk_classes: [R2L, U2R]
+    escalation_path: esp32 -> rpi_zero -> rpi_4 -> cloud

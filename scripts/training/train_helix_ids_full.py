@@ -120,10 +120,10 @@ def _shuffled_label_sanity_check(
     """Train a tiny probe on shuffled binary labels; high balanced-val accuracy indicates leakage."""
     rng = np.random.default_rng(seed)
 
-    train_pos_idx = np.where(y_binary_train == 1)[0]
-    train_neg_idx = np.where(y_binary_train == 0)[0]
-    val_pos_idx = np.where(y_binary_val == 1)[0]
-    val_neg_idx = np.where(y_binary_val == 0)[0]
+    train_pos_idx = np.nonzero(y_binary_train == 1)[0]
+    train_neg_idx = np.nonzero(y_binary_train == 0)[0]
+    val_pos_idx = np.nonzero(y_binary_val == 1)[0]
+    val_neg_idx = np.nonzero(y_binary_val == 0)[0]
 
     train_take = int(min(max_per_class, train_pos_idx.size, train_neg_idx.size))
     val_take = int(min(max_per_class // 2, val_pos_idx.size, val_neg_idx.size))
@@ -147,7 +147,6 @@ def _shuffled_label_sanity_check(
 
     x_train_bal = torch.from_numpy(x_train[train_idx]).float().to(device)
     y_train_bal_np = y_binary_train[train_idx].astype(np.int64, copy=False)
-    y_train_bal = torch.from_numpy(y_train_bal_np).long().to(device)
     x_val_bal = torch.from_numpy(x_val[val_idx]).float().to(device)
     y_val_bal = torch.from_numpy(y_binary_val[val_idx].astype(np.int64)).long().to(device)
 
@@ -155,7 +154,7 @@ def _shuffled_label_sanity_check(
     shuffled_labels = torch.from_numpy(shuffled_labels_np).long().to(device)
 
     probe = nn.Linear(x_train_bal.shape[1], 2).to(device)
-    optimizer = optim.SGD(probe.parameters(), lr=lr)
+    optimizer = optim.SGD(probe.parameters(), lr=lr, momentum=0.0, weight_decay=0.0)
     loss_fn = nn.CrossEntropyLoss()
 
     probe.train()
@@ -197,8 +196,8 @@ def _feature_ablation_sanity_check(
     rng = np.random.default_rng(seed)
 
     def _balanced_indices(y: np.ndarray, max_per_class: int) -> np.ndarray:
-        idx_pos = np.where(y == 1)[0]
-        idx_neg = np.where(y == 0)[0]
+        idx_pos = np.nonzero(y == 1)[0]
+        idx_neg = np.nonzero(y == 0)[0]
         take = int(min(max_per_class, idx_pos.size, idx_neg.size))
         if take < 50:
             return np.array([], dtype=np.int64)
@@ -248,7 +247,7 @@ def _feature_ablation_sanity_check(
         y_val_t = torch.from_numpy(y_val_bal).long().to(device)
 
         probe = nn.Linear(x_train_probe.shape[1], 2).to(device)
-        optimizer = optim.SGD(probe.parameters(), lr=lr)
+        optimizer = optim.SGD(probe.parameters(), lr=lr, momentum=0.0, weight_decay=0.0)
         loss_fn = nn.CrossEntropyLoss()
 
         probe.train()
@@ -355,7 +354,7 @@ def _sample_rows(x: np.ndarray, *, seed: int, max_rows: int = 50000) -> np.ndarr
     return np.asarray(x[idx], dtype=np.float32)
 
 
-def _validate_per_dataset_splits(
+def _validate_per_dataset_splits(  # NOSONAR
     splits: dict[str, np.ndarray],
     *,
     logger: logging.Logger,
@@ -511,6 +510,7 @@ def _load_precomputed_splits(
     *,
     splits_dir: Path,
     logger: logging.Logger,
+    expected_feature_dim: Optional[int] = None,
 ) -> Optional[dict[str, np.ndarray]]:
     """Load precomputed split tensors when available to bypass raw CSV harmonization."""
     required = [
@@ -539,6 +539,15 @@ def _load_precomputed_splits(
             splits[key] = cast(np.ndarray, np.load(npy_path, mmap_mode="r"))
         else:
             splits[key] = cast(np.ndarray, np.load(npy_path))
+
+    if expected_feature_dim is not None and "X_train" in splits:
+        x_train = cast(np.ndarray, splits["X_train"])
+        if x_train.ndim == 2 and int(x_train.shape[1]) != int(expected_feature_dim):
+            logger.warning(
+                "Ignoring precomputed splits due to feature_dim mismatch: "
+                f"{splits_dir} (cached={int(x_train.shape[1])}, expected={int(expected_feature_dim)})"
+            )
+            return None
 
     return splits
 
@@ -602,6 +611,52 @@ class HelixFullTrainer:
             "val_family_entropy": [],
         }
 
+    @staticmethod
+    def _compute_f1_stats_from_confusion(confusion: torch.Tensor) -> dict[str, Any]:
+        """Compute F1-related statistics from confusion matrix counts."""
+        if confusion.numel() == 0:
+            return {
+                "macro_f1": 0.0,
+                "weighted_f1": 0.0,
+                "minority_recall_min": 0.0,
+                "zero_prediction_classes": [],
+            }
+
+        conf = confusion.to(device="cpu", dtype=torch.float64)
+        support = conf.sum(dim=1)
+        predicted = conf.sum(dim=0)
+        tp = torch.diag(conf)
+
+        precision = torch.where(predicted > 0, tp / predicted, torch.zeros_like(tp))
+        recall = torch.where(support > 0, tp / support, torch.zeros_like(tp))
+        denom = precision + recall
+        f1 = torch.where(denom > 0, 2.0 * precision * recall / denom, torch.zeros_like(tp))
+
+        active_classes = (support + predicted) > 0
+        macro_f1 = float(f1[active_classes].mean().item()) if bool(active_classes.any()) else 0.0
+
+        total_support = float(support.sum().item())
+        weighted_f1 = (
+            float((f1 * support).sum().item() / total_support) if total_support > 0 else 0.0
+        )
+
+        present_classes = support > 0
+        minority_present = torch.where(present_classes)[0].tolist()
+        minority_recalls = [float(recall[idx].item()) for idx in minority_present if int(idx) != 0]
+        minority_recall_min = float(min(minority_recalls)) if minority_recalls else 0.0
+
+        zero_prediction_classes = sorted(
+            int(idx)
+            for idx in torch.where((support > 0) & (predicted == 0))[0].tolist()
+        )
+
+        return {
+            "macro_f1": macro_f1,
+            "weighted_f1": weighted_f1,
+            "minority_recall_min": minority_recall_min,
+            "zero_prediction_classes": zero_prediction_classes,
+        }
+
     def _get_learning_rate(self) -> float:
         """Compute learning rate with linear warmup and cosine decay."""
         if self.epoch < self.config.warmup_epochs:
@@ -636,12 +691,11 @@ class HelixFullTrainer:
         total_binary_correct = 0
         total_family_correct = 0
         total_samples = 0
-        num_batches = 0
 
         for batch_idx, (x, y_binary, y_family) in enumerate(self.train_loader):
-            x = x.to(self.device)
-            y_binary = y_binary.to(self.device)
-            y_family = y_family.to(self.device)
+            x = x.to(self.device, non_blocking=True)
+            y_binary = y_binary.to(self.device, non_blocking=True)
+            y_family = y_family.to(self.device, non_blocking=True)
 
             # Forward pass
             binary_logits, family_logits = self.model(x)
@@ -684,7 +738,6 @@ class HelixFullTrainer:
             total_binary_correct += binary_correct
             total_family_correct += family_correct
             total_samples += batch_size
-            num_batches += 1
 
             # Log every N batches
             if batch_idx % self.config.log_interval == 0:
@@ -708,7 +761,7 @@ class HelixFullTrainer:
         }
 
     @torch.no_grad()
-    def _evaluate_loader(self, loader: DataLoader) -> dict[str, Any]:
+    def _evaluate_loader(self, loader: DataLoader) -> dict[str, Any]:  # NOSONAR
         """Evaluate metrics on a single dataset loader."""
         total_loss = 0.0
         total_calibrated_loss = 0.0
@@ -716,16 +769,16 @@ class HelixFullTrainer:
         total_family_correct = 0
         total_samples = 0
 
-        binary_prob_chunks: list[np.ndarray] = []
-        binary_label_chunks: list[np.ndarray] = []
-        family_prob_chunks: list[np.ndarray] = []
-        family_pred_chunks: list[np.ndarray] = []
-        family_label_chunks: list[np.ndarray] = []
+        binary_prob_chunks: list[torch.Tensor] = []
+        binary_label_chunks: list[torch.Tensor] = []
+        family_confusion: Optional[torch.Tensor] = None
+        family_entropy_sum = 0.0
+        family_class_count = 0
 
         for x, y_binary, y_family in loader:
-            x = x.to(self.device)
-            y_binary = y_binary.to(self.device)
-            y_family = y_family.to(self.device)
+            x = x.to(self.device, non_blocking=True)
+            y_binary = y_binary.to(self.device, non_blocking=True)
+            y_family = y_family.to(self.device, non_blocking=True)
 
             binary_logits, family_logits = self.model(x)
 
@@ -747,26 +800,45 @@ class HelixFullTrainer:
             )
 
             batch_size = int(y_binary.shape[0])
+            binary_pred = torch.argmax(binary_logits, dim=1)
+            family_pred = torch.argmax(family_logits, dim=1)
             total_loss += float(loss.item()) * batch_size
             total_calibrated_loss += float(calibrated_loss.item()) * batch_size
-            total_binary_correct += int((torch.argmax(binary_logits, dim=1) == y_binary).sum().item())
-            total_family_correct += int((torch.argmax(family_logits, dim=1) == y_family).sum().item())
+            total_binary_correct += int((binary_pred == y_binary).sum().item())
+            total_family_correct += int((family_pred == y_family).sum().item())
             total_samples += batch_size
 
-            binary_prob = torch.softmax(binary_logits, dim=1)[:, 1].cpu().numpy()
-            family_prob = torch.softmax(family_logits, dim=1).cpu().numpy()
+            binary_prob_chunks.append(torch.softmax(binary_logits, dim=1)[:, 1].detach())
+            binary_label_chunks.append(y_binary.detach())
 
-            binary_prob_chunks.append(binary_prob)
-            binary_label_chunks.append(y_binary.cpu().numpy())
-            family_prob_chunks.append(family_prob)
-            family_pred_chunks.append(torch.argmax(family_logits, dim=1).cpu().numpy())
-            family_label_chunks.append(y_family.cpu().numpy())
+            if family_confusion is None:
+                family_class_count = int(family_logits.shape[1])
+                family_confusion = torch.zeros(
+                    (family_class_count, family_class_count),
+                    dtype=torch.int64,
+                )
 
-        binary_probs = np.concatenate(binary_prob_chunks) if binary_prob_chunks else np.array([])
-        binary_labels = np.concatenate(binary_label_chunks) if binary_label_chunks else np.array([])
-        family_probs = np.concatenate(family_prob_chunks) if family_prob_chunks else np.array([])
-        family_preds = np.concatenate(family_pred_chunks) if family_pred_chunks else np.array([])
-        family_labels = np.concatenate(family_label_chunks) if family_label_chunks else np.array([])
+            family_index = (
+                y_family.detach().to(device="cpu", dtype=torch.int64) * family_class_count
+                + family_pred.detach().to(device="cpu", dtype=torch.int64)
+            )
+            family_confusion += torch.bincount(
+                family_index,
+                minlength=family_class_count * family_class_count,
+            ).reshape(family_class_count, family_class_count)
+
+            family_prob = torch.softmax(family_logits, dim=1)
+            safe_family_prob = torch.clamp(family_prob, min=1e-10, max=1.0)
+            batch_entropy = -torch.sum(family_prob * torch.log(safe_family_prob), dim=1)
+            batch_entropy = batch_entropy / math.log(float(family_prob.shape[1]))
+            family_entropy_sum += float(batch_entropy.sum().item())
+
+        if binary_prob_chunks:
+            binary_probs = torch.cat(binary_prob_chunks, dim=0).to(device="cpu").numpy()
+            binary_labels = torch.cat(binary_label_chunks, dim=0).to(device="cpu").numpy()
+        else:
+            binary_probs = np.array([])
+            binary_labels = np.array([])
 
         if binary_labels.size > 0 and np.unique(binary_labels).size > 1:
             binary_auroc = float(roc_auc_score(binary_labels, binary_probs))
@@ -775,29 +847,10 @@ class HelixFullTrainer:
             binary_auroc = 0.0
             binary_auprc = 0.0
 
-        family_macro_f1 = (
-            compute_macro_f1(family_labels, family_preds) if family_labels.size > 0 else 0.0
+        family_stats = self._compute_f1_stats_from_confusion(
+            family_confusion if family_confusion is not None else torch.zeros((0, 0), dtype=torch.int64)
         )
-
-        per_class_recall = {}
-        for cls in np.unique(family_labels):
-            cls_int = int(cls)
-            cls_mask = family_labels == cls_int
-            per_class_recall[str(cls_int)] = float((family_preds[cls_mask] == cls_int).mean())
-
-        minority_recalls = [recall for cls, recall in per_class_recall.items() if int(cls) != 0]
-        family_minority_recall_min = float(min(minority_recalls)) if minority_recalls else 0.0
-
-        if family_probs.size > 0:
-            safe_probs = np.clip(family_probs, 1e-10, 1.0 - 1e-10)
-            per_sample_entropy = -np.sum(family_probs * np.log(safe_probs), axis=1)
-            family_entropy = float(np.mean(per_sample_entropy / np.log(family_probs.shape[1])))
-        else:
-            family_entropy = 0.0
-
-        present_classes = set(np.unique(family_labels).tolist()) if family_labels.size > 0 else set()
-        predicted_classes = set(np.unique(family_preds).tolist()) if family_preds.size > 0 else set()
-        zero_prediction_classes = sorted(int(cls) for cls in present_classes - predicted_classes)
+        family_entropy = family_entropy_sum / max(1, total_samples)
 
         return {
             "num_samples": float(total_samples),
@@ -807,10 +860,12 @@ class HelixFullTrainer:
             "val_family_acc": total_family_correct / max(1, total_samples),
             "val_binary_auroc": binary_auroc,
             "val_binary_auprc": binary_auprc,
-            "val_family_macro_f1": family_macro_f1,
-            "val_family_minority_recall_min": family_minority_recall_min,
+            "val_family_macro_f1": float(family_stats["macro_f1"]),
+            "val_family_minority_recall_min": float(family_stats["minority_recall_min"]),
             "val_family_entropy": family_entropy,
-            "val_family_zero_prediction_classes": float(len(zero_prediction_classes)),
+            "val_family_zero_prediction_classes": float(
+                len(cast(list[int], family_stats["zero_prediction_classes"]))
+            ),
         }
 
     @torch.no_grad()
@@ -837,6 +892,11 @@ class HelixFullTrainer:
 
         # Strict isolation: avoid sample-weighted averaging that can hide weak datasets.
         metric_values = list(dataset_metrics.values())
+        entropy_missing_same_dataset = any(
+            metric["val_family_entropy"] < 0.12
+            and metric["val_family_zero_prediction_classes"] > 0
+            for metric in metric_values
+        )
         return {
             "val_loss": float(max(metric["val_loss"] for metric in metric_values)),
             "val_calibrated_loss": float(
@@ -856,6 +916,114 @@ class HelixFullTrainer:
             "val_family_zero_prediction_classes": float(
                 max(metric["val_family_zero_prediction_classes"] for metric in metric_values)
             ),
+            "val_entropy_missing_same_dataset": float(entropy_missing_same_dataset),
+        }
+
+    @torch.no_grad()
+    def _evaluate_test_loader(self, test_loader: DataLoader) -> dict[str, float]:
+        """Evaluate one test loader with tensor-first aggregation."""
+        binary_prob_chunks: list[torch.Tensor] = []
+        binary_label_chunks: list[torch.Tensor] = []
+        binary_confusion = torch.zeros((2, 2), dtype=torch.int64)
+
+        family_confusion: Optional[torch.Tensor] = None
+        family_class_count = 0
+        family_entropy_sum = 0.0
+        total_samples = 0
+
+        for x, y_binary, y_family in test_loader:
+            x = x.to(self.device, non_blocking=True)
+            y_binary = y_binary.to(self.device, non_blocking=True)
+            y_family = y_family.to(self.device, non_blocking=True)
+
+            binary_logits, family_logits = self.model(x)
+            binary_prob = torch.softmax(binary_logits, dim=1)
+            family_prob = torch.softmax(family_logits, dim=1)
+            binary_pred = torch.argmax(binary_logits, dim=1)
+            family_pred = torch.argmax(family_logits, dim=1)
+
+            batch_size = int(y_binary.shape[0])
+            total_samples += batch_size
+
+            binary_prob_chunks.append(binary_prob[:, 1].detach())
+            binary_label_chunks.append(y_binary.detach())
+
+            binary_index = (
+                y_binary.detach().to(device="cpu", dtype=torch.int64) * 2
+                + binary_pred.detach().to(device="cpu", dtype=torch.int64)
+            )
+            binary_confusion += torch.bincount(binary_index, minlength=4).reshape(2, 2)
+
+            if family_confusion is None:
+                family_class_count = int(family_logits.shape[1])
+                family_confusion = torch.zeros((family_class_count, family_class_count), dtype=torch.int64)
+
+            family_index = (
+                y_family.detach().to(device="cpu", dtype=torch.int64) * family_class_count
+                + family_pred.detach().to(device="cpu", dtype=torch.int64)
+            )
+            family_confusion += torch.bincount(
+                family_index,
+                minlength=family_class_count * family_class_count,
+            ).reshape(family_class_count, family_class_count)
+
+            safe_family_prob = torch.clamp(family_prob, min=1e-12, max=1.0)
+            batch_entropy = -torch.sum(family_prob * torch.log(safe_family_prob), dim=1)
+            batch_entropy = batch_entropy / math.log(float(family_prob.shape[1]))
+            family_entropy_sum += float(batch_entropy.sum().item())
+
+        binary_probs_arr = (
+            torch.cat(binary_prob_chunks, dim=0).to(device="cpu").numpy()
+            if binary_prob_chunks
+            else np.array([])
+        )
+        binary_labels_arr = (
+            torch.cat(binary_label_chunks, dim=0).to(device="cpu").numpy()
+            if binary_label_chunks
+            else np.array([])
+        )
+
+        binary_total = int(binary_confusion.sum().item())
+        binary_accuracy = (
+            float(torch.diag(binary_confusion).sum().item() / binary_total)
+            if binary_total > 0
+            else 0.0
+        )
+
+        family_total = int(family_confusion.sum().item()) if family_confusion is not None else 0
+        family_accuracy = (
+            float(torch.diag(family_confusion).sum().item() / family_total)
+            if family_total > 0 and family_confusion is not None
+            else 0.0
+        )
+
+        if binary_labels_arr.size > 0 and np.unique(binary_labels_arr).size > 1:
+            binary_auroc = float(roc_auc_score(binary_labels_arr, binary_probs_arr))
+            binary_auprc = float(average_precision_score(binary_labels_arr, binary_probs_arr))
+        else:
+            binary_auroc = 0.0
+            binary_auprc = 0.0
+
+        family_entropy = float(family_entropy_sum / max(1, total_samples)) if total_samples > 0 else 0.0
+
+        binary_stats = self._compute_f1_stats_from_confusion(binary_confusion)
+        family_stats = self._compute_f1_stats_from_confusion(
+            family_confusion if family_confusion is not None else torch.zeros((0, 0), dtype=torch.int64)
+        )
+
+        return {
+            "binary_accuracy": binary_accuracy,
+            "binary_f1": float(binary_stats["weighted_f1"]),
+            "binary_auroc": binary_auroc,
+            "binary_auprc": binary_auprc,
+            "family_accuracy": family_accuracy,
+            "family_f1": float(family_stats["weighted_f1"]),
+            "family_macro_f1": float(family_stats["macro_f1"]),
+            "family_minority_recall_min": float(family_stats["minority_recall_min"]),
+            "family_entropy": family_entropy,
+            "family_zero_prediction_classes": float(
+                len(cast(list[int], family_stats["zero_prediction_classes"]))
+            ),
         }
 
     @torch.no_grad()
@@ -863,86 +1031,11 @@ class HelixFullTrainer:
         """Evaluate on per-dataset test sets."""
         self.model.eval()
         results = {}
-
         for dataset_name, test_loader in self.test_loaders.items():
-            binary_preds: list[int] = []
-            binary_pos_probs: list[float] = []
-            family_preds: list[int] = []
-            family_probs: list[np.ndarray] = []
-            binary_labels: list[int] = []
-            family_labels: list[int] = []
-
-            for x, y_binary, y_family in test_loader:
-                x = x.to(self.device)
-
-                binary_logits, family_logits = self.model(x)
-                binary_prob = torch.softmax(binary_logits, dim=1)
-                family_prob = torch.softmax(family_logits, dim=1)
-
-                binary_preds.extend(torch.argmax(binary_logits, dim=1).cpu().numpy())
-                binary_pos_probs.extend(binary_prob[:, 1].cpu().numpy())
-                family_preds.extend(torch.argmax(family_logits, dim=1).cpu().numpy())
-                family_probs.extend(family_prob.cpu().numpy())
-                binary_labels.extend(y_binary.numpy())
-                family_labels.extend(y_family.numpy())
-
-            binary_preds_arr = np.array(binary_preds)
-            family_preds_arr = np.array(family_preds)
-            binary_probs_arr = np.array(binary_pos_probs)
-            family_probs_arr = np.array(family_probs)
-            binary_labels_arr = np.array(binary_labels)
-            family_labels_arr = np.array(family_labels)
-
-            per_class_recall = {}
-            for cls in np.unique(family_labels_arr):
-                cls_int = int(cls)
-                cls_mask = family_labels_arr == cls_int
-                per_class_recall[str(cls_int)] = float((family_preds_arr[cls_mask] == cls_int).mean())
-
-            minority_recall_values = [
-                recall for cls, recall in per_class_recall.items() if int(cls) != 0
-            ]
-            family_minority_recall_min = (
-                float(min(minority_recall_values)) if minority_recall_values else 0.0
-            )
-
-            if binary_labels_arr.size > 0 and np.unique(binary_labels_arr).size > 1:
-                binary_auroc = float(roc_auc_score(binary_labels_arr, binary_probs_arr))
-                binary_auprc = float(average_precision_score(binary_labels_arr, binary_probs_arr))
-            else:
-                binary_auroc = 0.0
-                binary_auprc = 0.0
-
-            family_entropy = float(
-                np.mean(
-                    -np.sum(
-                        family_probs_arr * np.log(np.clip(family_probs_arr, 1e-12, 1.0)),
-                        axis=1,
-                    )
-                    / np.log(family_probs_arr.shape[1])
-                )
-            )
-
-            present_classes = set(np.unique(family_labels_arr).tolist())
-            predicted_classes = set(np.unique(family_preds_arr).tolist())
-            zero_prediction_classes = sorted(int(cls) for cls in present_classes - predicted_classes)
-
-            results[dataset_name] = {
-                "binary_accuracy": compute_accuracy(binary_labels_arr, binary_preds_arr),
-                "binary_f1": compute_weighted_f1(binary_labels_arr, binary_preds_arr),
-                "binary_auroc": binary_auroc,
-                "binary_auprc": binary_auprc,
-                "family_accuracy": compute_accuracy(family_labels_arr, family_preds_arr),
-                "family_f1": compute_weighted_f1(family_labels_arr, family_preds_arr),
-                "family_macro_f1": compute_macro_f1(family_labels_arr, family_preds_arr),
-                "family_minority_recall_min": family_minority_recall_min,
-                "family_entropy": family_entropy,
-                "family_zero_prediction_classes": float(len(zero_prediction_classes)),
-            }
-
+            results[dataset_name] = self._evaluate_test_loader(test_loader)
         return results
 
-    def fit(self) -> dict[str, Any]:
+    def fit(self) -> dict[str, Any]:  # NOSONAR
         """Train for specified epochs."""
         self.logger.info("=" * 80)
         self.logger.info("Starting HelixIDS-Full Training")
@@ -1039,8 +1132,8 @@ class HelixFullTrainer:
         # More lenient entropy threshold (0.15 instead of 0.1)
         # Only trigger if accompanied by zero_prediction_classes (confirmed mode collapse)
         entropy_val = val_metrics.get("val_family_entropy", 0.0)
-        has_missing_classes = val_metrics.get("val_family_zero_prediction_classes", 0.0) > 0
-        if entropy_val < 0.12 and has_missing_classes:
+        same_dataset_entropy_collapse = val_metrics.get("val_entropy_missing_same_dataset", 0.0) > 0
+        if entropy_val < 0.12 and same_dataset_entropy_collapse:
             return "prediction_entropy_collapse_with_missing_classes"
         
         # Very strict threshold only for extreme cases
@@ -1058,7 +1151,7 @@ class HelixFullTrainer:
 
         return None
 
-    def _update_early_stopping(self, train_metrics: dict[str, float], val_metrics: dict[str, float]) -> bool:
+    def _update_early_stopping(self, _train_metrics: dict[str, float], val_metrics: dict[str, float]) -> bool:
         """Update early stopping state; return True when training should stop."""
         val_loss = val_metrics["val_loss"]
         quality_gate_pass = (
@@ -1115,7 +1208,7 @@ class HelixFullTrainer:
 
 
 @governed_entrypoint(entrypoint_id="scripts.train_helix_ids_full")
-def main():
+def main():  # NOSONAR
     """Main training entry point."""
     parser = argparse.ArgumentParser(description="Train HelixIDS-Full model")
     parser.add_argument(
@@ -1141,6 +1234,12 @@ def main():
         type=int,
         default=256,
         help="Batch size",
+    )
+    parser.add_argument(
+        "--eval-batch-size",
+        type=int,
+        default=None,
+        help="Batch size for validation/test evaluation (defaults to --batch-size)",
     )
     parser.add_argument(
         "--epochs",
@@ -1195,12 +1294,15 @@ def main():
         epochs=args.epochs,
         device=args.device,
     )
+    eval_batch_size = int(args.eval_batch_size or train_config.batch_size)
+    if eval_batch_size <= 0:
+        raise ValueError("--eval-batch-size must be >= 1")
     data_config = DataConfig()
 
     logger.info(f"Loading data from {data_config.data_dir}...")
 
     # Load multi-dataset (Phase 1)
-    from helix_ids.data.feature_harmonization import labels_to_multi_task
+    from helix_ids.data.feature_harmonization import COMMON_FEATURES, labels_to_multi_task
 
     splits: dict[str, np.ndarray]
     precomputed_splits_dir = Path(args.precomputed_splits_dir)
@@ -1211,6 +1313,7 @@ def main():
         precomputed_splits = _load_precomputed_splits(
             splits_dir=precomputed_splits_dir,
             logger=logger,
+            expected_feature_dim=len(COMMON_FEATURES),
         )
 
     if precomputed_splits is not None:
@@ -1241,7 +1344,7 @@ def main():
 
     # Convert family labels to binary + family for multi-task learning
     y_train_binary, y_train_family = labels_to_multi_task(splits["y_train"])
-    y_val_binary, y_val_family = labels_to_multi_task(splits["y_val"])
+    y_val_binary, _ = labels_to_multi_task(splits["y_val"])
 
     family_counts = np.bincount(splits["y_train"].astype(int))
     family_majority_ratio = float(family_counts.max() / max(1, family_counts.sum()))
@@ -1370,7 +1473,7 @@ def main():
         val_dataset = MultiTaskNumpyDataset(x_val_ds, y_val_family_ds)
         val_loaders[dataset_name] = DataLoader(
             val_dataset,
-            batch_size=train_config.batch_size,
+            batch_size=eval_batch_size,
             shuffle=False,
             num_workers=train_config.num_workers,
             pin_memory=train_config.pin_memory,
@@ -1411,9 +1514,10 @@ def main():
         test_dataset = MultiTaskNumpyDataset(x_test_ds, y_test_family_ds)
         test_loaders[dataset_name] = DataLoader(
             test_dataset,
-            batch_size=train_config.batch_size,
+            batch_size=eval_batch_size,
             shuffle=False,
             num_workers=max(2, train_config.num_workers),
+            pin_memory=train_config.pin_memory,
             worker_init_fn=seed_worker,
             generator=loader_generator,
             persistent_workers=max(2, train_config.num_workers) > 0,
@@ -1555,7 +1659,7 @@ def main():
         and ablation_check["accuracy_drop"] > 0.01
         and min_family_minority_recall >= 0.70
         and min_family_entropy >= 0.30
-        and max_zero_prediction_classes == 0.0
+        and abs(max_zero_prediction_classes) <= 1e-12
         and min_binary_auprc >= 0.70
     )
 

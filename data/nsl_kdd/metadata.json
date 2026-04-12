@@ -1,0 +1,13 @@
+{
+  "source": "synthetic",
+  "features": 41,
+  "classes": [
+    "Normal",
+    "DoS",
+    "Probe",
+    "R2L",
+    "U2R"
+  ],
+  "total_samples": 124710,
+  "reference": "Tavallaee et al. (2009)"
+}

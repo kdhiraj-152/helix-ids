@@ -1,0 +1,103 @@
+# HELIX-IDS Unified Training Configuration
+# All advanced features enabled by default
+
+# =============================================================================
+# Model Configuration
+# =============================================================================
+model_type: transformer  # "transformer", "helix", "mlp"
+input_dim: 41
+num_classes: 5
+
+# TabTransformer-specific settings
+embedding_dim: 32
+n_heads: 8
+n_layers: 6
+transformer_dropout: 0.1
+
+# =============================================================================
+# Training Hyperparameters
+# =============================================================================
+epochs: 100
+batch_size: 256
+learning_rate: 0.0003
+weight_decay: 0.001
+warmup_epochs: 5
+
+# =============================================================================
+# Loss Configuration
+# =============================================================================
+loss_type: threat_aware_focal  # "threat_aware_focal", "focal", "ce"
+focal_gamma: 2.0
+label_smoothing: 0.1
+
+# Threat severity weights (prioritize dangerous attacks)
+# Class indices: 0=Normal, 1=DoS, 2=Probe, 3=R2L, 4=U2R
+threat_weights:
+  0: 1.0   # Normal - baseline weight
+  1: 1.5   # DoS - moderate priority
+  2: 2.0   # Probe - reconnaissance attacks
+  3: 8.0   # R2L - serious unauthorized access (15x shift)
+  4: 10.0  # U2R - critical privilege escalation (22x shift)
+
+# =============================================================================
+# Domain Adaptation (DANN + MMD + CORAL)
+# =============================================================================
+use_domain_adaptation: true
+dann_weight: 0.5      # Adversarial domain confusion
+mmd_weight: 0.25      # Distribution alignment via kernel
+coral_weight: 0.25    # Covariance alignment
+lambda_da: 1.0        # Overall DA strength
+
+# =============================================================================
+# Test-Time Optimization
+# =============================================================================
+
+# Test-Time Augmentation (TTA)
+use_tta: true
+tta_augmentations: 5
+tta_noise_std: 0.01
+tta_dropout_rate: 0.1
+
+# TENT (Test-time Entropy Minimization)
+use_tent: true
+tent_steps: 3
+tent_lr: 0.001
+
+# Threshold Optimization
+optimize_thresholds: true
+threshold_metric: f1
+minority_classes:
+  - 3  # R2L
+  - 4  # U2R
+
+# =============================================================================
+# Synthetic Data Generation
+# =============================================================================
+use_synthetic: true
+min_samples_per_class: 5000
+synthetic_r2l: 5000
+synthetic_u2r: 2500
+ctgan_epochs: 150
+
+# =============================================================================
+# Dataset Configuration
+# =============================================================================
+datasets:
+  - nsl-kdd
+  # - unsw-nb15  # Uncomment for multi-dataset training
+  # - cicids-2018
+
+target_dataset: nsl-kdd
+
+# =============================================================================
+# Output Configuration
+# =============================================================================
+output_dir: results/unified
+save_model: true
+save_metrics: true
+experiment_name: ""  # Optional: custom experiment name
+
+# =============================================================================
+# Device Configuration
+# =============================================================================
+device: auto  # "auto", "cuda", "mps", "cpu"
