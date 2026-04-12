@@ -1,0 +1,46 @@
+# Python cache and build artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+
+# Tool caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Coverage and reports
+.coverage
+coverage.xml
+htmlcov/
+
+# OS/editor noise
+.DS_Store
+.vscode/
+.idea/
+
+# Project runtime artifacts
+checkpoints/
+models/
+results/
+
+# Large/local datasets
+# Keep dataset manifests/docs in git if needed, ignore bulk files.
+data/**/*.csv
+data/**/*.npy
+data/**/*.npz
+data/**/*.parquet
+
+# Logs
+*.log
+logs/
