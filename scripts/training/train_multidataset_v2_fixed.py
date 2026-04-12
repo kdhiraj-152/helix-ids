@@ -49,6 +49,7 @@ from helix_ids.governance.determinism import seed_worker, set_global_determinism
 from helix_ids.governance.parameters import DEFAULT_GOVERNANCE_POLICY
 from helix_ids.governance.promotion import SeedRunSummary, aggregate_seed_runs
 from helix_ids.governance.run_registry import RunRegistry
+from helix_ids.data.feature_harmonization import normalize_per_dataset  # noqa: E402
 from helix_ids.utils.metrics import (
     compute_binary_f1,
     compute_classification_report,
