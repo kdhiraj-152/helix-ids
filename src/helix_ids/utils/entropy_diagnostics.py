@@ -115,7 +115,6 @@ def should_trigger_entropy_guard(
     entropy_summary: EntropySummary,
     has_missing_classes: bool = False,
     streak_count: int = 1,
-    temperature: float = 1.0,
 ) -> tuple[bool, Optional[str]]:
     """
     Policy decision: should entropy guard trigger hard-stop?
@@ -124,7 +123,6 @@ def should_trigger_entropy_guard(
         entropy_summary: Computed entropy statistics
         has_missing_classes: Whether actual classes are absent from predictions
         streak_count: How many consecutive epochs with low entropy
-        temperature: Temperature used in softmax (affects baseline thresholds)
     
     Returns:
         (should_trigger, reason_if_true)

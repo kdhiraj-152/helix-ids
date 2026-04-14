@@ -14,58 +14,29 @@ import numpy as np
 import pandas as pd
 
 # ============================================================================
-# Common Invariant Feature Space (19 features)
+# Strict Common Feature Space (19 features)
 # ============================================================================
 
-PROTOCOL_FAMILY_INDICATOR = "protocol family indicator"
-
 COMMON_FEATURES_METADATA = {
-    "duration_log": {"type": "numeric", "description": "log1p(duration_seconds)"},
-    "total_bytes_log": {"type": "numeric", "description": "log1p(src_bytes + dst_bytes)"},
-    "bytes_forward_ratio": {"type": "numeric", "description": "src_bytes / (src_bytes + dst_bytes + eps)"},
-    "bytes_asymmetry": {"type": "numeric", "description": "(src_bytes - dst_bytes) / (src_bytes + dst_bytes + eps)"},
-    "byte_direction_ratio": {
-        "type": "numeric",
-        "description": "tanh(log1p(src_bytes) - log1p(dst_bytes))",
-    },
-    "proto_tcp": {"type": "binary", "description": PROTOCOL_FAMILY_INDICATOR},
-    "proto_udp": {"type": "binary", "description": PROTOCOL_FAMILY_INDICATOR},
-    "proto_icmp": {"type": "binary", "description": PROTOCOL_FAMILY_INDICATOR},
-    "proto_other": {"type": "binary", "description": PROTOCOL_FAMILY_INDICATOR},
-    "state_error_indicator": {"type": "binary", "description": "connection/state error indicator"},
-    "state_reset_retrans_indicator": {"type": "binary", "description": "reset/retrans indicator"},
-    "rst_fraction": {
-        "type": "numeric",
-        "description": "fraction of reset-like outcomes over handshake attempts",
-    },
-    "handshake_completion_rate": {
-        "type": "numeric",
-        "description": "proxy for successful connection establishment",
-    },
-    "iat_coefficient_of_variation": {
-        "type": "numeric",
-        "description": "inter-arrival-time variability proxy",
-    },
-    "unique_dst_ports_per_window": {
-        "type": "numeric",
-        "description": "destination-port interaction diversity proxy",
-    },
-    "packet_direction_ratio": {
-        "type": "numeric",
-        "description": "(fwd_pkts - bwd_pkts) / (fwd_pkts + bwd_pkts + eps)",
-    },
-    "burstiness_index": {
-        "type": "numeric",
-        "description": "temporal burstiness proxy from IAT spread/variance",
-    },
-    "fin_fraction": {
-        "type": "numeric",
-        "description": "fraction of FIN-like terminations over connection control events",
-    },
-    "connection_attempt_rate": {
-        "type": "numeric",
-        "description": "attempt intensity proxy normalized by packet/session volume",
-    },
+    "duration": {"type": "numeric", "description": "connection duration"},
+    "protocol_type": {"type": "categorical", "description": "transport protocol"},
+    "src_bytes": {"type": "numeric", "description": "source to destination bytes"},
+    "dst_bytes": {"type": "numeric", "description": "destination to source bytes"},
+    "flag": {"type": "categorical", "description": "connection state/flag"},
+    "wrong_fragment": {"type": "numeric", "description": "wrong fragment count"},
+    "urgent": {"type": "numeric", "description": "urgent packet count"},
+    "count": {"type": "numeric", "description": "connection count"},
+    "srv_count": {"type": "numeric", "description": "service connection count"},
+    "serror_rate": {"type": "numeric", "description": "SYN error rate"},
+    "srv_serror_rate": {"type": "numeric", "description": "service SYN error rate"},
+    "rerror_rate": {"type": "numeric", "description": "RST error rate"},
+    "srv_rerror_rate": {"type": "numeric", "description": "service RST error rate"},
+    "same_srv_rate": {"type": "numeric", "description": "same service ratio"},
+    "diff_srv_rate": {"type": "numeric", "description": "different service ratio"},
+    "dst_host_count": {"type": "numeric", "description": "dst host count"},
+    "dst_host_srv_count": {"type": "numeric", "description": "dst host service count"},
+    "dst_host_same_srv_rate": {"type": "numeric", "description": "dst host same service ratio"},
+    "dst_host_diff_srv_rate": {"type": "numeric", "description": "dst host different service ratio"},
 }
 
 COMMON_FEATURES = list(COMMON_FEATURES_METADATA.keys())
@@ -74,6 +45,28 @@ assert len(COMMON_FEATURES) == 19, f"Expected 19 common features, got {len(COMMO
 LEAKAGE_PRONE_FEATURES: set[str] = set()
 INVARIANT_FEATURES = COMMON_FEATURES.copy()
 
+PROTOCOL_MAP = {"tcp": 0, "udp": 1, "icmp": 2}
+
+# Shared flag/state encoding across datasets.
+FLAG_MAP = {
+    "sf": 0,
+    "s0": 1,
+    "s1": 2,
+    "s2": 3,
+    "s3": 4,
+    "rej": 5,
+    "rsto": 6,
+    "rstr": 7,
+    "rstos0": 8,
+    "sh": 9,
+    "oth": 10,
+    "con": 11,
+    "int": 12,
+    "fin": 13,
+    "req": 14,
+    "rst": 15,
+}
+
 
 def normalize_column_name(name: str) -> str:
     """Normalize a feature name for resilient matching across datasets."""
@@ -81,33 +74,14 @@ def normalize_column_name(name: str) -> str:
 
 
 def normalize_per_dataset(X):
-    """
-    Normalize per-dataset tensor with z-score normalization.
-
-    CRITICAL: Apply PER DATASET ONLY, never mix statistics across datasets.
-    Prevents dataset identity leakage by ensuring normalized distributions.
-
-    Args:
-        X: PyTorch tensor of shape (batch_size, n_features)
-
-    Returns:
-        Normalized tensor with mean=0, std=1 per feature, clipped to [-5, 5]
-    """
+    """Normalize a single dataset tensor with z-score scaling."""
     import torch
 
     mean = X.mean(dim=0, keepdim=True)
     std = X.std(dim=0, keepdim=True)
 
-    # Prevent divide-by-zero for constant features
     std[std < 1e-6] = 1.0
-
-    # Z-score normalization: (X - mean) / std
-    normalized = (X - mean) / std
-
-    # Clip to prevent extreme outliers
-    normalized = torch.clamp(normalized, -5.0, 5.0)
-
-    return normalized
+    return (X - mean) / std
 
 
 # ============================================================================
@@ -202,28 +176,24 @@ def create_nslkdd_mapping() -> FeatureMapping:
         common_features=COMMON_FEATURES,
         feature_mapping={
             "duration": ["duration"],
+            "protocol_type": ["protocol_type"],
             "src_bytes": ["src_bytes"],
             "dst_bytes": ["dst_bytes"],
-            "protocol": ["protocol_type"],
-            "service": ["service"],
-            "state": ["flag"],
-            "syn_count": [],
-            "rst_count": [],
-            "ack_count": [],
-            "rerror_rate": ["rerror_rate", "srv_rerror_rate", "dst_host_rerror_rate"],
-            "serror_rate": ["serror_rate", "srv_serror_rate", "dst_host_serror_rate"],
+            "flag": ["flag"],
+            "wrong_fragment": ["wrong_fragment"],
+            "urgent": ["urgent"],
             "count": ["count"],
             "srv_count": ["srv_count"],
+            "serror_rate": ["serror_rate"],
+            "srv_serror_rate": ["srv_serror_rate"],
+            "rerror_rate": ["rerror_rate"],
+            "srv_rerror_rate": ["srv_rerror_rate"],
+            "same_srv_rate": ["same_srv_rate"],
             "diff_srv_rate": ["diff_srv_rate"],
-            "dst_port": [],
-            "iat_mean": [],
-            "iat_std": [],
-            "iat_max": [],
-            "iat_min": [],
-            "fin_count": [],
-            "pkt_fwd_count": [],
-            "pkt_bwd_count": [],
-            "active_mean": [],
+            "dst_host_count": ["dst_host_count"],
+            "dst_host_srv_count": ["dst_host_srv_count"],
+            "dst_host_same_srv_rate": ["dst_host_same_srv_rate"],
+            "dst_host_diff_srv_rate": ["dst_host_diff_srv_rate"],
         },
     )
 
@@ -234,31 +204,25 @@ def create_unsw_mapping() -> FeatureMapping:
         original_features=[],
         common_features=COMMON_FEATURES,
         feature_mapping={
-            "duration": ["dur"],
-            "src_bytes": ["sbytes"],
-            "dst_bytes": ["dbytes"],
-            "protocol": ["proto"],
-            "service": ["service"],
-            "state": ["state"],
-            "syn_count": [],
-            "rst_count": [],
-            "ack_count": [],
-            "rerror_rate": [],
-            "serror_rate": [],
-            "count": ["ct_src_ltm"],
-            "srv_count": ["ct_srv_src"],
-            "diff_srv_rate": [],
-            "dst_port": ["dsport"],
-            "iat_mean": ["Sintpkt", "Dintpkt"],
-            "iat_std": ["Sjit", "Djit"],
-            "iat_max": [],
-            "iat_min": [],
-            "ct_src_ltm": ["ct_src_ltm"],
-            "ct_src_dport_ltm": ["ct_src_dport_ltm"],
-            "fin_count": [],
-            "pkt_fwd_count": ["Spkts"],
-            "pkt_bwd_count": ["Dpkts"],
-            "active_mean": [],
+            "duration": ["dur", "duration"],
+            "protocol_type": ["proto", "protocol_type"],
+            "src_bytes": ["sbytes", "src_bytes"],
+            "dst_bytes": ["dbytes", "dst_bytes"],
+            "flag": ["state", "flag"],
+            "wrong_fragment": ["wrong_fragment"],
+            "urgent": ["urgent"],
+            "count": ["count"],
+            "srv_count": ["srv_count"],
+            "serror_rate": ["serror_rate"],
+            "srv_serror_rate": ["srv_serror_rate"],
+            "rerror_rate": ["rerror_rate"],
+            "srv_rerror_rate": ["srv_rerror_rate"],
+            "same_srv_rate": ["same_srv_rate"],
+            "diff_srv_rate": ["diff_srv_rate"],
+            "dst_host_count": ["dst_host_count"],
+            "dst_host_srv_count": ["dst_host_srv_count"],
+            "dst_host_same_srv_rate": ["dst_host_same_srv_rate"],
+            "dst_host_diff_srv_rate": ["dst_host_diff_srv_rate"],
         },
     )
 
@@ -269,31 +233,25 @@ def create_cicids_mapping() -> FeatureMapping:
         original_features=[],
         common_features=COMMON_FEATURES,
         feature_mapping={
-            "duration": ["Flow Duration"],
-            "src_bytes": ["TotLen Fwd Pkts", "Total Length of Fwd Packets"],
-            "dst_bytes": ["TotLen Bwd Pkts", "Total Length of Bwd Packets"],
-            "protocol": ["Protocol"],
-            "service": [],
-            "state": [],
-            "syn_count": ["SYN Flag Cnt"],
-            "rst_count": ["RST Flag Cnt"],
-            "ack_count": ["ACK Flag Cnt"],
-            "rerror_rate": [],
-            "serror_rate": [],
-            "count": ["Tot Fwd Pkts"],
-            "srv_count": [],
-            "diff_srv_rate": [],
-            "dst_port": ["Dst Port"],
-            "iat_mean": ["Flow IAT Mean", "Fwd IAT Mean", "Bwd IAT Mean"],
-            "iat_std": [],
-            "iat_max": ["Fwd IAT Max", "Bwd IAT Max"],
-            "iat_min": ["Fwd IAT Min", "Bwd IAT Min"],
-            "ct_src_ltm": [],
-            "ct_src_dport_ltm": [],
-            "fin_count": ["FIN Flag Cnt"],
-            "pkt_fwd_count": ["Tot Fwd Pkts", "Total Fwd Packets"],
-            "pkt_bwd_count": ["Tot Bwd Pkts", "Total Backward Packets"],
-            "active_mean": ["Active Mean"],
+            "duration": ["Flow Duration", "duration"],
+            "protocol_type": ["Protocol", "protocol_type"],
+            "src_bytes": ["TotLen Fwd Pkts", "Total Length of Fwd Packets", "src_bytes"],
+            "dst_bytes": ["TotLen Bwd Pkts", "Total Length of Bwd Packets", "dst_bytes"],
+            "flag": ["flag"],
+            "wrong_fragment": ["wrong_fragment"],
+            "urgent": ["urgent"],
+            "count": ["count"],
+            "srv_count": ["srv_count"],
+            "serror_rate": ["serror_rate"],
+            "srv_serror_rate": ["srv_serror_rate"],
+            "rerror_rate": ["rerror_rate"],
+            "srv_rerror_rate": ["srv_rerror_rate"],
+            "same_srv_rate": ["same_srv_rate"],
+            "diff_srv_rate": ["diff_srv_rate"],
+            "dst_host_count": ["dst_host_count"],
+            "dst_host_srv_count": ["dst_host_srv_count"],
+            "dst_host_same_srv_rate": ["dst_host_same_srv_rate"],
+            "dst_host_diff_srv_rate": ["dst_host_diff_srv_rate"],
         },
     )
 
@@ -443,223 +401,70 @@ def _port_rarity(port_like: pd.Series) -> pd.Series:
     return rarity.astype(np.float64)
 
 
+def _encode_protocol(series: pd.Series) -> pd.Series:
+    numeric = pd.to_numeric(series, errors="coerce")
+    text = series.astype(str).str.strip().str.lower()
+    encoded = pd.Series(3, index=series.index, dtype=np.int64)
+    encoded[(numeric == 6) | (text == "tcp")] = PROTOCOL_MAP["tcp"]
+    encoded[(numeric == 17) | (text == "udp")] = PROTOCOL_MAP["udp"]
+    encoded[(numeric == 1) | (text == "icmp")] = PROTOCOL_MAP["icmp"]
+    return encoded
+
+
+def _encode_flag(series: pd.Series) -> pd.Series:
+    text = series.astype(str).str.strip().str.lower()
+    mapped = text.map(FLAG_MAP)
+    unknown = sorted(set(text[mapped.isna()].unique().tolist()))
+    if unknown:
+        raise AssertionError(
+            "Unknown flag/state values encountered: "
+            f"{unknown[:10]}{'...' if len(unknown) > 10 else ''}"
+        )
+    return mapped.astype(np.int64)
+
+
+def select_common_features(df: pd.DataFrame, dataset_name: str, aliases: Mapping[str, Sequence[str]]) -> pd.DataFrame:
+    """Select only explicit semantically aligned features in deterministic order."""
+    normalized_columns = {normalize_column_name(col): col for col in df.columns}
+    selected: dict[str, pd.Series] = {}
+    missing: list[str] = []
+
+    for feature in COMMON_FEATURES:
+        candidates = aliases.get(feature, [feature])
+        col = _find_column(df, normalized_columns, candidates)
+        if col is None:
+            missing.append(feature)
+            continue
+        selected[feature] = df[col]
+
+    assert len(missing) == 0, f"{dataset_name} missing features: {missing}"
+    return pd.DataFrame(selected, index=df.index)
+
+
 def harmonize_features(  # NOSONAR
     df: pd.DataFrame,
     mapping: FeatureMapping,
     label_col: str = "attack_type",
 ) -> pd.DataFrame:
-    """Construct invariant behavior-level features and return harmonized DataFrame."""
+    """Strictly select semantically matched common features in fixed order."""
     normalized_columns = {normalize_column_name(col): col for col in df.columns}
-    dataset_name = mapping.dataset_name
+    harmonized = select_common_features(df, mapping.dataset_name, mapping.feature_mapping)
 
-    duration = _require_numeric(
-        df,
-        normalized_columns,
-        mapping.feature_mapping.get("duration", []),
-        dataset_name=dataset_name,
-        field_name="duration",
-    )
-    src_bytes = _require_numeric(
-        df,
-        normalized_columns,
-        mapping.feature_mapping.get("src_bytes", []),
-        dataset_name=dataset_name,
-        field_name="src_bytes",
-    )
-    dst_bytes = _require_numeric(
-        df,
-        normalized_columns,
-        mapping.feature_mapping.get("dst_bytes", []),
-        dataset_name=dataset_name,
-        field_name="dst_bytes",
-    )
-    protocol_raw = _require_text(
-        df,
-        normalized_columns,
-        mapping.feature_mapping.get("protocol", []),
-        dataset_name=dataset_name,
-        field_name="protocol",
-    )
+    harmonized["protocol_type"] = _encode_protocol(harmonized["protocol_type"])
+    harmonized["flag"] = _encode_flag(harmonized["flag"])
 
-    state_col = _find_column(df, normalized_columns, mapping.feature_mapping.get("state", []))
-    state_raw = df[state_col].astype(str).str.strip() if state_col is not None else None
-    syn_count = _optional_numeric(df, normalized_columns, mapping.feature_mapping.get("syn_count", []))
-    rst_count = _optional_numeric(df, normalized_columns, mapping.feature_mapping.get("rst_count", []))
-    ack_count = _optional_numeric(df, normalized_columns, mapping.feature_mapping.get("ack_count", []))
-    rerror_rate = _optional_average(
-        df,
-        normalized_columns,
-        mapping.feature_mapping.get("rerror_rate", []),
-    )
-    serror_rate = _optional_average(
-        df,
-        normalized_columns,
-        mapping.feature_mapping.get("serror_rate", []),
-    )
-    count = _optional_average(df, normalized_columns, mapping.feature_mapping.get("count", []))
-    srv_count = _optional_average(df, normalized_columns, mapping.feature_mapping.get("srv_count", []))
-    diff_srv_rate = _optional_average(
-        df,
-        normalized_columns,
-        mapping.feature_mapping.get("diff_srv_rate", []),
-    )
-    dst_port = _optional_numeric(df, normalized_columns, mapping.feature_mapping.get("dst_port", []))
-    iat_mean = _optional_average(df, normalized_columns, mapping.feature_mapping.get("iat_mean", []))
-    iat_std = _optional_average(df, normalized_columns, mapping.feature_mapping.get("iat_std", []))
-    iat_max = _optional_average(df, normalized_columns, mapping.feature_mapping.get("iat_max", []))
-    iat_min = _optional_average(df, normalized_columns, mapping.feature_mapping.get("iat_min", []))
-    ct_src_ltm = _optional_average(df, normalized_columns, mapping.feature_mapping.get("ct_src_ltm", []))
-    ct_src_dport_ltm = _optional_average(
-        df,
-        normalized_columns,
-        mapping.feature_mapping.get("ct_src_dport_ltm", []),
-    )
-    fin_count = _optional_numeric(df, normalized_columns, mapping.feature_mapping.get("fin_count", []))
-    pkt_fwd_count = _optional_average(df, normalized_columns, mapping.feature_mapping.get("pkt_fwd_count", []))
-    pkt_bwd_count = _optional_average(df, normalized_columns, mapping.feature_mapping.get("pkt_bwd_count", []))
-    active_mean = _optional_average(df, normalized_columns, mapping.feature_mapping.get("active_mean", []))
-    service_col = _find_column(df, normalized_columns, mapping.feature_mapping.get("service", []))
-    service_raw = df[service_col].astype(str).str.strip() if service_col is not None else None
+    for feature in COMMON_FEATURES:
+        if feature in {"protocol_type", "flag"}:
+            continue
+        harmonized[feature] = pd.to_numeric(harmonized[feature], errors="coerce")
 
-    duration_num = duration.astype(np.float64)
-    if dataset_name == "cicids":
-        duration_num = duration_num / 1_000_000.0
-    duration_num = duration_num.clip(lower=0.0)
-
-    src = src_bytes.astype(np.float64).clip(lower=0.0)
-    dst = dst_bytes.astype(np.float64).clip(lower=0.0)
-    total_bytes = src + dst
-    denom = total_bytes + 1e-6
-    byte_direction_ratio = np.tanh(np.log1p(src) - np.log1p(dst))
-
-    proto_tcp, proto_udp, proto_icmp, proto_other = _protocol_one_hot(protocol_raw)
-    state_err, state_reset = _state_indicators(
-        dataset_name=dataset_name,
-        state_raw=state_raw,
-        syn_count=syn_count,
-        rst_count=rst_count,
-        total_bytes=total_bytes,
-    )
-
-    rst_fraction = state_reset.astype(np.float64)
-    handshake_completion_rate = (1.0 - state_err.astype(np.float64)).clip(0.0, 1.0)
-
-    if dataset_name == "cicids":
-        syn = _series_or_default(syn_count, df.index)
-        rst = _series_or_default(rst_count, df.index)
-        ack = _series_or_default(ack_count, df.index)
-        rst_fraction = (rst / (syn + rst + 1e-6)).clip(0.0, 1.0)
-        handshake_completion_rate = (ack / (syn + ack + rst + 1e-6)).clip(0.0, 1.0)
-    elif dataset_name == "nsl_kdd":
-        rst_rate = _series_or_default(rerror_rate, df.index, default=np.nan)
-        syn_err_rate = _series_or_default(serror_rate, df.index, default=np.nan)
-        rst_fraction = rst_rate.fillna(state_reset.astype(np.float64)).clip(0.0, 1.0)
-        handshake_completion_rate = (1.0 - np.maximum(rst_rate, syn_err_rate)).fillna(
-            1.0 - state_err.astype(np.float64)
-        )
-        handshake_completion_rate = handshake_completion_rate.clip(0.0, 1.0)
-
-    if iat_mean is not None and iat_std is not None:
-        iat_coefficient_of_variation = (iat_std.abs() / (iat_mean.abs() + 1e-6)).clip(0.0, 10.0)
-    elif iat_mean is not None and iat_max is not None and iat_min is not None:
-        iat_spread = (iat_max - iat_min).abs()
-        iat_coefficient_of_variation = (iat_spread / (iat_mean.abs() + 1e-6)).clip(0.0, 10.0)
-    else:
-        diff_rate = _series_or_default(diff_srv_rate, df.index)
-        c_all = _series_or_default(count, df.index)
-        srv_all = _series_or_default(srv_count, df.index)
-        variability_proxy = (c_all - srv_all).abs() / (c_all + srv_all + 1e-6)
-        iat_coefficient_of_variation = (diff_rate + variability_proxy).clip(0.0, 2.0)
-
-    if ct_src_ltm is not None and ct_src_dport_ltm is not None:
-        unique_dst_ports_per_window = (ct_src_ltm / (ct_src_dport_ltm + 1e-6)).clip(0.0, 10.0)
-    elif dst_port is not None:
-        unique_dst_ports_per_window = _port_rarity(dst_port)
-    elif service_raw is not None:
-        service_frequency = service_raw.str.lower().value_counts(normalize=True)
-        unique_dst_ports_per_window = (1.0 - service_raw.str.lower().map(service_frequency).fillna(0.0)).astype(
-            np.float64
-        )
-    else:
-        unique_dst_ports_per_window = pd.Series(0.0, index=df.index, dtype=np.float64)
-
-    pkt_fwd = _nonnegative_proxy(pkt_fwd_count, df.index)
-    pkt_bwd = _nonnegative_proxy(pkt_bwd_count, df.index)
-    pkt_total = pkt_fwd + pkt_bwd
-    syn_proxy = _nonnegative_proxy(syn_count, df.index)
-    rst_proxy = _nonnegative_proxy(rst_count, df.index)
-    ack_proxy = _nonnegative_proxy(ack_count, df.index)
-    fin_proxy = _nonnegative_proxy(fin_count, df.index)
-
-    if pkt_fwd_count is not None or pkt_bwd_count is not None:
-        packet_direction_ratio = ((pkt_fwd - pkt_bwd) / (pkt_total + 1e-6)).clip(-1.0, 1.0)
-    else:
-        packet_direction_ratio = ((2.0 * (src / denom)) - 1.0).clip(-1.0, 1.0)
-
-    if fin_count is not None:
-        fin_fraction = (fin_proxy / (syn_proxy + ack_proxy + rst_proxy + fin_proxy + 1e-6)).clip(0.0, 1.0)
-    elif state_raw is not None:
-        state_lower = state_raw.astype(str).str.lower().str.strip()
-        fin_like = state_lower.str.contains(r"fin|sf", regex=True).astype(np.float64)
-        attempts_like = state_lower.str.contains(
-            r"syn|con|s0|s1|s2|s3|sf|sh|rst|rej|int|req|est",
-            regex=True,
-        ).astype(np.float64)
-        fin_fraction = (fin_like / (attempts_like + 1e-6)).clip(0.0, 1.0)
-    else:
-        fin_fraction = pd.Series(0.0, index=df.index, dtype=np.float64)
-
-    if syn_count is not None and (pkt_fwd_count is not None or pkt_bwd_count is not None):
-        connection_attempt_rate = (syn_proxy / (pkt_total + 1e-6)).clip(0.0, 1.0)
-    elif ct_src_ltm is not None:
-        src_ltm = _nonnegative_proxy(ct_src_ltm, df.index)
-        connection_attempt_rate = (src_ltm / (src_ltm + duration_num + 1e-6)).clip(0.0, 1.0)
-    elif count is not None:
-        c_all = _nonnegative_proxy(count, df.index)
-        connection_attempt_rate = (c_all / (c_all + duration_num + 1e-6)).clip(0.0, 1.0)
-    else:
-        connection_attempt_rate = (1.0 / (duration_num + 1.0)).clip(0.0, 1.0)
-
-    if iat_mean is not None and iat_std is not None:
-        iat_mean_proxy = _nonnegative_proxy(iat_mean, df.index)
-        iat_std_proxy = _nonnegative_proxy(iat_std, df.index)
-        burstiness_index = (iat_std_proxy / (iat_mean_proxy + 1e-6)).clip(0.0, 10.0)
-    elif iat_mean is not None and iat_max is not None and iat_min is not None:
-        iat_mean_proxy = _nonnegative_proxy(iat_mean, df.index)
-        iat_max_proxy = _nonnegative_proxy(iat_max, df.index)
-        iat_min_proxy = _nonnegative_proxy(iat_min, df.index)
-        burstiness_index = ((iat_max_proxy - iat_min_proxy).abs() / (iat_mean_proxy + 1e-6)).clip(0.0, 10.0)
-    elif active_mean is not None and iat_mean is not None:
-        active_proxy = _nonnegative_proxy(active_mean, df.index)
-        iat_mean_proxy = _nonnegative_proxy(iat_mean, df.index)
-        burstiness_index = (active_proxy / (iat_mean_proxy + 1e-6)).clip(0.0, 10.0)
-    else:
-        burstiness_index = iat_coefficient_of_variation.astype(np.float64).clip(0.0, 10.0)
-
-    harmonized = pd.DataFrame(
-        {
-            "duration_log": np.log1p(duration_num),
-            "total_bytes_log": np.log1p(total_bytes),
-            "bytes_forward_ratio": (src / denom).clip(0.0, 1.0),
-            "bytes_asymmetry": ((src - dst) / denom).clip(-1.0, 1.0),
-            "byte_direction_ratio": byte_direction_ratio,
-            "proto_tcp": proto_tcp,
-            "proto_udp": proto_udp,
-            "proto_icmp": proto_icmp,
-            "proto_other": proto_other,
-            "state_error_indicator": state_err,
-            "state_reset_retrans_indicator": state_reset,
-            "rst_fraction": rst_fraction,
-            "handshake_completion_rate": handshake_completion_rate,
-            "iat_coefficient_of_variation": iat_coefficient_of_variation,
-            "unique_dst_ports_per_window": unique_dst_ports_per_window,
-            "packet_direction_ratio": packet_direction_ratio,
-            "burstiness_index": burstiness_index,
-            "fin_fraction": fin_fraction,
-            "connection_attempt_rate": connection_attempt_rate,
-        },
-        index=df.index,
-    )
+    values = harmonized[COMMON_FEATURES].to_numpy(dtype=np.float64, copy=False)
+    if not np.isfinite(values).all():
+        raise AssertionError(f"{mapping.dataset_name} has NaN/inf in common features")
+    if np.abs(values).max() >= 1e6:
+        # Keep as a diagnostic signal only; per-dataset pipelines can legitimately
+        # contain high-magnitude raw counters without cross-dataset normalization.
+        pass
 
     normalized_label_col = normalize_column_name(label_col)
     if normalized_label_col in normalized_columns:
@@ -671,7 +476,6 @@ def harmonize_features(  # NOSONAR
                 harmonized["label"] = df[normalized_columns[normalized_alias]]
                 break
 
-    harmonized[COMMON_FEATURES] = harmonized[COMMON_FEATURES].replace([np.inf, -np.inf], np.nan)
     return harmonized
 
 

@@ -126,6 +126,25 @@ class RunRegistry:
 
         return RunRegistryDecision(True, "OK")
 
+    def _check_matching_fingerprint_record(
+        self, record: dict[str, Any], fingerprint: str, dataset_id: str,
+        macro_f1: float, seed: int | None, tolerance: float
+    ) -> tuple[bool, str]:
+        """Check if a record matches fingerprint criteria and validate metric consistency."""
+        if record.get("fingerprint") != fingerprint:
+            return False, ""
+        if record.get("dataset_id") != dataset_id:
+            return False, ""
+        if seed is not None and record.get("seed") == seed:
+            return False, ""
+
+        prior_f1 = record.get("macro_f1")
+        if prior_f1 is None:
+            return False, ""
+        if abs(float(prior_f1) - float(macro_f1)) > tolerance:
+            return True, "E-FINGERPRINT-METRIC-MISMATCH-INVALID"
+        return False, ""
+
     def _validate_fingerprint_consistency(
         self,
         fingerprint: str | None,
@@ -145,20 +164,11 @@ class RunRegistry:
             return RunRegistryDecision(False, "E-FINGERPRINT-MISSING-METRIC-INVALID")
 
         for record in records:
-            if record.get("fingerprint") != fingerprint:
-                continue
-            if record.get("dataset_id") != dataset_id:
-                continue
-            # Same-seed reproducibility is enforced by a dedicated validator so we can
-            # emit a precise reason code for deterministic rerun violations.
-            if seed is not None and record.get("seed") == seed:
-                continue
-
-            prior_f1 = record.get("macro_f1")
-            if prior_f1 is None:
-                continue
-            if abs(float(prior_f1) - float(macro_f1)) > tolerance:
-                return RunRegistryDecision(False, "E-FINGERPRINT-METRIC-MISMATCH-INVALID")
+            is_mismatch, error_code = self._check_matching_fingerprint_record(
+                record, fingerprint, dataset_id, macro_f1, seed, tolerance
+            )
+            if is_mismatch:
+                return RunRegistryDecision(False, error_code)
 
         return RunRegistryDecision(True, "OK")
 
@@ -437,7 +447,7 @@ class RunRegistry:
         drift = abs(float(current_macro_f1) - baseline_mean)
 
         sigma = pstdev(values)
-        if sigma == 0.0:
+        if abs(sigma) < 1e-9:  # Check if approximately zero
             return drift, 0.0
 
         z_score = abs((float(current_macro_f1) - baseline_mean) / sigma)

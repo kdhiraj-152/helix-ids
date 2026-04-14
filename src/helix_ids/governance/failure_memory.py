@@ -95,6 +95,6 @@ class FailureMemory:
         baseline_rate = self.failure_rate_baseline(dataset=dataset, window=baseline_window)
         current_rate = min(1.0, len(rows[-current_window:]) / float(current_window))
 
-        if baseline_rate == 0.0:
+        if abs(baseline_rate) < 1e-9:  # Check if approximately zero
             return current_rate > 0.0
         return current_rate >= baseline_rate * multiplier

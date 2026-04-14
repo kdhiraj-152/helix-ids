@@ -95,29 +95,29 @@ def evaluate(model, X, y, name):
     return metrics.to_dict()
 
 
-@governed_entrypoint(entrypoint_id="scripts.benchmark_e2e_v2_fixed")
-def main():
-    seed = int(os.environ.get("HELIX_SEED", "42"))
-    os.environ["HELIX_SEED"] = str(seed)
-    determinism_state = set_global_determinism(seed)
+def _benchmark_platform(platform: str):
+    try:
+        model, xn, yn, xu, yu = load_model_and_data(platform)
+        return {
+            "nsl_kdd": evaluate(model, xn, yn, f"{platform}/NSL"),
+            "unsw_nb15": evaluate(model, xu, yu, f"{platform}/UNSW"),
+            "latency": benchmark_latency(model, xn),
+        }
+    except Exception as exc:
+        logger.warning(f"Skip {platform}: {exc}")
+        return None
 
-    logger.info("HELIX-IDS E2E Benchmark v2")
-    results = {}
-    posteval_start = time.perf_counter()
-    for p in ["production", "rpi4", "rpi_zero", "esp32"]:
-        try:
-            model, xn, yn, xu, yu = load_model_and_data(p)
-            results[p] = {
-                "nsl_kdd": evaluate(model, xn, yn, f"{p}/NSL"),
-                "unsw_nb15": evaluate(model, xu, yu, f"{p}/UNSW"),
-                "latency": benchmark_latency(model, xn),
-            }
-        except Exception as e:
-            logger.warning(f"Skip {p}: {e}")
-    with open(RESULTS_DIR / "e2e_benchmark_v2.json", "w") as f:
-        json.dump(results, f, indent=2)
-    logger.info("Done — saved to results/v2_fixed/e2e_benchmark_v2.json")
 
+def _run_platform_benchmarks(platforms: list[str]) -> dict[str, dict]:
+    results: dict[str, dict] = {}
+    for platform in platforms:
+        platform_results = _benchmark_platform(platform)
+        if platform_results is not None:
+            results[platform] = platform_results
+    return results
+
+
+def _collect_governance_metrics(results: dict[str, dict]) -> tuple[list[float], list[float], list[float], list[float]]:
     ci_widths = []
     ci_lowers = []
     cross_dataset_drifts = []
@@ -136,6 +136,12 @@ def main():
         if isinstance(nsl, dict) and isinstance(unsw, dict):
             if "macro_f1" in nsl and "macro_f1" in unsw:
                 cross_dataset_drifts.append(abs(float(nsl["macro_f1"]) - float(unsw["macro_f1"])))
+
+    return ci_widths, ci_lowers, cross_dataset_drifts, macro_values
+
+
+def _build_governance_summary(results: dict[str, dict], seed: int, posteval_start: float) -> dict:
+    ci_widths, ci_lowers, cross_dataset_drifts, macro_values = _collect_governance_metrics(results)
 
     aggregate_macro_f1 = float(np.mean(macro_values)) if macro_values else 0.0
     policy = DEFAULT_GOVERNANCE_POLICY
@@ -178,9 +184,7 @@ def main():
             "posteval_elapsed_seconds": max(0.001, time.perf_counter() - posteval_start),
             "macro_f1_ci_width": max_ci_width,
             "macro_f1_ci_lower": min_ci_lower,
-            "abs_macro_f1_drift": max(
-                max(cross_dataset_drifts) if cross_dataset_drifts else 0.0, drift
-            ),
+            "abs_macro_f1_drift": max(max(cross_dataset_drifts) if cross_dataset_drifts else 0.0, drift),
             "abs_macro_f1_zscore": z_score,
         },
         "prepromote": {
@@ -191,15 +195,10 @@ def main():
         },
     }
     if promotion_consensus.invalid_reason is not None:
-        governance_stages["prepromote"]["promotion_invalid_reason"] = (
-            promotion_consensus.invalid_reason
-        )
+        governance_stages["prepromote"]["promotion_invalid_reason"] = promotion_consensus.invalid_reason
+
     return {
-        "results": results,
         "governance_stages": governance_stages,
-        "governance_context": {
-            "seed": seed,
-        },
         "governance_run_record": {
             "dataset_id": "benchmark_e2e_v2_fixed",
             "macro_f1": aggregate_macro_f1,
@@ -212,6 +211,28 @@ def main():
                 "model_artifact": str(PROJECT_ROOT / "models" / "v2_fixed"),
                 "metrics_artifact": str(RESULTS_DIR / "e2e_benchmark_v2.json"),
             },
+        },
+    }
+
+
+@governed_entrypoint(entrypoint_id="scripts.benchmark_e2e_v2_fixed")
+def main():
+    seed = int(os.environ.get("HELIX_SEED", "42"))
+    os.environ["HELIX_SEED"] = str(seed)
+    determinism_state = set_global_determinism(seed)
+
+    logger.info("HELIX-IDS E2E Benchmark v2")
+    results = _run_platform_benchmarks(["production", "rpi4", "rpi_zero", "esp32"])
+    posteval_start = time.perf_counter()
+    with open(RESULTS_DIR / "e2e_benchmark_v2.json", "w") as f:
+        json.dump(results, f, indent=2)
+    logger.info("Done — saved to results/v2_fixed/e2e_benchmark_v2.json")
+    governance_summary = _build_governance_summary(results, seed, posteval_start)
+    return {
+        "results": results,
+        **governance_summary,
+        "governance_context": {
+            "seed": seed,
         },
         "determinism": determinism_state.to_dict(),
     }

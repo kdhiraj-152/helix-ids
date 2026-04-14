@@ -263,7 +263,7 @@ def main():
         },
         "pretrain": {
             "pretrain_elapsed_seconds": 0.001,
-            "family_class_weight_min": float(min(data["class_weights"].values())),
+            "family_class_weight_min": float(min(data["class_weights"])),
             "binary_class_weight_min": 1.0,
         },
         "intrain": {

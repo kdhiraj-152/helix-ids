@@ -9,6 +9,8 @@ When deploying to a new network:
 Expected improvement: +20-30pp on target network
 """
 
+from typing import cast
+
 import logging
 
 import torch
@@ -49,7 +51,7 @@ class OnlineFineTuner:
 
     def finetune(
         self,
-        X_target: torch.Tensor,
+        x_target: torch.Tensor,
         y_target: torch.Tensor,
         epochs: int = 3,
         batch_size: int = 64,
@@ -59,7 +61,7 @@ class OnlineFineTuner:
         Fine-tune model on target domain samples.
 
         Args:
-            X_target: Target domain features [N, D]
+            x_target: Target domain features [N, D]
             y_target: Target domain labels [N]
             epochs: Number of fine-tuning epochs (1-3 recommended)
             batch_size: Batch size for training
@@ -68,23 +70,24 @@ class OnlineFineTuner:
         Returns:
             Dict with accuracy before/after fine-tuning
         """
-        logger.info(f"Starting online fine-tuning with {len(X_target)} samples")
+        logger.info(f"Starting online fine-tuning with {len(x_target)} samples")
 
         # Split into train/val
-        n_val = int(len(X_target) * validation_split)
-        indices = torch.randperm(len(X_target))
+        n_val = int(len(x_target) * validation_split)
+        indices = torch.randperm(len(x_target))
         val_idx, train_idx = indices[:n_val], indices[n_val:]
 
-        X_train, y_train = X_target[train_idx], y_target[train_idx]
-        X_val, y_val = X_target[val_idx], y_target[val_idx]
+        x_train, y_train = x_target[train_idx], y_target[train_idx]
+        x_val, y_val = x_target[val_idx], y_target[val_idx]
 
         # Measure accuracy before fine-tuning
-        acc_before = self._evaluate(X_val, y_val)
+        acc_before = self._evaluate(x_val, y_val)
         logger.info(f"Accuracy before fine-tuning: {acc_before:.4f}")
 
         # Freeze backbone if requested
         if self.freeze_backbone and hasattr(self.model, "backbone"):
-            for param in self.model.backbone.parameters():
+            backbone = cast(nn.Module, self.model.backbone)
+            for param in backbone.parameters():
                 param.requires_grad = False
             logger.info("Backbone frozen, fine-tuning heads only")
 
@@ -94,17 +97,17 @@ class OnlineFineTuner:
         criterion = nn.CrossEntropyLoss()
 
         # Create dataloader
-        train_dataset = TensorDataset(X_train.to(self.device), y_train.to(self.device))
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+        train_dataset = TensorDataset(x_train.to(self.device), y_train.to(self.device))
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
 
         # Fine-tuning loop
         self.model.train()
         for epoch in range(epochs):
             total_loss = 0
-            for batch_X, batch_y in train_loader:
+            for batch_x, batch_y in train_loader:
                 optimizer.zero_grad()
 
-                outputs = self.model(batch_X)
+                outputs = self.model(batch_x)
 
                 # Handle hierarchical model output
                 if isinstance(outputs, dict):
@@ -122,11 +125,12 @@ class OnlineFineTuner:
 
         # Unfreeze backbone for future training
         if self.freeze_backbone and hasattr(self.model, "backbone"):
-            for param in self.model.backbone.parameters():
+            backbone = cast(nn.Module, self.model.backbone)
+            for param in backbone.parameters():
                 param.requires_grad = True
 
         # Measure accuracy after fine-tuning
-        acc_after = self._evaluate(X_val, y_val)
+        acc_after = self._evaluate(x_val, y_val)
         logger.info(f"Accuracy after fine-tuning: {acc_after:.4f}")
         logger.info(f"Improvement: {(acc_after - acc_before) * 100:.2f}pp")
 
@@ -134,7 +138,7 @@ class OnlineFineTuner:
             "accuracy_before": acc_before,
             "accuracy_after": acc_after,
             "improvement": acc_after - acc_before,
-            "samples_used": len(X_train),
+            "samples_used": len(x_train),
             "epochs": epochs,
         }
 
@@ -151,7 +155,7 @@ class OnlineFineTuner:
                 logits = outputs
 
             preds = logits.argmax(dim=-1)
-            accuracy = (preds == y).float().mean().item()
+            accuracy: float = (preds == y).float().mean().item()
 
         return accuracy
 
@@ -167,21 +171,21 @@ def quick_calibrate(
 
     Usage:
         # Collect samples from target network
-        X_target, y_target = collect_samples(target_network, n=1000)
+        x_target, y_target = collect_samples(target_network, n=1000)
 
         # Quick calibration
-        results = quick_calibrate(model, (X_target, y_target))
+        results = quick_calibrate(model, (x_target, y_target))
         print(f"Improved by {results['improvement']*100:.1f}pp")
     """
-    X_target, y_target = target_samples
+    x_target, y_target = target_samples
 
-    if len(X_target) < min_samples:
-        raise ValueError(f"Need at least {min_samples} samples, got {len(X_target)}")
+    if len(x_target) < min_samples:
+        raise ValueError(f"Need at least {min_samples} samples, got {len(x_target)}")
 
-    if len(X_target) > max_samples:
+    if len(x_target) > max_samples:
         logger.info(f"Limiting to {max_samples} samples")
-        indices = torch.randperm(len(X_target))[:max_samples]
-        X_target, y_target = X_target[indices], y_target[indices]
+        indices = torch.randperm(len(x_target))[:max_samples]
+        x_target, y_target = x_target[indices], y_target[indices]
 
     finetuner = OnlineFineTuner(model, freeze_backbone=True)
-    return finetuner.finetune(X_target, y_target, epochs=3)
+    return finetuner.finetune(x_target, y_target, epochs=3)

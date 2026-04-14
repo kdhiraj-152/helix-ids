@@ -27,11 +27,9 @@ sys.path.insert(0, str(project_root))
 
 import numpy as np
 import torch
-import torch.nn.functional as F
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 from torch.optim import AdamW
-from torch.optim.lr_scheduler import LambdaLR
 from sklearn.metrics import accuracy_score, f1_score, precision_recall_fscore_support
 
 from src.helix_ids.data.multi_dataset_loader import MultiDatasetLoader
@@ -54,6 +52,7 @@ class BalancedDatasetSampler:
 
     def __iter__(self):
         """Yield batch indices ensuring equal dataset contribution."""
+        rng = np.random.default_rng(42)
         indices_by_dataset = [
             np.arange(start, start + size)
             for start, size in zip(self._compute_offsets(), self.dataset_sizes)
@@ -61,7 +60,7 @@ class BalancedDatasetSampler:
 
         # Shuffle within each dataset
         for idx_list in indices_by_dataset:
-            np.random.shuffle(idx_list)
+            rng.shuffle(idx_list)
 
         # Round-robin batch creation
         batch_indices = []
@@ -72,7 +71,7 @@ class BalancedDatasetSampler:
                 ]
                 batch_indices.append(indices_by_dataset[dataset_id][offset])
 
-        np.random.shuffle(batch_indices)
+        rng.shuffle(batch_indices)
         return iter(batch_indices)
 
     def __len__(self):
@@ -114,7 +113,7 @@ def labels_to_multi_task(labels):
     - CICIDS: 0=Normal, 1=Attack (generic DoS variant)
     - UNSW: 0=Normal, 1=DoS, 2=Exploit, 3=Generic, 4=Backdoor, 5=Fuzz, 6=Recon, 7=Shell, 8=Worm, 9=Analysis
     """
-    binary = (labels > 0).astype(np.int64)  # 0=Normal, 1=Attack
+    binary = (labels > 0).astype(np.int64)
 
     # Map to 7-class family
     family = np.zeros_like(labels)
@@ -271,7 +270,7 @@ class HelixFullTrainer:
         logger.info("=" * 80)
 
         for epoch in range(self.epochs):
-            train_loss, train_binary_acc, train_family_acc = self.train_epoch(epoch)
+            train_loss, _, _ = self.train_epoch(epoch)
             val_loss, val_binary_acc, val_family_acc = self.validate()
 
             logger.info(
@@ -285,9 +284,7 @@ class HelixFullTrainer:
                 self.patience_counter = 0
                 self.best_epoch = epoch
                 logger.info(f"✅ Best model update (loss: {val_loss:.4f})")
-                torch.save(
-                    self.model.state_dict(), f"models/helix_full_unified/helix_full_unified_best.pt"
-                )
+                torch.save(self.model.state_dict(), "models/helix_full_unified/helix_full_unified_best.pt")
             else:
                 self.patience_counter += 1
                 if self.patience_counter >= self.early_stopping_patience:
@@ -335,10 +332,10 @@ def main():
     # Load data
     logger.info("Loading harmonized datasets...")
     loader = MultiDatasetLoader(project_root=str(project_root))
-    X_train, y_train, X_val, y_val, X_test, y_test = loader.load_and_harmonize_all()
+    x_train, y_train, x_val, y_val, x_test, y_test = loader.load_and_harmonize_all()
 
     logger.info(
-        f"Train shape: {X_train.shape}, Val shape: {X_val.shape}, Test shape: {X_test.shape}"
+        f"Train shape: {x_train.shape}, Val shape: {x_val.shape}, Test shape: {x_test.shape}"
     )
 
     # Convert labels to multi-task format
@@ -348,22 +345,22 @@ def main():
 
     # Create balanced dataloaders
     train_ds = TensorDataset(
-        torch.FloatTensor(X_train), torch.LongTensor(binary_train), torch.LongTensor(family_train)
+        torch.FloatTensor(x_train), torch.LongTensor(binary_train), torch.LongTensor(family_train)
     )
     val_ds = TensorDataset(
-        torch.FloatTensor(X_val), torch.LongTensor(binary_val), torch.LongTensor(family_val)
+        torch.FloatTensor(x_val), torch.LongTensor(binary_val), torch.LongTensor(family_val)
     )
     test_ds = TensorDataset(
-        torch.FloatTensor(X_test), torch.LongTensor(binary_test), torch.LongTensor(family_test)
+        torch.FloatTensor(x_test), torch.LongTensor(binary_test), torch.LongTensor(family_test)
     )
 
-    train_loader = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True)
-    val_loader = DataLoader(val_ds, batch_size=args.batch_size, shuffle=False)
-    test_loader = DataLoader(test_ds, batch_size=args.batch_size, shuffle=False)
+    train_loader = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True, num_workers=0)
+    val_loader = DataLoader(val_ds, batch_size=args.batch_size, shuffle=False, num_workers=0)
+    test_loader = DataLoader(test_ds, batch_size=args.batch_size, shuffle=False, num_workers=0)
     test_loaders = {"unified_test": test_loader}
 
     # Compute class weights
-    unique_binary, counts_binary = np.unique(binary_train, return_counts=True)
+    _, counts_binary = np.unique(binary_train, return_counts=True)
     binary_weights = torch.FloatTensor(
         [len(binary_train) / (2 * count) for count in counts_binary]
     ).to(device)
@@ -383,19 +380,6 @@ def main():
     model = create_helix_full()
     optimizer = AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)
 
-    # Warmup + decay scheduler
-    def lr_lambda(step):
-        warmup_steps = 5 * len(train_loader)
-        if step < warmup_steps:
-            return step / warmup_steps * 10  # 1e-5 -> 1e-3
-        decay_step = (step - warmup_steps) / (args.epochs * len(train_loader) - warmup_steps)
-        return max(0.1, 1.0 - decay_step * 0.9)
-
-    scheduler = LambdaLR(optimizer, lr_lambda)
-    loss_fn = MultiTaskLoss(binary_weights, family_weights)
-
-    config = HelixFullConfig()
-    scheduler = LambdaLR(optimizer, lr_lambda)
     loss_fn = MultiTaskLoss(binary_weights, family_weights)
 
     # Create output directory

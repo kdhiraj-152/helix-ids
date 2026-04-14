@@ -193,6 +193,79 @@ class PerClassMetrics:
 
         return violations
 
+    def _get_status_marker(self, f1: float, threshold: float) -> str:
+        """Get status marker based on F1 score and threshold."""
+        if f1 < threshold:
+            return " ← BELOW THRESHOLD"
+        elif f1 < 0.60:
+            return " ← POOR"
+        elif f1 < 0.80:
+            return " ← FAIR"
+        elif f1 < 0.95:
+            return " ← GOOD"
+        else:
+            return " ← EXCELLENT"
+
+    def _print_class_metrics_table(self, result: PerClassMetricsResult) -> None:
+        """Print the per-class performance table."""
+        print("\nPer-Class Performance:")
+        print("-" * 90)
+        print(
+            f"{'Class':<15} {'Precision':>12} {'Recall':>12} {'F1':>12} "
+            f"{'Support':>10} {'AUC-ROC':>12}"
+        )
+        print("-" * 90)
+
+        for class_name in self.class_names:
+            if class_name not in result.per_class:
+                continue
+
+            metrics = result.per_class[class_name]
+            threshold = self.thresholds.get(class_name, 0.50)
+            auc_str = f"{metrics.auc_roc:.4f}" if metrics.auc_roc is not None else "N/A"
+            status_marker = self._get_status_marker(metrics.f1, threshold)
+
+            print(
+                f"{class_name:<15} {metrics.precision:>12.4f} {metrics.recall:>12.4f} "
+                f"{metrics.f1:>12.4f} {metrics.support:>10} {auc_str:>12}{status_marker}"
+            )
+
+    def _print_thresholds(self, result: PerClassMetricsResult) -> None:
+        """Print target F1 thresholds."""
+        print("\nTarget F1 Thresholds:")
+        print("-" * 90)
+        for class_name in self.class_names:
+            threshold = self.thresholds.get(class_name, 0.50)
+            actual = result.per_class[class_name].f1 if class_name in result.per_class else 0.0
+            status = "✓ PASS" if actual >= threshold else "✗ FAIL"
+            print(f"  {class_name:<15}: {threshold:.2f} (actual: {actual:.4f}) {status}")
+
+    def _print_violations(self, result: PerClassMetricsResult) -> None:
+        """Print violations if any."""
+        if result.violations:
+            print("\n⚠️  ALERTS:")
+            print("-" * 90)
+            for violation in result.violations:
+                print(f"  {violation}")
+
+    def _print_confusion_matrix(self, result: PerClassMetricsResult) -> None:
+        """Print confusion matrix."""
+        if result.confusion_matrix is None:
+            return
+        print("\nConfusion Matrix:")
+        print("-" * 90)
+        cm = result.confusion_matrix
+        header = "Predicted →"
+        for _, name in enumerate(self.class_names):
+            header += f" {name[:6]:>8}"
+        print("  " + header)
+
+        for i, true_label in enumerate(self.class_names):
+            row = f"  {true_label[:6]:<6}"
+            for j in range(len(self.class_names)):
+                row += f" {cm[i, j]:>8}"
+            print(row)
+
     def print_report(
         self,
         result: PerClassMetricsResult,
@@ -214,78 +287,16 @@ class PerClassMetrics:
         print(f"  Macro-F1:   {result.macro_f1:.4f}")
         print(f"  Weighted-F1: {result.weighted_f1:.4f}")
 
-        # Per-class table
-        print("\nPer-Class Performance:")
-        print("-" * 90)
-        print(
-            f"{'Class':<15} {'Precision':>12} {'Recall':>12} {'F1':>12} "
-            f"{'Support':>10} {'AUC-ROC':>12}"
-        )
-        print("-" * 90)
+        # Print sections
+        self._print_class_metrics_table(result)
+        self._print_thresholds(result)
+        self._print_violations(result)
 
-        for class_name in self.class_names:
-            if class_name not in result.per_class:
-                continue
-
-            metrics = result.per_class[class_name]
-            threshold = self.thresholds.get(class_name, 0.50)
-
-            # Format AUC-ROC
-            auc_str = f"{metrics.auc_roc:.4f}" if metrics.auc_roc is not None else "N/A"
-
-            # Add marker for threshold violations
-            status_marker = ""
-            if metrics.f1 < threshold:
-                status_marker = " ← BELOW THRESHOLD"
-            elif metrics.f1 < 0.60:
-                status_marker = " ← POOR"
-            elif metrics.f1 < 0.80:
-                status_marker = " ← FAIR"
-            elif metrics.f1 < 0.95:
-                status_marker = " ← GOOD"
-            else:
-                status_marker = " ← EXCELLENT"
-
-            print(
-                f"{class_name:<15} {metrics.precision:>12.4f} {metrics.recall:>12.4f} "
-                f"{metrics.f1:>12.4f} {metrics.support:>10} {auc_str:>12}{status_marker}"
-            )
-
-        # Thresholds info
-        print("\nTarget F1 Thresholds:")
-        print("-" * 90)
-        for class_name in self.class_names:
-            threshold = self.thresholds.get(class_name, 0.50)
-            actual = result.per_class[class_name].f1 if class_name in result.per_class else 0.0
-            status = "✓ PASS" if actual >= threshold else "✗ FAIL"
-            print(f"  {class_name:<15}: {threshold:.2f} (actual: {actual:.4f}) {status}")
-
-        # Violations alert
-        if result.violations:
-            print("\n⚠️  ALERTS:")
-            print("-" * 90)
-            for violation in result.violations:
-                print(f"  {violation}")
-
-        # Confusion matrix
-        if show_cm and result.confusion_matrix is not None:
-            print("\nConfusion Matrix:")
-            print("-" * 90)
-            cm = result.confusion_matrix
-            # Print header
-            header = "Predicted →"
-            for _, name in enumerate(self.class_names):
-                header += f" {name[:6]:>8}"
-            print("  " + header)
-
-            # Print rows
-            for i, true_label in enumerate(self.class_names):
-                row = f"  {true_label[:6]:<6}"
-                for j in range(len(self.class_names)):
-                    row += f" {cm[i, j]:>8}"
-                print(row)
+        if show_cm:
+            self._print_confusion_matrix(result)
 
         print("=" * 90)
+
 
     def get_summary(self, result: PerClassMetricsResult) -> str:
         """

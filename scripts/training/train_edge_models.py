@@ -88,9 +88,9 @@ def load_data():
     processed_dir = Path("results/processed_data")
     pipeline_dir = Path("results/preprocessing_pipeline")
 
-    X_train = np.load(processed_dir / "X_train.npy")
+    x_train = np.load(processed_dir / "X_train.npy")
     x_val = np.load(processed_dir / "X_val.npy")
-    X_test = np.load(processed_dir / "X_test.npy")
+    x_test = np.load(processed_dir / "X_test.npy")
     y_train = np.load(processed_dir / "y_train.npy")
     y_val = np.load(processed_dir / "y_val.npy")
     y_test = np.load(processed_dir / "y_test.npy")
@@ -101,10 +101,10 @@ def load_data():
     with open(pipeline_dir / "feature_names.json") as f:
         feature_names = json.load(f)
 
-    return X_train, x_val, X_test, y_train, y_val, y_test, scaler, feature_names
+    return x_train, x_val, x_test, y_train, y_val, y_test, scaler, feature_names
 
 
-def train_edge_model(platform: str, X_train, x_val, X_test, y_train, y_val, y_test, scaler):
+def train_edge_model(platform: str, x_train, x_val, x_test, y_train, y_val, y_test, scaler):
     """Train model for specific edge platform"""
 
     config = PLATFORM_CONFIGS[platform]
@@ -114,9 +114,9 @@ def train_edge_model(platform: str, X_train, x_val, X_test, y_train, y_val, y_te
     print(f"{'=' * 80}")
 
     # Scale data
-    x_train_scaled = scaler.transform(X_train)
+    x_train_scaled = scaler.transform(x_train)
     x_val_scaled = scaler.transform(x_val)
-    x_test_scaled = scaler.transform(X_test)
+    x_test_scaled = scaler.transform(x_test)
 
     # Create model
     hidden_dims = config["hidden_dims"]
@@ -126,7 +126,7 @@ def train_edge_model(platform: str, X_train, x_val, X_test, y_train, y_val, y_te
     max_params = config["max_params"]
     assert isinstance(max_params, int)
 
-    model = EdgeMLP(input_dim=X_train.shape[1], hidden_dims=hidden_dims, dropout=dropout)
+    model = EdgeMLP(input_dim=x_train.shape[1], hidden_dims=hidden_dims, dropout=dropout)
 
     num_params = sum(p.numel() for p in model.parameters())
     print(f"\nModel: {config['hidden_dims']}")

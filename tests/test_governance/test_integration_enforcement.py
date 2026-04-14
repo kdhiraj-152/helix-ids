@@ -16,7 +16,6 @@ def _base_stages() -> dict[str, dict[str, float | int | bool]]:
             "presplit_elapsed_seconds": 1.0,
             "split_train_rows": 1000,
             "split_binary_class_count": 2,
-            "dataset_identity_balanced_accuracy": 0.6,
         },
         "pretrain": {
             "pretrain_elapsed_seconds": 1.0,
@@ -31,6 +30,7 @@ def _base_stages() -> dict[str, dict[str, float | int | bool]]:
         },
         "posteval": {
             "posteval_elapsed_seconds": 1.0,
+            "dataset_identity_balanced_accuracy": 0.6,
             "macro_f1_ci_width": 0.02,
             "macro_f1_ci_lower": 0.7,
             "abs_macro_f1_drift": 0.01,

@@ -60,9 +60,9 @@ class TestAdversarialMetrics:
     def test_metrics_initialization(self):
         """Test default initialization."""
         metrics = AdversarialMetrics()
-        assert metrics.clean_accuracy == 0.0
-        assert metrics.fgsm_accuracy == 0.0
-        assert metrics.robustness_score == 0.0
+        assert metrics.clean_accuracy == pytest.approx(0.0, abs=1e-9)
+        assert metrics.fgsm_accuracy == pytest.approx(0.0, abs=1e-9)
+        assert metrics.robustness_score == pytest.approx(0.0, abs=1e-9)
 
     def test_metrics_to_dict(self):
         """Test conversion to dictionary."""
@@ -104,7 +104,8 @@ class TestFGSMAttack:
         """Test FGSM attack maintains epsilon bound."""
         x, y = test_data
         epsilon = 0.1
-        x_adv, pert = tester.fgsm_attack(simple_model, x, y, epsilon=epsilon)
+        _, pert = tester.fgsm_attack(simple_model, x, y, epsilon=epsilon)
+        _, _ = tester.fgsm_attack(simple_model, x, y, epsilon=epsilon)
 
         # Check perturbation is bounded by epsilon in L-infinity norm
         max_pert = torch.abs(pert).max(dim=1)[0].max()
@@ -155,7 +156,7 @@ class TestPGDAttack:
         """Test PGD attack maintains epsilon bound."""
         x, y = test_data
         epsilon = 0.1
-        x_adv, pert = tester.pgd_attack(simple_model, x, y, epsilon=epsilon, steps=5)
+        _, pert = tester.pgd_attack(simple_model, x, y, epsilon=epsilon, steps=5)
 
         # Check perturbation is bounded by epsilon in L-infinity norm
         max_pert = torch.abs(pert).max(dim=1)[0].max()

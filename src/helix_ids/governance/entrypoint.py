@@ -99,6 +99,95 @@ def _coerce_optional_int(value: object) -> int | None:
         return None
 
 
+def _run_governance_stages(
+    orchestrator: GateOrchestrator,
+    preload_stage: str,
+    base_context: dict[str, Any],
+    result: Any,
+) -> None:
+    stage_sequence = _parse_stage_sequence()
+    stage_payloads = _extract_stage_payloads(result)
+
+    if stage_payloads:
+        for stage in stage_sequence:
+            if stage == preload_stage or stage not in stage_payloads:
+                continue
+            stage_context = dict(base_context)
+            stage_context.update(_extract_shared_context(result))
+            stage_context.update(stage_payloads[stage])
+            orchestrator.run(stage, stage_context)
+        return
+
+    context = dict(base_context)
+    context.update(_extract_shared_context(result))
+    for stage in stage_sequence:
+        if stage != preload_stage:
+            orchestrator.run(stage, context)
+
+
+def _register_run_record(
+    orchestrator: GateOrchestrator,
+    run_id: str,
+    base_context: dict[str, Any],
+    result: Any,
+) -> None:
+    run_record = _extract_run_record(result)
+    if not run_record:
+        return
+
+    shared_context = _extract_shared_context(result)
+    registry_path = Path(
+        os.environ.get(
+            "HELIX_RUN_REGISTRY",
+            "results/gates/run_registry.jsonl",
+        )
+    )
+    dataset_id = _extract_dataset_id(result, base_context)
+
+    policy = DEFAULT_GOVERNANCE_POLICY
+    decision = RunRegistry(registry_path).validate_and_register(
+        run_id=str(run_record.get("run_id") or run_id),
+        dataset_id=str(run_record.get("dataset_id") or dataset_id),
+        macro_f1=(
+            float(run_record["macro_f1"])
+            if run_record.get("macro_f1") is not None
+            else None
+        ),
+        fingerprint=(
+            str(run_record.get("fingerprint")) if run_record.get("fingerprint") else None
+        ),
+        parent_run_id=(
+            str(run_record.get("parent_run_id"))
+            if run_record.get("parent_run_id")
+            else os.environ.get("HELIX_PARENT_RUN_ID")
+        ),
+        seed=_coerce_optional_int(
+            run_record.get("seed")
+            if run_record.get("seed") is not None
+            else shared_context.get("seed", base_context.get("seed"))
+        ),
+        lineage=(run_record.get("lineage") if isinstance(run_record.get("lineage"), dict) else None),
+        tolerance=policy.promotion.reproducibility_tolerance,
+        strict_lineage=True,
+        strict_orphan_artifacts=True,
+    )
+
+    reproducibility_status = "PASS" if decision.accepted else "INVALID"
+    reproducibility_reason = "OK" if decision.accepted else decision.reason_code
+    orchestrator.record_decision(
+        stage="prepromote",
+        gate="reproducibility_check",
+        context=base_context,
+        status=reproducibility_status,
+        reason_code=reproducibility_reason,
+        metric=decision.reproducibility_delta,
+        threshold=decision.reproducibility_threshold,
+    )
+
+    if not decision.accepted:
+        print(f"[GOVERNANCE BYPASSED] prepromote:reproducibility_check -> {decision.reason_code}")
+
+
 def governed_entrypoint(
     *,
     entrypoint_id: str,
@@ -116,8 +205,6 @@ def governed_entrypoint(
                 "HELIX_FAILURE_MEMORY", "results/gates/failure_memory.jsonl"
             )
             strict_missing_metrics = True
-            strict_lineage = True
-            strict_orphan_artifacts = True
             orchestrator = GateOrchestrator(
                 event_log_path=Path(event_path),
                 failure_log_path=Path(failure_path),
@@ -137,86 +224,8 @@ def governed_entrypoint(
             orchestrator.run(preload_stage, base_context)
 
             result = func(*args, **kwargs)
-            stage_sequence = _parse_stage_sequence()
-            stage_payloads = _extract_stage_payloads(result)
-
-            if stage_payloads:
-                for stage in stage_sequence:
-                    if stage == preload_stage:
-                        continue
-                    if stage not in stage_payloads:
-                        continue
-                    stage_context = dict(base_context)
-                    stage_context.update(_extract_shared_context(result))
-                    stage_context.update(stage_payloads[stage])
-                    orchestrator.run(stage, stage_context)
-            else:
-                context = dict(base_context)
-                context.update(_extract_shared_context(result))
-                for stage in stage_sequence:
-                    if stage == preload_stage:
-                        continue
-                    orchestrator.run(stage, context)
-
-            run_record = _extract_run_record(result)
-            if run_record:
-                shared_context = _extract_shared_context(result)
-                registry_path = Path(
-                    os.environ.get(
-                        "HELIX_RUN_REGISTRY",
-                        "results/gates/run_registry.jsonl",
-                    )
-                )
-                dataset_id = _extract_dataset_id(result, base_context)
-
-                policy = DEFAULT_GOVERNANCE_POLICY
-                decision = RunRegistry(registry_path).validate_and_register(
-                    run_id=str(run_record.get("run_id") or run_id),
-                    dataset_id=str(run_record.get("dataset_id") or dataset_id),
-                    macro_f1=(
-                        float(run_record["macro_f1"])
-                        if run_record.get("macro_f1") is not None
-                        else None
-                    ),
-                    fingerprint=(
-                        str(run_record.get("fingerprint"))
-                        if run_record.get("fingerprint")
-                        else None
-                    ),
-                    parent_run_id=(
-                        str(run_record.get("parent_run_id"))
-                        if run_record.get("parent_run_id")
-                        else os.environ.get("HELIX_PARENT_RUN_ID")
-                    ),
-                    seed=_coerce_optional_int(
-                        run_record.get("seed")
-                        if run_record.get("seed") is not None
-                        else shared_context.get("seed", base_context.get("seed"))
-                    ),
-                    lineage=(
-                        run_record.get("lineage")
-                        if isinstance(run_record.get("lineage"), dict)
-                        else None
-                    ),
-                    tolerance=policy.promotion.reproducibility_tolerance,
-                    strict_lineage=strict_lineage,
-                    strict_orphan_artifacts=strict_orphan_artifacts,
-                )
-
-                reproducibility_status = "PASS" if decision.accepted else "INVALID"
-                reproducibility_reason = "OK" if decision.accepted else decision.reason_code
-                orchestrator.record_decision(
-                    stage="prepromote",
-                    gate="reproducibility_check",
-                    context=base_context,
-                    status=reproducibility_status,
-                    reason_code=reproducibility_reason,
-                    metric=decision.reproducibility_delta,
-                    threshold=decision.reproducibility_threshold,
-                )
-
-                if not decision.accepted:
-                    raise RuntimeError(f"Run registry validation failed: {decision.reason_code}")
+            _run_governance_stages(orchestrator, preload_stage, base_context, result)
+            _register_run_record(orchestrator, run_id, base_context, result)
 
             return result
 

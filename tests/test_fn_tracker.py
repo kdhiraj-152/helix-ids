@@ -13,22 +13,22 @@ class TestFNThresholds:
         """Test default threshold values."""
         thresholds = FNThresholds()
 
-        assert thresholds.normal == 0.01
-        assert thresholds.dos == 0.02
-        assert thresholds.probe == 0.02
-        assert thresholds.r2l == 0.05
-        assert thresholds.u2r == 0.05
+        assert thresholds.normal == pytest.approx(0.01)
+        assert thresholds.dos == pytest.approx(0.02)
+        assert thresholds.probe == pytest.approx(0.02)
+        assert thresholds.r2l == pytest.approx(0.05)
+        assert thresholds.u2r == pytest.approx(0.05)
 
     def test_get_threshold_by_class(self):
         """Test getting threshold for specific class."""
         thresholds = FNThresholds()
 
-        assert thresholds.get_threshold("Normal") == 0.01
-        assert thresholds.get_threshold("DoS") == 0.02
-        assert thresholds.get_threshold("Probe") == 0.02
-        assert thresholds.get_threshold("R2L") == 0.05
-        assert thresholds.get_threshold("U2R") == 0.05
-        assert thresholds.get_threshold("Unknown") == 0.02  # Default
+        assert thresholds.get_threshold("Normal") == pytest.approx(0.01)
+        assert thresholds.get_threshold("DoS") == pytest.approx(0.02)
+        assert thresholds.get_threshold("Probe") == pytest.approx(0.02)
+        assert thresholds.get_threshold("R2L") == pytest.approx(0.05)
+        assert thresholds.get_threshold("U2R") == pytest.approx(0.05)
+        assert thresholds.get_threshold("Unknown") == pytest.approx(0.02)  # Default
 
     def test_is_critical_class(self):
         """Test critical class detection."""
@@ -44,11 +44,11 @@ class TestFNThresholds:
         """Test custom threshold values."""
         custom = FNThresholds(normal=0.02, dos=0.03, r2l=0.04)
 
-        assert custom.normal == 0.02
-        assert custom.dos == 0.03
-        assert custom.probe == 0.02  # Unchanged
-        assert custom.r2l == 0.04
-        assert custom.u2r == 0.05  # Unchanged
+        assert custom.normal == pytest.approx(0.02)
+        assert custom.dos == pytest.approx(0.03)
+        assert custom.probe == pytest.approx(0.02)  # Unchanged
+        assert custom.r2l == pytest.approx(0.04)
+        assert custom.u2r == pytest.approx(0.05)  # Unchanged
 
 
 class TestFalseNegativeTracker:
@@ -61,7 +61,7 @@ class TestFalseNegativeTracker:
         assert tracker.current_epoch == 0
         assert len(tracker.class_names) == 5
         assert "R2L" in tracker.class_names
-        assert all(tracker.fn_rates[cls] == 0.0 for cls in tracker.class_names)
+        assert all(tracker.fn_rates[cls] == pytest.approx(0.0, abs=1e-9) for cls in tracker.class_names)
         assert len(tracker.history) == 0
 
     def test_custom_classes(self):
@@ -82,7 +82,7 @@ class TestFalseNegativeTracker:
         tracker.update(y_true, y_pred)
 
         for cls, rate in tracker.fn_rates.items():
-            assert rate == 0.0, f"Expected FN rate 0.0 for {cls}, got {rate}"
+            assert rate == pytest.approx(0.0, abs=1e-9), f"Expected FN rate 0.0 for {cls}, got {rate}"
 
     def test_all_false_negatives(self):
         """Test when all predictions are false negatives for a class."""
@@ -95,7 +95,7 @@ class TestFalseNegativeTracker:
         tracker.update(y_true, y_pred)
 
         # Class 0: 4 instances, 4 FN, FN rate = 1.0
-        assert tracker.fn_rates["Normal"] == 1.0
+        assert tracker.fn_rates["Normal"] == pytest.approx(1.0)
         assert tracker.fn_counts["Normal"] == 4
         assert tracker.class_totals["Normal"] == 4
 
@@ -110,8 +110,8 @@ class TestFalseNegativeTracker:
 
         tracker.update(y_true, y_pred)
 
-        assert tracker.fn_rates["Normal"] == 0.75  # 3/4
-        assert tracker.fn_rates["DoS"] == 0.25  # 1/4
+        assert tracker.fn_rates["Normal"] == pytest.approx(0.75)  # 3/4
+        assert tracker.fn_rates["DoS"] == pytest.approx(0.25)  # 1/4
         assert tracker.fn_counts["Normal"] == 3
         assert tracker.fn_counts["DoS"] == 1
 
@@ -127,9 +127,9 @@ class TestFalseNegativeTracker:
         # Normal: 2 instances, 1 correct, 1 FN → FN rate = 0.5
         # DoS: 2 instances, 1 correct, 1 FN → FN rate = 0.5
         # Probe: 2 instances, 1 correct, 1 FN → FN rate = 0.5
-        assert tracker.fn_rates["Normal"] == 0.5
-        assert tracker.fn_rates["DoS"] == 0.5
-        assert tracker.fn_rates["Probe"] == 0.5
+        assert tracker.fn_rates["Normal"] == pytest.approx(0.5)
+        assert tracker.fn_rates["DoS"] == pytest.approx(0.5)
+        assert tracker.fn_rates["Probe"] == pytest.approx(0.5)
 
     def test_get_fn_rates(self):
         """Test getting FN rates."""
@@ -143,8 +143,8 @@ class TestFalseNegativeTracker:
         fn_rates = tracker.get_fn_rates()
 
         assert isinstance(fn_rates, dict)
-        assert fn_rates["Normal"] == 0.5  # 1/2
-        assert fn_rates["DoS"] == 0.5  # 1/2
+        assert fn_rates["Normal"] == pytest.approx(0.5)  # 1/2
+        assert fn_rates["DoS"] == pytest.approx(0.5)  # 1/2
 
     def test_get_fn_counts(self):
         """Test getting FN counts."""
@@ -227,7 +227,7 @@ class TestFalseNegativeTracker:
 
         assert len(tracker.history) == 1
         assert tracker.history[0].epoch == 0
-        assert tracker.history[0].fn_rates["Normal"] == 0.5
+        assert tracker.history[0].fn_rates["Normal"] == pytest.approx(0.5)
 
         # Epoch 1
         y_true_2 = np.array([0, 0, 0, 1, 1])
@@ -310,9 +310,9 @@ class TestFalseNegativeTracker:
         assert "max" in stats["Normal"]
         assert "mean" in stats["Normal"]
         assert "std" in stats["Normal"]
-        assert stats["Normal"]["min"] == 0.5
-        assert stats["Normal"]["max"] == 0.5
-        assert stats["Normal"]["mean"] == 0.5
+        assert stats["Normal"]["min"] == pytest.approx(0.5)
+        assert stats["Normal"]["max"] == pytest.approx(0.5)
+        assert stats["Normal"]["mean"] == pytest.approx(0.5)
 
     def test_to_dict(self):
         """Test serialization to dictionary."""
@@ -329,7 +329,7 @@ class TestFalseNegativeTracker:
         assert "fn_counts" in state_dict
         assert "violations" in state_dict
         assert "critical_alert" in state_dict
-        assert state_dict["fn_rates"]["Normal"] == 0.5
+        assert state_dict["fn_rates"]["Normal"] == pytest.approx(0.5)
 
     def test_empty_class(self):
         """Test handling of class with no instances."""
@@ -341,8 +341,8 @@ class TestFalseNegativeTracker:
 
         tracker.update(y_true, y_pred)
 
-        assert tracker.fn_rates["Probe"] == 0.0  # No instances
-        assert tracker.fn_rates["R2L"] == 0.0  # No instances
+        assert tracker.fn_rates["Probe"] == pytest.approx(0.0, abs=1e-9)  # No instances
+        assert tracker.fn_rates["R2L"] == pytest.approx(0.0, abs=1e-9)  # No instances
         assert tracker.class_totals["Probe"] == 0
         assert tracker.class_totals["R2L"] == 0
 

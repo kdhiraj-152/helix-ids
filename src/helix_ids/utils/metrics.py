@@ -192,11 +192,25 @@ def calculate_pri_score(
     Returns:
         Tuple of (criterion scores, total PRI)
     """
+    if has_cross_dataset:
+        c2_cross_dataset = 1.0
+    elif cross_dataset_partial:
+        c2_cross_dataset = 0.5
+    else:
+        c2_cross_dataset = 0.0
+
+    if has_per_class_metrics:
+        c4_per_class = 1.0
+    elif per_class_partial:
+        c4_per_class = 0.5
+    else:
+        c4_per_class = 0.0
+
     scores = {
         "C1_hardware": 1.0 if has_hardware_spec else 0.0,
-        "C2_cross_dataset": 1.0 if has_cross_dataset else (0.5 if cross_dataset_partial else 0.0),
+        "C2_cross_dataset": c2_cross_dataset,
         "C3_power": 1.0 if has_power_measurement else 0.0,
-        "C4_per_class": 1.0 if has_per_class_metrics else (0.5 if per_class_partial else 0.0),
+        "C4_per_class": c4_per_class,
         "C5_drift": 1.0 if has_drift_protocol else 0.0,
         "C6_xai": 1.0 if has_xai_quantified else 0.0,
     }
@@ -322,14 +336,14 @@ def print_evaluation_report(metrics: ModelMetrics, class_names: Optional[list[st
 
 
 def measure_inference_latency(
-    model, X_sample: np.ndarray, n_runs: int = 100, warmup_runs: int = 10
+    model, x_sample: np.ndarray, n_runs: int = 100, warmup_runs: int = 10
 ) -> float:
     """
     Measure average inference latency.
 
     Args:
         model: Model with predict() method
-        X_sample: Sample input data
+        x_sample: Sample input data
         n_runs: Number of timing runs
         warmup_runs: Number of warmup runs (not counted)
 
@@ -338,16 +352,16 @@ def measure_inference_latency(
     """
     # Warmup
     for _ in range(warmup_runs):
-        _ = model.predict(X_sample)
+        _ = model.predict(x_sample)
 
     # Timed runs
     start = time.perf_counter()
     for _ in range(n_runs):
-        _ = model.predict(X_sample)
+        _ = model.predict(x_sample)
     elapsed = time.perf_counter() - start
 
     # Per-sample latency in ms
-    return (elapsed / n_runs / len(X_sample)) * 1000
+    return (elapsed / n_runs / len(x_sample)) * 1000
 
 
 def estimate_model_size(model) -> float:
@@ -432,7 +446,7 @@ def bootstrap_macro_f1_ci(
     y_pred = np.asarray(y_pred)
     classes = np.unique(y_true)
 
-    class_indices = {cls: np.where(y_true == cls)[0] for cls in classes}
+    class_indices = {cls: np.flatnonzero(y_true == cls) for cls in classes}
     class_probs = {cls: len(idx) / len(y_true) for cls, idx in class_indices.items()}
 
     estimates = []

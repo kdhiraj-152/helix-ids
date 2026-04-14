@@ -6,8 +6,10 @@ import logging
 from pathlib import Path
 
 import numpy as np
+import pytest
 import torch
 from sklearn.metrics import f1_score
+from typing import Any, cast
 
 from helix_ids.utils.entropy_diagnostics import calculate_entropy_stable
 from helix_ids.utils.metrics import compute_macro_f1
@@ -72,12 +74,12 @@ def test_validate_uses_per_dataset_worst_case_not_averaging() -> None:
         },
     }
 
-    trainer.val_loaders = {
+    trainer.val_loaders = cast(dict[str, Any], {
         "nsl_kdd": "loader_nsl",
         "unsw_nb15": "loader_unsw",
         "cicids": "loader_cicids",
-    }
-    trainer._evaluate_loader = lambda loader: metrics_by_loader[loader]
+    })
+    object.__setattr__(trainer, "_evaluate_loader", lambda loader: metrics_by_loader[loader])
 
     aggregated = train_mod.HelixFullTrainer.validate(trainer)
 
@@ -104,25 +106,25 @@ def test_validate_uses_per_dataset_worst_case_not_averaging() -> None:
 
 def test_evaluate_per_dataset_is_independent() -> None:
     trainer = _make_trainer()
-    trainer.test_loaders = {
+    trainer.test_loaders = cast(dict[str, Any], {
         "nsl_kdd": "test_nsl",
         "unsw_nb15": "test_unsw",
         "cicids": "test_cicids",
-    }
+    })
 
     per_loader = {
         "test_nsl": {"family_macro_f1": 0.88},
         "test_unsw": {"family_macro_f1": 0.61},
         "test_cicids": {"family_macro_f1": 0.73},
     }
-    trainer._evaluate_test_loader = lambda loader: per_loader[loader]
+    object.__setattr__(trainer, "_evaluate_test_loader", lambda loader: per_loader[loader])
 
     results = train_mod.HelixFullTrainer.evaluate_per_dataset(trainer)
 
     assert set(results) == {"nsl_kdd", "unsw_nb15", "cicids"}
-    assert results["nsl_kdd"]["family_macro_f1"] == 0.88
-    assert results["unsw_nb15"]["family_macro_f1"] == 0.61
-    assert results["cicids"]["family_macro_f1"] == 0.73
+    assert results["nsl_kdd"]["family_macro_f1"] == pytest.approx(0.88)
+    assert results["unsw_nb15"]["family_macro_f1"] == pytest.approx(0.61)
+    assert results["cicids"]["family_macro_f1"] == pytest.approx(0.73)
 
 
 def test_macro_f1_matches_sklearn_fixed_input() -> None:
@@ -156,7 +158,7 @@ def test_minority_recall_correct_when_present() -> None:
     )
 
     stats = train_mod.HelixFullTrainer._compute_f1_stats_from_confusion(confusion)
-    assert stats["minority_recall_min"] == 0.8
+    assert stats["minority_recall_min"] == pytest.approx(0.8)
 
 
 def test_minority_recall_zero_when_minority_not_predicted() -> None:
@@ -170,7 +172,7 @@ def test_minority_recall_zero_when_minority_not_predicted() -> None:
     )
 
     stats = train_mod.HelixFullTrainer._compute_f1_stats_from_confusion(confusion)
-    assert stats["minority_recall_min"] == 0.0
+    assert stats["minority_recall_min"] == pytest.approx(0.0, abs=1e-9)
     assert stats["zero_prediction_classes"] == [1, 2]
 
 
@@ -189,7 +191,7 @@ def test_precomputed_split_cache_invalidated_on_feature_dim_change(tmp_path: Pat
     }
 
     for name, arr in required_arrays.items():
-        np.save(tmp_path / name, arr)
+        np.save(str(tmp_path / name), cast(Any, arr))
 
     loaded = train_mod._load_precomputed_splits(
         splits_dir=tmp_path,

@@ -328,8 +328,8 @@ class DynamicQuantizer:
             if "QEngine" in str(e) or "engine" in str(e).lower():
                 # Fallback for macOS/ARM which doesn't have quantization backend
                 self.result.warnings.append(
-                    f"Quantization engine unavailable (macOS/ARM limitation). "
-                    f"Using model copy with simulated quantization results."
+                    "Quantization engine unavailable (macOS/ARM limitation). "
+                    "Using model copy with simulated quantization results."
                 )
                 self.quantized_model = model_copy
                 # Simulate quantization results for testing
@@ -576,6 +576,86 @@ class StaticQuantizer:
         return self.result
 
 
+def _get_model_predictions(
+    model: nn.Module, x_data: torch.Tensor
+) -> np.ndarray:
+    """Get predictions from a model, handling various output formats."""
+    if hasattr(model, "predict"):
+        return model.predict(x_data).cpu().numpy()
+
+    output = model(x_data)
+    if isinstance(output, tuple):
+        binary = torch.argmax(output[0], dim=1)
+        family = torch.argmax(output[1], dim=1)
+        preds = torch.where(binary == 0, torch.zeros_like(family), family + 1)
+        return preds.cpu().numpy()
+    elif isinstance(output, dict):
+        binary = torch.argmax(output["binary"], dim=1)
+        family = torch.argmax(output["family"], dim=1)
+        preds = torch.where(binary == 0, torch.zeros_like(family), family + 1)
+        return preds.cpu().numpy()
+    else:
+        return torch.argmax(output, dim=1).cpu().numpy()
+
+
+def _print_comparison_results(
+    results: dict[str, Any],
+    orig_f1_dict: dict[str, float],
+    quant_f1_dict: dict[str, float],
+    f1_drop: dict[str, float],
+    class_names: list[str],
+) -> None:
+    """Print comparison results with quality assessment."""
+    orig_accuracy = results["original_accuracy"]
+    quant_accuracy = results["quantized_accuracy"]
+    accuracy_drop = results["accuracy_drop"]
+    orig_macro_f1 = results["original_macro_f1"]
+    quant_macro_f1 = results["quantized_macro_f1"]
+    agreement = results["prediction_agreement"]
+
+    print("\n" + "=" * 60)
+    print("ACCURACY COMPARISON: Original vs Quantized")
+    print("=" * 60)
+
+    print("\nOverall Accuracy:")
+    print(f"  Original:  {orig_accuracy:.4f} ({orig_accuracy * 100:.2f}%)")
+    print(f"  Quantized: {quant_accuracy:.4f} ({quant_accuracy * 100:.2f}%)")
+    print(f"  Drop:      {accuracy_drop:.4f} ({accuracy_drop * 100:.2f}%)")
+    print(f"  Retained:  {results['accuracy_retained'] * 100:.2f}%")
+
+    print("\nMacro-F1:")
+    print(f"  Original:  {orig_macro_f1:.4f}")
+    print(f"  Quantized: {quant_macro_f1:.4f}")
+
+    print("\nPer-Class F1 Comparison:")
+    print("-" * 55)
+    print(f"  {'Class':<12} {'Original':>10} {'Quantized':>10} {'Drop':>10}")
+    print("-" * 55)
+
+    for cls in class_names:
+        orig_cls_f1 = orig_f1_dict.get(cls, 0)
+        quant_cls_f1 = quant_f1_dict.get(cls, 0)
+        drop = f1_drop.get(cls, 0)
+        marker = " ⚠️" if abs(drop) > 0.05 else ""
+        print(f"  {cls:<12} {orig_cls_f1:>10.4f} {quant_cls_f1:>10.4f} {drop:>10.4f}{marker}")
+
+    print(f"\nPrediction Agreement: {agreement * 100:.2f}%")
+
+    print("\nQuality Assessment:")
+    if results["accuracy_retained"] >= 0.95:
+        print("  ✓ Target achieved: >95% accuracy retained")
+    else:
+        print(
+            f"  ⚠️ Below target: {results['accuracy_retained'] * 100:.2f}% retained (target: 95%)"
+        )
+
+    for cls in ["R2L", "U2R"]:
+        if cls in f1_drop and abs(f1_drop[cls]) > 0.1:
+            print(f"  ⚠️ Significant {cls} degradation: {f1_drop[cls]:.4f}")
+
+    print("=" * 60)
+
+
 def compare_accuracy(
     original_model: nn.Module,
     quantized_model: nn.Module,
@@ -623,45 +703,11 @@ def compare_accuracy(
     quantized_model.eval()
 
     with torch.no_grad():
-        # Original model predictions
-        X_orig = X_test.to(orig_device)
-        if hasattr(original_model, "predict"):
-            orig_preds = original_model.predict(X_orig).cpu().numpy()
-        else:
-            orig_output = original_model(X_orig)
-            if isinstance(orig_output, tuple):
-                # HELIX-IDS or multi-head model returns tuple of (binary_logits, family_logits)
-                binary = torch.argmax(orig_output[0], dim=1)
-                family = torch.argmax(orig_output[1], dim=1)
-                orig_preds = torch.where(binary == 0, torch.zeros_like(family), family + 1)
-                orig_preds = orig_preds.cpu().numpy()
-            elif isinstance(orig_output, dict):
-                # HELIX-IDS returns dict
-                binary = torch.argmax(orig_output["binary"], dim=1)
-                family = torch.argmax(orig_output["family"], dim=1)
-                orig_preds = torch.where(binary == 0, torch.zeros_like(family), family + 1)
-                orig_preds = orig_preds.cpu().numpy()
-            else:
-                orig_preds = torch.argmax(orig_output, dim=1).cpu().numpy()
+        x_orig = X_test.to(orig_device)
+        orig_preds = _get_model_predictions(original_model, x_orig)
 
-        # Quantized model predictions (usually CPU)
-        X_quant = X_test.to(quant_device)
-        if hasattr(quantized_model, "predict"):
-            quant_preds = quantized_model.predict(X_quant).cpu().numpy()
-        else:
-            quant_output = quantized_model(X_quant)
-            if isinstance(quant_output, tuple):
-                binary = torch.argmax(quant_output[0], dim=1)
-                family = torch.argmax(quant_output[1], dim=1)
-                quant_preds = torch.where(binary == 0, torch.zeros_like(family), family + 1)
-                quant_preds = quant_preds.cpu().numpy()
-            elif isinstance(quant_output, dict):
-                binary = torch.argmax(quant_output["binary"], dim=1)
-                family = torch.argmax(quant_output["family"], dim=1)
-                quant_preds = torch.where(binary == 0, torch.zeros_like(family), family + 1)
-                quant_preds = quant_preds.cpu().numpy()
-            else:
-                quant_preds = torch.argmax(quant_output, dim=1).cpu().numpy()
+        x_quant = X_test.to(quant_device)
+        quant_preds = _get_model_predictions(quantized_model, x_quant)
 
     # Convert y_test to numpy
     y_true = y_test.cpu().numpy() if isinstance(y_test, torch.Tensor) else y_test
@@ -705,50 +751,9 @@ def compare_accuracy(
     }
 
     if verbose:
-        print("\n" + "=" * 60)
-        print("ACCURACY COMPARISON: Original vs Quantized")
-        print("=" * 60)
-
-        print("\nOverall Accuracy:")
-        print(f"  Original:  {orig_accuracy:.4f} ({orig_accuracy * 100:.2f}%)")
-        print(f"  Quantized: {quant_accuracy:.4f} ({quant_accuracy * 100:.2f}%)")
-        print(f"  Drop:      {accuracy_drop:.4f} ({accuracy_drop * 100:.2f}%)")
-        print(f"  Retained:  {results['accuracy_retained'] * 100:.2f}%")
-
-        print("\nMacro-F1:")
-        print(f"  Original:  {orig_macro_f1:.4f}")
-        print(f"  Quantized: {quant_macro_f1:.4f}")
-
-        print("\nPer-Class F1 Comparison:")
-        print("-" * 55)
-        print(f"  {'Class':<12} {'Original':>10} {'Quantized':>10} {'Drop':>10}")
-        print("-" * 55)
-
-        for cls in class_names[: len(orig_f1)]:
-            orig_cls_f1 = orig_f1_dict.get(cls, 0)
-            quant_cls_f1 = quant_f1_dict.get(cls, 0)
-            drop = f1_drop.get(cls, 0)
-            marker = " ⚠️" if abs(drop) > 0.05 else ""
-            print(f"  {cls:<12} {orig_cls_f1:>10.4f} {quant_cls_f1:>10.4f} {drop:>10.4f}{marker}")
-
-        print(f"\nPrediction Agreement: {agreement * 100:.2f}%")
-
-        # Quality assessment
-        print("\nQuality Assessment:")
-        if results["accuracy_retained"] >= 0.95:
-            print("  ✓ Target achieved: >95% accuracy retained")
-        else:
-            print(
-                f"  ⚠️ Below target: {results['accuracy_retained'] * 100:.2f}% retained (target: 95%)"
-            )
-
-        # Check minority classes
-        for cls in ["R2L", "U2R"]:
-            if cls in f1_drop:
-                if abs(f1_drop[cls]) > 0.1:
-                    print(f"  ⚠️ Significant {cls} degradation: {f1_drop[cls]:.4f}")
-
-        print("=" * 60)
+        _print_comparison_results(
+            results, orig_f1_dict, quant_f1_dict, f1_drop, class_names[: len(orig_f1)]
+        )
 
     return results
 

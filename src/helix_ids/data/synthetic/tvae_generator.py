@@ -224,9 +224,9 @@ class TVAEGenerator:
         for col in data.columns:
             if col == label_column:
                 continue
-            if data[col].dtype in ("object", "category"):
-                discrete.append(col)
-            elif data[col].nunique() < 20 and data[col].dtype in ("int64", "int32"):
+            if data[col].dtype in ("object", "category") or (
+                data[col].nunique() < 20 and data[col].dtype in ("int64", "int32")
+            ):
                 discrete.append(col)
 
         return discrete

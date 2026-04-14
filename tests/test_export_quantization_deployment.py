@@ -41,8 +41,9 @@ def simple_model():
 
 @pytest.fixture
 def sample_data():
-    X = np.random.randn(100, 10).astype(np.float32)
-    y = np.random.randint(0, 5, size=100)
+    rng = np.random.default_rng(seed=42)
+    X = rng.standard_normal((100, 10)).astype(np.float32)
+    y = rng.integers(0, 5, size=100)
     return X, y
 
 
@@ -108,7 +109,8 @@ class TestModelExport:
                          input_names=["input"], output_names=["output"])
 
         session = ort.InferenceSession(str(path))
-        x = np.random.randn(5, 10).astype(np.float32)
+        rng = np.random.default_rng(seed=42)
+        x = rng.standard_normal((5, 10)).astype(np.float32)
 
         with torch.no_grad():
             pytorch_out = simple_model(torch.from_numpy(x)).numpy()
@@ -128,7 +130,7 @@ class TestModelExport:
         with open(path, 'w') as f:
             f.write("#ifndef HELIX_MODEL_H\n#define HELIX_MODEL_H\n\n")
             f.write(f"const int MODEL_WEIGHTS_SIZE = {len(weights)};\n")
-            f.write(f"const float MODEL_WEIGHTS[] = {{\n")
+            f.write("const float MODEL_WEIGHTS[] = {\n")
             for i, w in enumerate(weights):
                 f.write(f"  {w:.8f}f")
                 if i < len(weights) - 1:
@@ -183,7 +185,7 @@ class TestQuantization:
         """Test that quantization doesn't degrade accuracy too much."""
         if not hasattr(torch.backends, "quantized") or torch.backends.quantized.engine == "none":
             pytest.skip("Quantization engine not available on this platform (Apple Silicon/NoQEngine)")
-        X, y = sample_data
+        X, _ = sample_data
         x_tensor = torch.FloatTensor(X)
         with torch.no_grad():
             orig_preds = simple_model(x_tensor).argmax(dim=1).numpy()
@@ -240,9 +242,9 @@ class TestDeploymentPipeline:
         with open(path, 'rb') as f:
             loaded = pickle.load(f)
         
-        X_orig = scaler.transform(X[:5])
-        X_loaded = loaded.transform(X[:5])
-        np.testing.assert_array_equal(X_orig, X_loaded)
+        x_orig = scaler.transform(X[:5])
+        x_loaded = loaded.transform(X[:5])
+        np.testing.assert_array_equal(x_orig, x_loaded)
 
     def test_batch_inference(self, simple_model, sample_data):
         """Test batch inference produces correct shapes."""
@@ -296,11 +298,12 @@ class TestDataLeakageDetection:
         from sklearn.preprocessing import StandardScaler
         
         # Simulate two different datasets
-        X1 = np.random.randn(100, 10).astype(np.float32) * 5 + 10
-        X2 = np.random.randn(100, 10).astype(np.float32) * 2 - 3
+        rng = np.random.default_rng(seed=42)
+        x1 = rng.standard_normal((100, 10)).astype(np.float32) * 5 + 10
+        x2 = rng.standard_normal((100, 10)).astype(np.float32) * 2 - 3
         
-        scaler1 = StandardScaler().fit(X1)
-        scaler2 = StandardScaler().fit(X2)
+        scaler1 = StandardScaler().fit(x1)
+        scaler2 = StandardScaler().fit(x2)
         
         # Scalers should have different means
         assert not np.allclose(scaler1.mean_, scaler2.mean_)
@@ -311,7 +314,7 @@ class TestDataLeakageDetection:
         
         X, _ = sample_data
         X_train = X[:80]
-        X_test = X[80:]
+        _ = X[80:]
         
         scaler = StandardScaler().fit(X_train)
         

@@ -18,7 +18,6 @@ Usage:
 import json
 import logging
 import os
-import pickle
 import sys
 import time
 import warnings
@@ -32,7 +31,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import balanced_accuracy_score
 from torch.utils.data import DataLoader, TensorDataset
 
@@ -49,7 +48,6 @@ from helix_ids.governance.determinism import seed_worker, set_global_determinism
 from helix_ids.governance.parameters import DEFAULT_GOVERNANCE_POLICY
 from helix_ids.governance.promotion import SeedRunSummary, aggregate_seed_runs
 from helix_ids.governance.run_registry import RunRegistry
-from helix_ids.data.feature_harmonization import normalize_per_dataset  # noqa: E402
 from helix_ids.utils.metrics import (
     compute_binary_f1,
     compute_classification_report,
@@ -261,8 +259,6 @@ class SafeDataLoader:
     }
 
     def __init__(self):
-        self.nsl_scaler = None
-        self.unsw_scaler = None
         self.protocol_encoder = LabelEncoder()
         self.flag_encoder = LabelEncoder()
 
@@ -334,18 +330,34 @@ class SafeDataLoader:
         logger.info(f"  Class distribution: {dict(Counter(y))}")
         return X, y
 
+    def _pad_to_dim(self, X: np.ndarray, target_dim: int) -> np.ndarray:
+        """Pad feature matrix with zeros to target_dim without truncating columns."""
+        if X.ndim != 2:
+            raise ValueError(f"Expected 2D features, got shape {X.shape}")
+        if X.shape[1] > target_dim:
+            raise ValueError(
+                f"Cannot pad to smaller dimension: current={X.shape[1]}, target={target_dim}"
+            )
+        if X.shape[1] == target_dim:
+            return X
+        pad_width = target_dim - X.shape[1]
+        return np.pad(X, ((0, 0), (0, pad_width)), mode="constant", constant_values=0.0)
+
     def align_features(self, x_nsl, x_unsw):
         """
         Align both datasets to same feature count.
 
-        FIX: Instead of blindly slicing columns, we pad/truncate to match
-        the minimum common dimension and document the alignment.
+        FIX: Preserve richer feature space by padding to the maximum dimension.
+        We do not truncate UNSW/NSL columns to the minimum dimension.
         """
-        n_features = min(x_nsl.shape[1], x_unsw.shape[1])
+        n_features = max(x_nsl.shape[1], x_unsw.shape[1])
         logger.info(
-            f"  Aligning to {n_features} features (NSL: {x_nsl.shape[1]}, UNSW: {x_unsw.shape[1]})"
+            "  Aligning with zero-padding to %d features (NSL: %d, UNSW: %d)",
+            n_features,
+            x_nsl.shape[1],
+            x_unsw.shape[1],
         )
-        return x_nsl[:, :n_features], x_unsw[:, :n_features], n_features
+        return self._pad_to_dim(x_nsl, n_features), self._pad_to_dim(x_unsw, n_features), n_features
 
     def prepare_data(self, data_dir):
         """
@@ -362,51 +374,65 @@ class SafeDataLoader:
         x_unsw_train, y_unsw_train = self.load_unsw_nb15(data_dir / "unsw_nb15" / "train.csv")
         x_unsw_test, y_unsw_test = self.load_unsw_nb15(data_dir / "unsw_nb15" / "test.csv")
 
+        nsl_train_classes = np.unique(y_nsl_train)
+        nsl_test_classes = np.unique(y_nsl_test)
+        unsw_train_classes = np.unique(y_unsw_train)
+
+        use_nsl_train = len(nsl_train_classes) > 1
+        use_nsl_eval = len(nsl_test_classes) > 1
+
+        if not use_nsl_train:
+            logger.warning(
+                "NSL-KDD train is single-class (%s); excluding NSL from training.",
+                nsl_train_classes.tolist(),
+            )
+        if not use_nsl_eval:
+            logger.warning(
+                "NSL-KDD test is single-class (%s); skipping NSL evaluation to avoid misleading metrics.",
+                nsl_test_classes.tolist(),
+            )
+
+        if len(unsw_train_classes) <= 1:
+            raise AssertionError(f"UNSW train is single-class: {unsw_train_classes.tolist()}")
+
         # Align features
         x_nsl_train, x_unsw_train, n_features = self.align_features(x_nsl_train, x_unsw_train)
-        x_nsl_test = x_nsl_test[:, :n_features]
-        x_unsw_test = x_unsw_test[:, :n_features]
+        x_nsl_test = self._pad_to_dim(x_nsl_test, n_features)
+        x_unsw_test = self._pad_to_dim(x_unsw_test, n_features)
 
         # Replace inf/nan
         for arr in [x_nsl_train, x_nsl_test, x_unsw_train, x_unsw_test]:
             arr[np.isinf(arr)] = 0
             arr[np.isnan(arr)] = 0
 
-        # FIT SCALERS ONLY ON TRAINING DATA
-        self.nsl_scaler = StandardScaler()
-        self.unsw_scaler = StandardScaler()
+        # Combine train data without additional feature scaling.
+        if use_nsl_train:
+            X_train = np.vstack([x_nsl_train, x_unsw_train])
+            y_train = np.hstack([y_nsl_train, y_unsw_train])
+        else:
+            X_train = x_unsw_train
+            y_train = y_unsw_train
 
-        x_nsl_train_scaled = self.nsl_scaler.fit_transform(x_nsl_train)
-        x_nsl_test_scaled = self.nsl_scaler.transform(x_nsl_test)
+        expected_feature_dim = n_features
+        assert X_train.shape[1] == expected_feature_dim, (
+            f"Unexpected feature dimension: {X_train.shape[1]} != {expected_feature_dim}"
+        )
 
-        x_unsw_train_scaled = self.unsw_scaler.fit_transform(x_unsw_train)
-        x_unsw_test_scaled = self.unsw_scaler.transform(x_unsw_test)
+        unique_train_classes = np.unique(y_train)
+        assert len(unique_train_classes) >= 3, (
+            f"Training set lacks class diversity: classes={unique_train_classes.tolist()}"
+        )
 
-        # APPLY PER-DATASET NORMALIZATION + CLIPPING (CRITICAL: before combining)
-        # NSL-KDD dataset normalization
-        x_nsl_train_tensor = torch.from_numpy(x_nsl_train_scaled).float()
-        x_nsl_train_tensor = normalize_per_dataset(x_nsl_train_tensor)
-        x_nsl_train_scaled = x_nsl_train_tensor.numpy().astype(np.float32)
-
-        x_nsl_test_tensor = torch.from_numpy(x_nsl_test_scaled).float()
-        x_nsl_test_tensor = normalize_per_dataset(x_nsl_test_tensor)
-        x_nsl_test_scaled = x_nsl_test_tensor.numpy().astype(np.float32)
-
-        # UNSW-NB15 dataset normalization
-        x_unsw_train_tensor = torch.from_numpy(x_unsw_train_scaled).float()
-        x_unsw_train_tensor = normalize_per_dataset(x_unsw_train_tensor)
-        x_unsw_train_scaled = x_unsw_train_tensor.numpy().astype(np.float32)
-
-        x_unsw_test_tensor = torch.from_numpy(x_unsw_test_scaled).float()
-        x_unsw_test_tensor = normalize_per_dataset(x_unsw_test_tensor)
-        x_unsw_test_scaled = x_unsw_test_tensor.numpy().astype(np.float32)
-
-        # Combine SCALED + NORMALIZED training data
-        X_train = np.vstack([x_nsl_train_scaled, x_unsw_train_scaled])
-        y_train = np.hstack([y_nsl_train, y_unsw_train])
+        class_dist = Counter(y_train)
+        imbalance_ratio = max(class_dist.values()) / min(class_dist.values())
+        assert imbalance_ratio < 50, (
+            f"Class imbalance too high: ratio={imbalance_ratio:.2f}, dist={dict(class_dist)}"
+        )
 
         logger.info(f"\n  Combined training: {X_train.shape}")
         logger.info(f"  Combined class dist: {dict(Counter(y_train))}")
+        logger.info(f"  NSL used in training: {use_nsl_train}")
+        logger.info(f"  NSL used in evaluation: {use_nsl_eval}")
 
         # Compute class weights for focal loss
         class_weights = compute_class_weights(y_train, num_classes=5)
@@ -415,14 +441,14 @@ class SafeDataLoader:
         return {
             "X_train": X_train,
             "y_train": y_train,
-            "X_nsl_test": x_nsl_test_scaled,
+            "X_nsl_test": x_nsl_test,
             "y_nsl_test": y_nsl_test,
-            "X_unsw_test": x_unsw_test_scaled,
+            "X_unsw_test": x_unsw_test,
             "y_unsw_test": y_unsw_test,
             "n_features": n_features,
             "class_weights": class_weights,
-            "nsl_scaler": self.nsl_scaler,
-            "unsw_scaler": self.unsw_scaler,
+            "use_nsl_train": use_nsl_train,
+            "use_nsl_eval": use_nsl_eval,
         }
 
 
@@ -687,6 +713,26 @@ def evaluate_model(model, test_loader, device, dataset_name="", class_names=None
     }
 
 
+def skipped_metrics(reason: str, class_names=None):
+    """Create a metrics payload for intentionally skipped evaluation."""
+    if class_names is None:
+        class_names = ["Normal", "DoS", "Probe", "R2L", "U2R"]
+    return {
+        "skipped": True,
+        "skip_reason": reason,
+        "accuracy": 0.0,
+        "f1_macro": 0.0,
+        "f1_weighted": 0.0,
+        "f1_per_class": dict.fromkeys(class_names, 0.0),
+        "classification_report": {},
+        "confusion_matrix": [],
+        "ci95_lower": 0.0,
+        "ci95_upper": 0.0,
+        "ci95_width": 0.0,
+        "dataset_identity_balanced_accuracy": 0.0,
+    }
+
+
 # ==================== MAIN PIPELINE ====================
 
 
@@ -731,9 +777,11 @@ def main():
 
     train_ds = TensorDataset(torch.FloatTensor(x_train_split), torch.LongTensor(y_train_split))
     val_ds = TensorDataset(torch.FloatTensor(x_val), torch.LongTensor(y_val))
-    nsl_test_ds = TensorDataset(
-        torch.FloatTensor(data["X_nsl_test"]), torch.LongTensor(data["y_nsl_test"])
-    )
+    nsl_test_ds = None
+    if data.get("use_nsl_eval", True):
+        nsl_test_ds = TensorDataset(
+            torch.FloatTensor(data["X_nsl_test"]), torch.LongTensor(data["y_nsl_test"])
+        )
     unsw_test_ds = TensorDataset(
         torch.FloatTensor(data["X_unsw_test"]), torch.LongTensor(data["y_unsw_test"])
     )
@@ -754,13 +802,15 @@ def main():
         worker_init_fn=seed_worker,
         generator=loader_generator,
     )
-    nsl_test_loader = DataLoader(
-        nsl_test_ds,
-        batch_size=256,
-        num_workers=0,
-        worker_init_fn=seed_worker,
-        generator=loader_generator,
-    )
+    nsl_test_loader = None
+    if nsl_test_ds is not None:
+        nsl_test_loader = DataLoader(
+            nsl_test_ds,
+            batch_size=256,
+            num_workers=0,
+            worker_init_fn=seed_worker,
+            generator=loader_generator,
+        )
     unsw_test_loader = DataLoader(
         unsw_test_ds,
         batch_size=256,
@@ -787,6 +837,7 @@ def main():
     ci_widths: list[float] = []
     ci_lowers: list[float] = []
     macro_values: list[float] = []
+    dataset_identity_balanced_acc_values: list[float] = []
 
     pretrain_elapsed = max(0.001, time.perf_counter() - pretrain_start)
 
@@ -812,7 +863,11 @@ def main():
         logger.info(f"\nBest validation F1 (macro): {best_f1:.4f}")
 
         # Evaluate on both test sets
-        nsl_metrics = evaluate_model(model, nsl_test_loader, DEVICE, f"{platform} on NSL-KDD")
+        if nsl_test_loader is not None:
+            nsl_metrics = evaluate_model(model, nsl_test_loader, DEVICE, f"{platform} on NSL-KDD")
+        else:
+            nsl_metrics = skipped_metrics("NSL-KDD test is single-class; evaluation skipped.")
+            logger.warning("Skipping NSL-KDD evaluation for %s due to single-class test set.", platform)
         unsw_metrics = evaluate_model(model, unsw_test_loader, DEVICE, f"{platform} on UNSW-NB15")
 
         # Per-class threshold tuning
@@ -829,10 +884,6 @@ def main():
         platform_dir.mkdir(parents=True, exist_ok=True)
 
         torch.save(model.state_dict(), platform_dir / "model_v2.pt")
-        with open(platform_dir / "nsl_scaler.pkl", "wb") as f:
-            pickle.dump(data["nsl_scaler"], f)
-        with open(platform_dir / "unsw_scaler.pkl", "wb") as f:
-            pickle.dump(data["unsw_scaler"], f)
         with open(platform_dir / "thresholds.json", "w") as f:
             json.dump(thresholds, f, indent=2)
 
@@ -866,6 +917,9 @@ def main():
                 float(eval_metrics.get("ci95_lower", eval_metrics.get("f1_macro", 0.0)))
             )
             macro_values.append(float(eval_metrics.get("f1_macro", 0.0)))
+            dataset_identity_balanced_acc_values.append(
+                float(eval_metrics.get("dataset_identity_balanced_accuracy", 0.0))
+            )
 
     # Save combined results
     posteval_start = time.perf_counter()
@@ -944,7 +998,7 @@ def main():
         },
         "pretrain": {
             "pretrain_elapsed_seconds": pretrain_elapsed,
-            "family_class_weight_min": float(min(class_weights.values())),
+            "family_class_weight_min": float(min(class_weights)),
             "binary_class_weight_min": 1.0,
         },
         "intrain": {
@@ -955,6 +1009,11 @@ def main():
         },
         "posteval": {
             "posteval_elapsed_seconds": max(0.001, time.perf_counter() - posteval_start),
+            "dataset_identity_balanced_accuracy": (
+                max(dataset_identity_balanced_acc_values)
+                if dataset_identity_balanced_acc_values
+                else 0.0
+            ),
             "macro_f1_ci_width": max_ci_width,
             "macro_f1_ci_lower": min_ci_lower,
             "abs_macro_f1_drift": drift,

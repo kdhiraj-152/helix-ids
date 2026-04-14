@@ -26,9 +26,9 @@ class TestClassMetrics:
         )
         result = metrics.to_dict()
 
-        assert result["precision"] == 0.95
-        assert result["recall"] == 0.92
-        assert result["f1"] == 0.93
+        assert result["precision"] == pytest.approx(0.95)
+        assert result["recall"] == pytest.approx(0.92)
+        assert result["f1"] == pytest.approx(0.93)
         assert result["support"] == 100
         assert "auc_roc" not in result
 
@@ -43,7 +43,7 @@ class TestClassMetrics:
         )
         result = metrics.to_dict()
 
-        assert result["auc_roc"] == 0.98
+        assert result["auc_roc"] == pytest.approx(0.98)
         assert "auc_roc" in result
 
 
@@ -82,13 +82,13 @@ class TestPerClassMetrics:
 
         result = pcm.compute(y_true, y_pred)
 
-        assert result.macro_f1 == 1.0
-        assert result.weighted_f1 == 1.0
+        assert result.macro_f1 == pytest.approx(1.0)
+        assert result.weighted_f1 == pytest.approx(1.0)
 
         for class_name in pcm.class_names:
-            assert result.per_class[class_name].f1 == 1.0
-            assert result.per_class[class_name].precision == 1.0
-            assert result.per_class[class_name].recall == 1.0
+            assert result.per_class[class_name].f1 == pytest.approx(1.0)
+            assert result.per_class[class_name].precision == pytest.approx(1.0)
+            assert result.per_class[class_name].recall == pytest.approx(1.0)
 
     def test_compute_with_some_errors(self, pcm):
         """Test with some prediction errors."""
@@ -143,7 +143,8 @@ class TestPerClassMetrics:
         y_pred = np.array([0, 0, 1, 1, 1, 0, 2, 2, 1])
 
         # Create fake probability predictions
-        y_proba = np.random.dirichlet([1, 1, 1, 1, 1], size=len(y_true))
+        rng = np.random.default_rng(seed=42)
+        y_proba = rng.dirichlet([1, 1, 1, 1, 1], size=len(y_true))
 
         result = pcm.compute(y_true, y_pred, y_proba=y_proba)
 
@@ -191,11 +192,11 @@ class TestPerClassMetricsResult:
 
         data = result.to_dict()
 
-        assert data["macro_f1"] == 0.965
-        assert data["weighted_f1"] == 0.970
+        assert data["macro_f1"] == pytest.approx(0.965)
+        assert data["weighted_f1"] == pytest.approx(0.970)
         assert "Normal" in data["per_class"]
         assert "DoS" in data["per_class"]
-        assert data["per_class"]["Normal"]["f1"] == 0.985
+        assert data["per_class"]["Normal"]["f1"] == pytest.approx(0.985)
 
 
 class TestReporting:
@@ -264,7 +265,7 @@ class TestEdgeCases:
         result = pcm.compute(y_true, y_pred)
 
         # Class 0 should have perfect score
-        assert result.per_class["Normal"].f1 == 1.0
+        assert result.per_class["Normal"].f1 == pytest.approx(1.0)
         # Other classes should have 0 support
         assert result.per_class["DoS"].support == 0
 
@@ -276,4 +277,4 @@ class TestEdgeCases:
 
         result = pcm.compute(y_true, y_pred)
 
-        assert result.macro_f1 == 1.0
+        assert result.macro_f1 == pytest.approx(1.0)

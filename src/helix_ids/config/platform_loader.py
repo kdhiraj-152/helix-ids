@@ -1,10 +1,11 @@
 """Platform-specific configuration loader for HELIX-IDS."""
 
+import importlib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-import yaml
+yaml = importlib.import_module("yaml")
 
 
 @dataclass

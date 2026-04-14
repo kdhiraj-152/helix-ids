@@ -34,11 +34,11 @@ def main():
     from helix_ids.data.feature_harmonization import UNSW_TO_7CLASS
 
     if "Backdoors" in UNSW_TO_7CLASS:
-        logger.info(f"✅ PASS: 'Backdoors' (plural) found in UNSW_TO_7CLASS")
+        logger.info("✅ PASS: 'Backdoors' (plural) found in UNSW_TO_7CLASS")
         logger.info(f"   Mapping: {UNSW_TO_7CLASS['Backdoors']} (expected 6)")
         assert UNSW_TO_7CLASS["Backdoors"] == 6, "Backdoors should map to class 6"
     else:
-        logger.error(f"❌ FAIL: 'Backdoors' (plural) NOT in UNSW_TO_7CLASS")
+        logger.error("❌ FAIL: 'Backdoors' (plural) NOT in UNSW_TO_7CLASS")
         logger.error(f"   Available keys: {list(UNSW_TO_7CLASS.keys())}")
         return False
 
@@ -50,7 +50,7 @@ def main():
         loader = MultiDatasetLoader(project_root=str(project_root))
 
         nsl_kdd, unsw, cicids = loader.load_and_harmonize_all()
-        logger.info(f"✅ PASS: Datasets loaded successfully")
+        logger.info("✅ PASS: Datasets loaded successfully")
         logger.info(f"   NSL-KDD: {nsl_kdd.shape}, labels: {sorted(nsl_kdd['label'].unique())}")
         logger.info(f"   UNSW-NB15: {unsw.shape}, labels: {sorted(unsw['label'].unique())}")
         if cicids is not None:
@@ -67,7 +67,7 @@ def main():
     try:
         dfs = [nsl_kdd, unsw, cicids] if cicids is not None else [nsl_kdd, unsw]
         splits = loader.create_splits(dfs)
-        logger.info(f"✅ PASS: Splits created successfully")
+        logger.info("✅ PASS: Splits created successfully")
     except Exception as e:
         logger.error(f"❌ FAIL: Error creating splits: {e}")
         import traceback

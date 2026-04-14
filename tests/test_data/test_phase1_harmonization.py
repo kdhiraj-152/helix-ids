@@ -228,24 +228,10 @@ class TestFeatureHarmonization:
         assert np.isfinite(harmonized[COMMON_FEATURES].to_numpy()).all()
         self._assert_invariant_feature_bounds(harmonized[COMMON_FEATURES])
 
-    def test_normalize_per_dataset_uses_dataset_specific_scalers(self):
-        """Fitting one dataset must not force another dataset's scaling contract."""
+    def test_loader_exposes_no_normalization_surface(self):
+        """Loader must not expose dataset transformation APIs."""
         loader = MultiDatasetLoader()
-
-        df_nsl = pd.DataFrame({feat: np.array([0.0, 1.0, 2.0]) for feat in COMMON_FEATURES})
-        df_nsl["label"] = [0, 1, 0]
-
-        df_unsw = pd.DataFrame({feat: np.array([100.0, 101.0, 102.0]) for feat in COMMON_FEATURES})
-        df_unsw["label"] = [1, 1, 0]
-
-        nsl_scaled = loader.normalize_per_dataset(df_nsl, dataset_code=0, fit=True)
-        unsw_scaled = loader.normalize_per_dataset(df_unsw, dataset_code=1, fit=True)
-
-        for feat in COMMON_FEATURES:
-            assert nsl_scaled[feat].min() >= -1e-6
-            assert nsl_scaled[feat].max() <= 1.0 + 1e-6
-            assert unsw_scaled[feat].min() >= -1e-6
-            assert unsw_scaled[feat].max() <= 1.0 + 1e-6
+        assert not hasattr(loader, "normalize_per_dataset")
 
 
 class TestMultiDatasetLoader:
@@ -291,24 +277,22 @@ class TestMultiDatasetLoader:
         except FileNotFoundError:
             pytest.skip("NSL-KDD not found")
     
-    def test_normalize_per_dataset(self):
-        """Test per-dataset normalization."""
+    def test_create_splits_preserves_unscaled_feature_range(self):
+        """Split creation should not normalize features in-loader."""
         rng = np.random.default_rng(42)
         df = pd.DataFrame({
             feat: rng.uniform(0, 100, 100)
             for feat in COMMON_FEATURES
         })
         df["label"] = rng.integers(0, 7, 100)
-        
+
         loader = MultiDatasetLoader()
-        df_norm = loader.normalize_per_dataset(df, dataset_code=0, fit=True)
-        
-        # Check normalization worked
-        for feat in COMMON_FEATURES:
-            assert df_norm[feat].min() >= -0.01  # Small tolerance for floating point
-            assert df_norm[feat].max() <= 1.01
-        
-        print("✅ Normalization verified")
+        splits = loader.create_splits([df])
+
+        train_x = splits["X_train"]
+        assert train_x.shape[1] == len(INVARIANT_FEATURES)
+        assert np.isfinite(train_x).all()
+        assert float(train_x.max()) > 1.0
     
     def test_create_splits(self):
         """Test split creation."""

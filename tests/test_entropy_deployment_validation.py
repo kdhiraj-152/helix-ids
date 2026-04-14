@@ -132,7 +132,8 @@ class TestSingleClassDominance:
         logits[:, 0] = 5.0
         logits[:, 1] = 4.0
         # Randomly choose between class 0 and 1
-        rand_mask = np.random.rand(batch_size) > 0.5
+        rng = np.random.default_rng(seed=42)
+        rand_mask = rng.random(batch_size) > 0.5
         logits[rand_mask, 0] = -10.0
         logits[rand_mask, 1] = 5.0
         
@@ -253,7 +254,7 @@ class TestRealTrainingTrace:
         assert summary_large_t1p2.mean > summary_large_t1.mean, \
             "Temperature should increase entropy for large logits"
         
-        logger.info(f"✓ Temperature scaling validated:")
+        logger.info("✓ Temperature scaling validated:")
         logger.info(f"  Small logits: {summary_small_t1.mean:.4f} → {summary_small_t1p2.mean:.4f}")
         logger.info(f"  Large logits: {summary_large_t1.mean:.4f} → {summary_large_t1p2.mean:.4f}")
 
@@ -299,7 +300,7 @@ class TestSeedVarianceSensitivity:
         assert entropy_cv < 0.5, \
             f"Entropy too unstable under dropout (CV={entropy_cv:.4f})"
         
-        logger.info(f"✓ Dropout stability passed:")
+        logger.info("✓ Dropout stability passed:")
         logger.info(f"  Entropies: {entropy_array}")
         logger.info(f"  Mean: {np.mean(entropy_array):.4f}, Std: {entropy_std:.4f}, CV: {entropy_cv:.4f}")
     
@@ -321,7 +322,7 @@ class TestSeedVarianceSensitivity:
             summary = summarize_entropy(probs)
             predicted = np.argmax(probs, axis=1)
             
-            should_trigger, reason = should_trigger_entropy_guard(
+            should_trigger, _ = should_trigger_entropy_guard(
                 summary,
                 has_missing_classes=(len(np.unique(predicted)) < num_classes),
                 streak_count=1,
@@ -373,13 +374,13 @@ class TestDecisionReliability:
         summary_collapsed = summarize_entropy(probs_collapsed)
         classes_missing = len(np.unique(predicted_collapsed)) < num_classes
         
-        should_trigger_collapsed, reason = should_trigger_entropy_guard(
+        should_trigger_collapsed, _ = should_trigger_entropy_guard(
             summary_collapsed,
             has_missing_classes=classes_missing,
             streak_count=1,
         )
         
-        logger.info(f"✓ Decision reliability test:")
+        logger.info("✓ Decision reliability test:")
         logger.info(f"  Case 1 (diverse): entropy={summary_diverse.mean:.4f}, "
                    f"all_classes={all_classes_present}, trigger={should_trigger_diverse}")
         logger.info(f"  Case 2 (collapsed): entropy={summary_collapsed.mean:.4f}, "

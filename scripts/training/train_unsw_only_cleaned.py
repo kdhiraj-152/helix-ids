@@ -13,7 +13,6 @@ from datetime import datetime
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 import torch
 import torch.optim as optim
 from sklearn.model_selection import train_test_split
@@ -40,39 +39,26 @@ def load_unsw_split(loader: MultiDatasetLoader):
     unsw = loader.harmonize_unsw(unsw_raw)
 
     y = unsw["label"].values
-    X = unsw.drop(columns=["label"]).values
-    feat_cols = unsw.drop(columns=["label"]).columns
+    x = unsw.drop(columns=["label"]).values
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X,
+    x_train, x_test, y_train, y_test = train_test_split(
+        x,
         y,
         test_size=0.15,
         random_state=loader.random_state,
         stratify=loader._safe_stratify(y, "unsw-train-test"),
     )
 
-    X_train = loader.normalize_per_dataset(
-        pd.DataFrame(X_train, columns=feat_cols),
-        dataset_code=1,
-        fit=True,
-    ).values
-
-    X_test = loader.normalize_per_dataset(
-        pd.DataFrame(X_test, columns=feat_cols),
-        dataset_code=1,
-        fit=False,
-    ).values
-
     val_ratio = 0.15 / (1 - 0.15)
-    X_train, X_val, y_train, y_val = train_test_split(
-        X_train,
+    x_train, x_val, y_train, y_val = train_test_split(
+        x_train,
         y_train,
         test_size=val_ratio,
         random_state=loader.random_state,
         stratify=loader._safe_stratify(y_train, "unsw-train-val"),
     )
 
-    return X_train, y_train, X_val, y_val, X_test, y_test
+    return x_train, y_train, x_val, y_val, x_test, y_test
 
 
 def load_flagged_indices(mode: str):
@@ -113,26 +99,26 @@ def main():
 
     logger.info("Loading UNSW splits and anomaly indices...")
     loader = MultiDatasetLoader(project_root=PROJECT_ROOT)
-    X_train, y_train, X_val, y_val, X_test, y_test = load_unsw_split(loader)
+    x_train, y_train, x_val, y_val, x_test, y_test = load_unsw_split(loader)
 
     flagged_idx, flagged_meta = load_flagged_indices(args.anomaly_mode)
-    valid_mask = (flagged_idx >= 0) & (flagged_idx < len(X_train))
+    valid_mask = (flagged_idx >= 0) & (flagged_idx < len(x_train))
     flagged_idx = flagged_idx[valid_mask]
 
-    keep_mask = np.ones(len(X_train), dtype=bool)
+    keep_mask = np.ones(len(x_train), dtype=bool)
     keep_mask[flagged_idx] = False
 
-    X_train_clean = X_train[keep_mask]
+    x_train_clean = x_train[keep_mask]
     y_train_clean = y_train[keep_mask]
 
     logger.info(
         "UNSW clean split: train %s -> %s (removed %s / %.2f%%), val %s, test %s",
-        f"{len(X_train):,}",
-        f"{len(X_train_clean):,}",
+        f"{len(x_train):,}",
+        f"{len(x_train_clean):,}",
         f"{len(flagged_idx):,}",
-        (len(flagged_idx) / len(X_train)) * 100,
-        f"{len(X_val):,}",
-        f"{len(X_test):,}",
+        (len(flagged_idx) / len(x_train)) * 100,
+        f"{len(x_val):,}",
+        f"{len(x_test):,}",
     )
     logger.info("Anomaly mode: %s | %s", args.anomaly_mode, flagged_meta.get("description", ""))
 
@@ -144,17 +130,17 @@ def main():
     logger.info("Family distribution - Train: %s", np.bincount(y_train_fam).tolist())
 
     train_dataset = TensorDataset(
-        torch.from_numpy(X_train_clean).float(),
+        torch.from_numpy(x_train_clean).float(),
         torch.from_numpy(y_train_bin).long(),
         torch.from_numpy(y_train_fam).long(),
     )
     val_dataset = TensorDataset(
-        torch.from_numpy(X_val).float(),
+        torch.from_numpy(x_val).float(),
         torch.from_numpy(y_val_bin).long(),
         torch.from_numpy(y_val_fam).long(),
     )
     test_dataset = TensorDataset(
-        torch.from_numpy(X_test).float(),
+        torch.from_numpy(x_test).float(),
         torch.from_numpy(y_test_bin).long(),
         torch.from_numpy(y_test_fam).long(),
     )
@@ -239,12 +225,12 @@ def main():
             "anomaly_mode": args.anomaly_mode,
         },
         "dataset": {
-            "train_original": int(len(X_train)),
-            "train_cleaned": int(len(X_train_clean)),
+            "train_original": int(len(x_train)),
+            "train_cleaned": int(len(x_train_clean)),
             "removed": int(len(flagged_idx)),
-            "removed_pct": float((len(flagged_idx) / len(X_train)) * 100),
-            "val": int(len(X_val)),
-            "test": int(len(X_test)),
+            "removed_pct": float((len(flagged_idx) / len(x_train)) * 100),
+            "val": int(len(x_val)),
+            "test": int(len(x_test)),
         },
         "results": {
             "best_val_loss": float(results["best_val_loss"]),

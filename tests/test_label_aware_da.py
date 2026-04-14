@@ -22,7 +22,7 @@ class TestPartialTransferReweighter:
         """Test reweighter initialization."""
         reweighter = PartialTransferReweighter(num_classes=5, reweight_coeff=0.5)
         assert reweighter.num_classes == 5
-        assert reweighter.reweight_coeff == 0.5
+        assert reweighter.reweight_coeff == pytest.approx(0.5)
         assert reweighter.target_class_dist.shape == (5,)
 
     def test_update_target_distribution(self):
@@ -133,7 +133,7 @@ class TestClassConditionalMMDLoss:
         source_labels = torch.zeros(20, dtype=torch.long)
         target_labels = torch.zeros(15, dtype=torch.long)
 
-        loss, loss_dict = mmd(source_feats, target_feats, source_labels, target_labels)
+        loss, _ = mmd(source_feats, target_feats, source_labels, target_labels)
 
         assert loss.item() >= 0
         assert "total" in loss_dict
@@ -161,7 +161,6 @@ class TestClassConditionalMMDLoss:
         )
 
         loss, loss_dict = mmd(source_feats, target_feats, source_labels, target_labels)
-
         assert loss.item() >= 0
         assert "total" in loss_dict
         # Should have losses for classes that appear in both domains
@@ -177,10 +176,10 @@ class TestClassConditionalMMDLoss:
         source_labels = torch.zeros(10, dtype=torch.long)
         target_labels = torch.ones(10, dtype=torch.long)  # Different class
 
-        loss, loss_dict = mmd(source_feats, target_feats, source_labels, target_labels)
+        loss, _ = mmd(source_feats, target_feats, source_labels, target_labels)
 
         # Should return 0 loss when no shared classes
-        assert loss.item() == 0.0
+        assert loss.item() == pytest.approx(0.0, abs=1e-9)
 
 
 class TestLabelAwareDANN:
@@ -276,8 +275,8 @@ class TestLabelAwareDALoss:
     def test_initialization(self):
         """Test loss function initialization."""
         loss_fn = LabelAwareDALoss(adversarial_weight=1.0, mmd_weight=0.5)
-        assert loss_fn.adversarial_weight == 1.0
-        assert loss_fn.mmd_weight == 0.5
+        assert loss_fn.adversarial_weight == pytest.approx(1.0)
+        assert loss_fn.mmd_weight == pytest.approx(0.5)
 
     def test_forward(self):
         """Test loss computation."""
@@ -301,7 +300,7 @@ class TestLabelAwareDALoss:
         assert "mmd_loss" in loss_dict
         assert "coral_loss" in loss_dict
         assert "adaptation_loss" in loss_dict
-        assert loss_dict["lambda"] == 0.5
+        assert loss_dict["lambda"] == pytest.approx(0.5)
 
 
 class TestFactoryFunction:
@@ -318,7 +317,7 @@ class TestFactoryFunction:
         assert isinstance(model, LabelAwareDANN)
         assert model.config.input_dim == 41
         assert model.config.num_classes == 5
-        assert model.config.lambda_max == 1.0
+        assert model.config.lambda_max == pytest.approx(1.0)
 
         # Test with custom configuration
         model2 = create_label_aware_dann(
@@ -339,7 +338,7 @@ class TestIntegration:
         """Test a complete training step."""
         model = create_label_aware_dann()
         loss_fn = LabelAwareDALoss(adversarial_weight=1.0, mmd_weight=0.5)
-        optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=0.0)
 
         # Simulate training data
         x_source = torch.randn(32, 41)
@@ -357,7 +356,7 @@ class TestIntegration:
         )
 
         # Compute loss
-        adaptation_loss, loss_dict = loss_fn(outputs)
+        adaptation_loss, _ = loss_fn(outputs)
 
         # Task loss (separate)
         task_loss = F.cross_entropy(outputs["class_logits"], y_labels)

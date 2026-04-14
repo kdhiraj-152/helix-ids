@@ -102,8 +102,9 @@ class TestPerClassThresholdTuning:
     def test_threshold_range(self):
         """Thresholds should be between 0 and 1."""
         # Simulate tuning
-        probs = np.random.dirichlet([1]*5, size=100)
-        targets = np.random.randint(0, 5, size=100)
+        rng = np.random.default_rng(seed=42)
+        probs = rng.dirichlet([1]*5, size=100)
+        targets = rng.integers(0, 5, size=100)
         
         from sklearn.metrics import f1_score
         
@@ -126,7 +127,8 @@ class TestPerClassThresholdTuning:
         """Tuned thresholds should be >= default 0.5 threshold F1."""
         # Create data where class 4 has very low probability
         np.random.seed(42)
-        probs = np.random.dirichlet([10, 5, 3, 1, 0.5], size=200)
+        rng = np.random.default_rng(seed=42)
+        probs = rng.dirichlet([10, 5, 3, 1, 0.5], size=200)
         targets = np.array([0]*100 + [1]*50 + [2]*30 + [3]*15 + [4]*5)
         
         from sklearn.metrics import f1_score
@@ -177,7 +179,7 @@ class TestFiveClassEvaluation:
         
         f1_per_class = f1_score(y_true, y_pred, average=None, labels=[0, 1, 2, 3, 4], zero_division=0)
         
-        assert f1_per_class[4] == 0.0  # U2R not detected
+        assert f1_per_class[4] == pytest.approx(0.0, abs=1e-9)  # U2R not detected
         assert f1_per_class[0] > 0.9   # Normal well detected
 
     def test_binary_vs_5class_gap(self):

@@ -294,7 +294,7 @@ class TestDataSplits:
         # Get total count
         train_path = nsl_kdd_data_path / "train.csv"
         df = pd.read_csv(train_path)
-        total = len(df)
+        _ = len(df)
         
         if isinstance(indices, dict):
             train_count = len(indices.get("train", []))
@@ -385,7 +385,7 @@ class TestUnifiedDataLoader:
             from src.helix_ids.data.unified_loader import UnifiedDataLoader
             loader = UnifiedDataLoader(data_dir=str(project_root / "data"))
             assert loader is not None
-        except (ImportError, Exception) as e:
+        except ImportError as e:
             pytest.skip(f"Could not instantiate UnifiedDataLoader: {e}")
 
     def test_list_available_datasets(self):
@@ -396,7 +396,7 @@ class TestUnifiedDataLoader:
             from src.helix_ids.data.unified_loader import list_available_datasets
             datasets = list_available_datasets()
             assert isinstance(datasets, dict)
-        except (ImportError, Exception) as e:
+        except ImportError as e:
             pytest.skip(f"Could not list datasets: {e}")
 
     def test_load_nsl_kdd_via_loader(self, project_root):
@@ -412,7 +412,7 @@ class TestUnifiedDataLoader:
             assert y is not None
             assert len(X) == len(y)
             assert len(X) > 0
-        except (ImportError, FileNotFoundError, Exception) as e:
+        except (ImportError, FileNotFoundError) as e:
             pytest.skip(f"Could not load NSL-KDD: {e}")
 
     def test_load_unsw_via_loader(self, project_root):
@@ -428,7 +428,7 @@ class TestUnifiedDataLoader:
             assert y is not None
             assert len(X) == len(y)
             assert len(X) > 0
-        except (ImportError, FileNotFoundError, Exception) as e:
+        except (ImportError, FileNotFoundError) as e:
             pytest.skip(f"Could not load UNSW-NB15: {e}")
 
 
@@ -532,9 +532,8 @@ class TestDataLoadingEdgeCases:
         
         # Should still load (pandas is forgiving) or raise specific error
         try:
-            df = pd.read_csv(corrupted_path, on_bad_lines='skip')
-            # May load partially
-            assert df is not None
+            _ = pd.read_csv(corrupted_path, on_bad_lines='skip')
+            # May load partially (df successfully loaded)
         except pd.errors.ParserError:
             pass  # Expected for some corrupted files
 

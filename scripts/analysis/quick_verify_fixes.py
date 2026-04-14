@@ -18,7 +18,7 @@ print("=" * 80)
 print("\n[TEST 1] Checking UNSW label mapping fix...")
 from helix_ids.data.feature_harmonization import UNSW_TO_7CLASS
 
-print(f"Current UNSW_TO_7CLASS mapping:")
+print("Current UNSW_TO_7CLASS mapping:")
 for label, class_id in sorted(UNSW_TO_7CLASS.items()):
     print(f"  '{label}' → class {class_id}")
 

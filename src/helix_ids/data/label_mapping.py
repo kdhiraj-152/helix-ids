@@ -66,7 +66,7 @@ def map_labels(
 
 def encode_labels(
     y: np.ndarray,
-    config: DatasetConfig,
+    _config: DatasetConfig,
     label_mode: str = "native",
     encoder: Optional[LabelEncoder] = None,
     fit_labels: Optional[np.ndarray] = None,
@@ -76,7 +76,7 @@ def encode_labels(
 
     Args:
         y: Mapped label array (output of :func:`map_labels`).
-        config: Dataset configuration.
+        _config: Dataset configuration retained for API compatibility.
         label_mode: ``"native"`` or ``"unified_5class"``.
         encoder: Existing :class:`LabelEncoder` to reuse (``transform`` only).
         fit_labels: If provided, fit a fresh encoder on these combined labels

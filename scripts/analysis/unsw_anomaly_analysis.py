@@ -48,36 +48,21 @@ def load_harmonized_unsw():
     loader = MultiDatasetLoader(project_root=PROJECT_ROOT)
     nsl_kdd, unsw, _ = loader.load_and_harmonize_all()
 
-    # Reproduce train/val/test logic from loader for UNSW with dataset-specific normalization.
+    # Reproduce train/val/test logic from loader for UNSW.
     y_unsw = unsw["label"].values
-    X_unsw = unsw.drop(columns=["label"]).values
-    feat_cols = unsw.drop(columns=["label"]).columns
+    x_unsw = unsw.drop(columns=["label"]).values
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X_unsw,
+    x_train, x_test, y_train, y_test = train_test_split(
+        x_unsw,
         y_unsw,
         test_size=0.15,
         random_state=loader.random_state,
         stratify=loader._safe_stratify(y_unsw, "unsw-train-test"),
     )
 
-    x_train_norm = loader.normalize_per_dataset(
-        pd.DataFrame(X_train, columns=feat_cols),
-        dataset_code=1,
-        fit=True,
-    )
-    X_train = x_train_norm.values
-
-    x_test_norm = loader.normalize_per_dataset(
-        pd.DataFrame(X_test, columns=feat_cols),
-        dataset_code=1,
-        fit=False,
-    )
-    X_test = x_test_norm.values
-
     val_ratio = 0.15 / (1 - 0.15)
-    X_train, X_val, y_train, y_val = train_test_split(
-        X_train,
+    x_train, x_val, y_train, y_val = train_test_split(
+        x_train,
         y_train,
         test_size=val_ratio,
         random_state=loader.random_state,
@@ -87,11 +72,11 @@ def load_harmonized_unsw():
     # Keep NSL labels for cross-dataset distribution checks.
     y_nsl = nsl_kdd["label"].values
 
-    print(f"✓ UNSW train set: {X_train.shape[0]:,} samples, {X_train.shape[1]} features")
-    print(f"✓ UNSW val set:   {X_val.shape[0]:,} samples, {X_val.shape[1]} features")
-    print(f"✓ UNSW test set:  {X_test.shape[0]:,} samples, {X_test.shape[1]} features")
+    print(f"✓ UNSW train set: {x_train.shape[0]:,} samples, {x_train.shape[1]} features")
+    print(f"✓ UNSW val set:   {x_val.shape[0]:,} samples, {x_val.shape[1]} features")
+    print(f"✓ UNSW test set:  {x_test.shape[0]:,} samples, {x_test.shape[1]} features")
 
-    return X_train, y_train, X_val, y_val, X_test, y_test, y_nsl
+    return x_train, y_train, x_val, y_val, x_test, y_test, y_nsl
 
 
 def compute_feature_statistics(data, feature_names):

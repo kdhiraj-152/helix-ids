@@ -14,8 +14,17 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import GroupShuffleSplit, train_test_split
-from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import MinMaxScaler
+
+from .learnability_contract import (
+    build_meta,
+    compute_contract_metrics,
+    compute_schema_hash,
+    compute_stage_diagnostics,
+    freeze_snapshot_if_valid,
+    load_reference_profile_bundle,
+    write_meta,
+    write_reference_profile,
+)
 
 from .feature_harmonization import (
     CICIDS2018_TO_7CLASS,
@@ -60,10 +69,6 @@ class MultiDatasetLoader:
         self.data_dir = self.project_root / "data"
         self.processed_dir = self.data_dir / "processed"
         self.random_state = random_state
-
-        # Split-aware preprocessing objects: fit on train only, apply everywhere.
-        self.imputer: Optional[SimpleImputer] = None
-        self.scaler: Optional[MinMaxScaler] = None
 
         logger.info(f"Initialized MultiDatasetLoader with project_root={self.project_root}")
 
@@ -351,36 +356,6 @@ class MultiDatasetLoader:
 
         return nsl_kdd, unsw, cicids
 
-    def normalize_per_dataset(
-        self, df: pd.DataFrame, dataset_code: int, fit: bool = True
-    ) -> pd.DataFrame:
-        """
-        Compatibility wrapper: normalize using train-only fitted imputer+scaler.
-
-        Args:
-            df: DataFrame with common features + label
-            dataset_code: 0=NSL-KDD, 1=UNSW, 2=CICIDS
-            fit: If True, fit scaler; if False, use existing scaler
-
-        Returns:
-            Normalized DataFrame
-        """
-        _ = dataset_code
-        df = df.copy()
-        feature_cols = [feature for feature in COMMON_FEATURES if feature in df.columns]
-
-        if fit or self.imputer is None or self.scaler is None:
-            self.imputer = SimpleImputer(strategy="median")
-            self.scaler = MinMaxScaler()
-            imputed = self.imputer.fit_transform(df[feature_cols])
-            scaled = self.scaler.fit_transform(imputed)
-            df[feature_cols] = scaled
-            return df
-
-        imputed = self.imputer.transform(df[feature_cols])
-        df[feature_cols] = self.scaler.transform(imputed)
-        return df
-
     def create_splits(  # NOSONAR
         self,
         dfs: list[pd.DataFrame],
@@ -508,29 +483,15 @@ class MultiDatasetLoader:
         if not train_blocks:
             raise ValueError("No training samples available after split construction")
 
-        x_train_raw_combined = np.vstack(train_blocks)
-        self.imputer = SimpleImputer(strategy="median")
-        x_train_imputed = self.imputer.fit_transform(x_train_raw_combined)
-        self.scaler = MinMaxScaler()
-        self.scaler.fit(x_train_imputed)
-        imputer = self.imputer
-        scaler = self.scaler
-        assert imputer is not None
-        assert scaler is not None
-
         def _transform(x_raw: np.ndarray) -> np.ndarray:
             if x_raw.size == 0:
                 return np.empty((0, len(selected_feature_columns)), dtype=np.float32)
-            transformed = scaler.transform(imputer.transform(x_raw))
-            # Keep all datasets on a comparable scale even when a dataset is fully held out.
-            out_of_range_ratio = float(np.mean((transformed < 0.0) | (transformed > 1.0)))
-            if out_of_range_ratio > 0:
-                logger.info(
-                    "Clipping transformed features to [0, 1] "
-                    f"(out_of_range_ratio={out_of_range_ratio:.4f})"
-                )
-            transformed = np.clip(transformed, 0.0, 1.0)
-            return np.asarray(transformed, dtype=np.float32)
+            return np.nan_to_num(
+                np.asarray(x_raw, dtype=np.float32),
+                nan=0.0,
+                posinf=0.0,
+                neginf=0.0,
+            )
 
         transformed_splits: dict[str, np.ndarray] = {}
         combined_train_x: list[np.ndarray] = []
@@ -546,6 +507,44 @@ class MultiDatasetLoader:
             y_train = parts["y_train"].astype(np.int64, copy=False)
             y_val = parts["y_val"].astype(np.int64, copy=False)
             y_test = parts["y_test"].astype(np.int64, copy=False)
+
+            if dataset_name == "unsw_nb15" and x_train.shape[0] > 0:
+                pre_transform = np.nan_to_num(
+                    np.asarray(parts["X_train"], dtype=np.float32),
+                    nan=0.0,
+                    posinf=0.0,
+                    neginf=0.0,
+                )
+                stage_snapshots = {
+                    "pre_transform": pre_transform,
+                    "split_then_nan_to_num": x_train,
+                }
+                stage_diag = compute_stage_diagnostics(
+                    stage_snapshots=stage_snapshots,
+                    y_train=y_train,
+                    feature_names=[str(col) for col in selected_feature_columns],
+                    random_seed=self.random_state,
+                )
+                transition = stage_diag["transitions"].get("pre_transform->split_then_nan_to_num", {})
+                f1_ratio = float(transition.get("f1_ratio", 1.0))
+                shrink_ratio = float(transition.get("centroid_shrinkage_ratio", 1.0))
+                logger.info(
+                    "UNSW stage transition pre_transform->split_then_nan_to_num "
+                    "f1_ratio=%.4f centroid_shrinkage_ratio=%.4f",
+                    f1_ratio,
+                    shrink_ratio,
+                )
+                if f1_ratio < 0.90:
+                    raise RuntimeError(
+                        "Fail-fast learnability guard: macro-F1 dropped >10% after transformation "
+                        "'split_then_nan_to_num'"
+                    )
+                if shrink_ratio < 0.30:
+                    raise RuntimeError(
+                        "Fail-fast scaling guard: centroid distance shrinkage ratio below 0.30 "
+                        "after 'split_then_nan_to_num'"
+                    )
+                transformed_splits["diagnostic_unsw_pre_transform"] = pre_transform
 
             transformed_splits[f"X_train_{dataset_name}"] = x_train
             transformed_splits[f"y_train_{dataset_name}"] = y_train
@@ -622,6 +621,66 @@ class MultiDatasetLoader:
                 np.save(output_dir / f"{key}.npy", arr)
                 logger.info(f"Saved {key} -> {output_dir / f'{key}.npy'}")
 
+        feature_columns = np.asarray(splits.get("feature_columns", np.array([], dtype=object)))
+        if feature_columns.size == 0:
+            raise RuntimeError("Missing feature_columns in split artifact; cannot validate schema")
+        np.save(output_dir / "feature_columns.npy", feature_columns)
+
+        x_unsw = splits.get("X_train_unsw_nb15")
+        y_unsw = splits.get("y_train_unsw_nb15")
+        if x_unsw is None or y_unsw is None:
+            raise RuntimeError("Missing UNSW train splits required for learnability contract")
+
+        transformations = ["split_then_nan_to_num"]
+        feature_names = [str(col) for col in feature_columns.tolist()]
+        schema_hash = compute_schema_hash(
+            feature_columns=feature_names,
+            transformations=transformations,
+        )
+        unsw_mapping = create_unsw_mapping().feature_mapping
+        feature_lineage = {
+            f"f_{idx}": ",".join(unsw_mapping.get(feature_name, [feature_name]))
+            for idx, feature_name in enumerate(feature_names)
+        }
+        raw_unsw_train = np.nan_to_num(
+            np.asarray(splits.get("diagnostic_unsw_pre_transform", x_unsw), dtype=np.float32),
+            nan=0.0,
+            posinf=0.0,
+            neginf=0.0,
+        )
+        metrics = compute_contract_metrics(
+            x_train=np.asarray(x_unsw, dtype=np.float32),
+            y_train=np.asarray(y_unsw, dtype=np.int64),
+            dataset="unsw_nb15",
+            schema_hash=schema_hash,
+            feature_names=feature_names,
+            feature_lineage=feature_lineage,
+            stage_snapshots={
+                "pre_transform": raw_unsw_train,
+                "split_then_nan_to_num": np.asarray(x_unsw, dtype=np.float32),
+            },
+            random_seed=self.random_state,
+        )
+        profile_bundle = load_reference_profile_bundle(
+            artifact_dir=output_dir,
+            dataset_signature="unsw",
+        )
+        metrics["reference_profile"] = profile_bundle["profile"]
+        metrics["expected_reference_profile_version"] = profile_bundle["profile"].get("version")
+        meta = build_meta(metrics)
+        write_meta(meta, artifact_dir=output_dir)
+        profile_bundle["payload"]["reference_profiles"][profile_bundle["profile_key"]] = meta["reference_profile"]
+        write_reference_profile(profile_bundle["payload"], artifact_dir=output_dir)
+        meta = freeze_snapshot_if_valid(artifact_dir=output_dir)
+        meta_path = output_dir / "meta.json"
+        logger.info(f"Saved UNSW learnability contract -> {meta_path}")
+
+        if not bool(meta.get("validated", False)):
+            raise RuntimeError(
+                "UNSW learnability contract failed during preprocessing. "
+                f"violations={meta.get('violations', {})}"
+            )
+
         logger.info(f"✅ Processed datasets saved to {output_dir}")
 
         return splits
@@ -670,7 +729,7 @@ class MultiDatasetLoader:
         target_majority_count = max(1, min(target_majority_count, majority_count))
         
         # Randomly select which majority samples to keep
-        majority_indices = np.where(majority_mask)[0]
+        majority_indices = np.nonzero(majority_mask)[0]
         selected_majority_indices = rng.choice(
             majority_indices,
             size=target_majority_count,
@@ -678,7 +737,7 @@ class MultiDatasetLoader:
         )
         
         # Combine with all minority samples
-        minority_indices = np.where(~majority_mask)[0]
+        minority_indices = np.nonzero(~majority_mask)[0]
         selected_indices = np.concatenate([selected_majority_indices, minority_indices])
         selected_indices = np.sort(selected_indices)  # Maintain order
         
