@@ -1,0 +1,45 @@
+name: runtime-monitoring-hardening CI
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: py_compile
+        run: python -m compileall src
+
+      - name: Run full pytest
+        run: |
+          pytest -q
+
+      - name: Grep guard against forbidden tokens
+        run: |
+          set -e
+          NG_PATTERNS="contract_version|allow_partial|missing_features|extra_features|fallback|compat|inferred_input_dim|inferred_classes"
+          if git grep -InE "$NG_PATTERNS"; then
+            echo "❌ Forbidden patterns found in repository:" && git grep -InE "$NG_PATTERNS"
+            exit 1
+          else
+            echo "✅ No forbidden patterns found"
+          fi
+
+      - name: Verify exporter sidecars and contract payloads
+        run: |
+          python3 scripts/ci/verify_contract_sidecars.py
