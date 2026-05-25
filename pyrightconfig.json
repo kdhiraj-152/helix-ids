@@ -1,0 +1,35 @@
+{
+  "include": ["src", "scripts", "tests"],
+  "exclude": [
+    "**/site-packages",
+    "**/site-packages/**",
+    "**/dist-packages",
+    "**/dist-packages/**",
+    "**/typeshed-fallback",
+    "**/typeshed-fallback/**",
+    ".vscode",
+    "data",
+    "models",
+    "outputs",
+    "results"
+  ],
+  "ignore": [
+    "**/site-packages/**",
+    "**/dist-packages/**",
+    "**/typeshed-fallback/**"
+  ],
+  "typeCheckingMode": "off",
+  "useLibraryCodeForTypes": false,
+  "reportMissingImports": "none",
+  "reportMissingTypeStubs": "none",
+  "reportGeneralTypeIssues": "none",
+  "reportAttributeAccessIssue": "none",
+  "reportCallIssue": "none",
+  "reportArgumentType": "none",
+  "reportAssignmentType": "none",
+  "reportReturnType": "none",
+  "reportOptionalMemberAccess": "none",
+  "reportOptionalSubscript": "none",
+  "reportOptionalCall": "none",
+  "reportIndexIssue": "none"
+}

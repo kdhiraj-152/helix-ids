@@ -1,0 +1,26 @@
+{
+  "schema_version": "2026-05-25",
+  "schema_hash": "00ca8cc663c655e7cd28aff4271f9b22e0868e107202aca38b73504f5b5a4646",
+  "feature_order": [
+    "protocol_type",
+    "connection_state",
+    "traffic_direction",
+    "has_rst",
+    "log_src_bytes",
+    "log_dst_bytes",
+    "src_dst_bytes_ratio",
+    "dst_src_bytes_ratio",
+    "same_host_rate_x_service",
+    "diff_srv_rate_x_flag",
+    "count_x_srv_count",
+    "protocol_service_flag",
+    "src_bytes",
+    "dst_bytes",
+    "service_tier",
+    "duration",
+    "flag"
+  ],
+  "input_dim": 17,
+  "binary_output_dim": 2,
+  "family_output_dim": 7
+}

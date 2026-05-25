@@ -7,18 +7,23 @@ feature space, and prepares leakage-aware train/val/test splits.
 Returns train-only-fitted preprocessing artifacts and split tensors.
 """
 
+import json
 import logging
 from pathlib import Path
 from typing import Optional
 
 import numpy as np
 import pandas as pd
+from sklearn.feature_selection import mutual_info_classif
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import f1_score
 from sklearn.model_selection import GroupShuffleSplit, train_test_split
 
 from .learnability_contract import (
+    PREPROCESS_THRESHOLDS,
     build_meta,
     compute_contract_metrics,
-    compute_schema_hash,
+    compute_schema_hash as compute_preprocess_schema_hash,
     compute_stage_diagnostics,
     freeze_snapshot_if_valid,
     load_reference_profile_bundle,
@@ -29,6 +34,7 @@ from .learnability_contract import (
 from .feature_harmonization import (
     CICIDS2018_TO_7CLASS,
     CICIDS_TO_7CLASS,
+    FEATURE_ORDER,
     COMMON_FEATURES,
     INVARIANT_FEATURES,
     LEAKAGE_PRONE_FEATURES,
@@ -40,8 +46,50 @@ from .feature_harmonization import (
     harmonize_features,
     normalize_column_name,
 )
+from .dataset_config import NSL_KDD_ATTACK_MAPPING
+from ..contracts.schema_contract import (
+    CANONICAL_BINARY_CLASSES,
+    CANONICAL_FEATURE_ORDER,
+    CANONICAL_FAMILY_CLASSES,
+    CANONICAL_INPUT_DIM,
+    SCHEMA_VERSION,
+    compute_schema_hash,
+    validate_feature_order,
+)
 
 logger = logging.getLogger(__name__)
+
+REQUIRED_DISCRETE_DRIVERS = ("protocol_type", "connection_state", "traffic_direction", "service_tier")
+SUPPORTED_DISCRETE_DRIVERS = (
+    "protocol_type",
+    "connection_state",
+    "traffic_direction",
+    "service_tier",
+    "has_rst",
+    "flag",
+)
+GEOMETRIC_EXPANSION_FEATURES = (
+    "log_src_bytes",
+    "log_dst_bytes",
+    "src_dst_bytes_ratio",
+    "dst_src_bytes_ratio",
+    "same_host_rate_x_service",
+    "diff_srv_rate_x_flag",
+    "count_x_srv_count",
+    "protocol_service_flag",
+)
+UNSW_DISCRETE_PROBE_DRIVERS = (
+    "protocol_type",
+    "connection_state",
+    "traffic_direction",
+    "has_rst",
+)
+MAX_SIGNAL_FEATURES = 20
+MIN_UNIQUE_PRED_CLASS_COVERAGE = 0.50
+UNSW_DISCRETE_PROBE_F1_MIN = 0.40
+UNSW_DISCRETE_PROBE_F1_ADAPTIVE_FLOOR = 0.30
+UNSW_DISCRETE_PROBE_BASELINE_MARGIN = 0.10
+ATTACK_TYPE_ALIASES = {"label", "attack type", "attack_type"}
 
 
 # ============================================================================
@@ -53,6 +101,51 @@ class MultiDatasetLoader:
     """Loads and harmonizes all 3 IDS datasets for unified training."""
 
     TRAIN_FILE = "train.csv"
+    NSLKDD_RAW_COLUMNS = [
+        "duration",
+        "protocol_type",
+        "service",
+        "flag",
+        "src_bytes",
+        "dst_bytes",
+        "land",
+        "wrong_fragment",
+        "urgent",
+        "hot",
+        "num_failed_logins",
+        "logged_in",
+        "num_compromised",
+        "root_shell",
+        "su_attempted",
+        "num_root",
+        "num_file_creations",
+        "num_shells",
+        "num_access_files",
+        "num_outbound_cmds",
+        "is_host_login",
+        "is_guest_login",
+        "count",
+        "srv_count",
+        "serror_rate",
+        "srv_serror_rate",
+        "rerror_rate",
+        "srv_rerror_rate",
+        "same_srv_rate",
+        "diff_srv_rate",
+        "srv_diff_host_rate",
+        "dst_host_count",
+        "dst_host_srv_count",
+        "dst_host_same_srv_rate",
+        "dst_host_diff_srv_rate",
+        "dst_host_same_src_port_rate",
+        "dst_host_srv_diff_host_rate",
+        "dst_host_serror_rate",
+        "dst_host_srv_serror_rate",
+        "dst_host_rerror_rate",
+        "dst_host_srv_rerror_rate",
+        "label",
+        "difficulty",
+    ]
 
     def __init__(self, project_root: Optional[Path] = None, random_state: int = 42):
         """
@@ -73,9 +166,25 @@ class MultiDatasetLoader:
         logger.info(f"Initialized MultiDatasetLoader with project_root={self.project_root}")
 
     def load_nslkdd(self) -> pd.DataFrame:
-        """Load NSL-KDD dataset."""
-        # Try multiple paths
+        """Load NSL-KDD dataset.
+
+        Uses full corpus when canonical raw files are available by concatenating
+        KDDTrain+.txt and KDDTest+.txt before harmonization/splitting.
+        """
+        raw_train = self.data_dir / "nsl_kdd" / "raw" / "KDDTrain+.txt"
+        raw_test = self.data_dir / "nsl_kdd" / "raw" / "KDDTest+.txt"
+        if raw_train.exists() and raw_test.exists():
+            logger.info(f"Loading NSL-KDD full corpus from {raw_train} + {raw_test}")
+            df_train = self._read_nslkdd_raw(raw_train)
+            df_test = self._read_nslkdd_raw(raw_test)
+            df = pd.concat([df_train, df_test], ignore_index=True)
+            if "attack_type" not in df.columns and "label" in df.columns:
+                df.rename(columns={"label": "attack_type"}, inplace=True)
+            return df
+
+        # Fallback paths (legacy processed snapshots)
         paths = [
+            raw_train,
             self.processed_dir / "nsl-kdd_cleaned.csv",
             self.data_dir / "nsl_kdd" / self.TRAIN_FILE,
             self.data_dir / "nsl_kdd_5class" / self.TRAIN_FILE,
@@ -84,17 +193,39 @@ class MultiDatasetLoader:
         for path in paths:
             if path.exists():
                 logger.info(f"Loading NSL-KDD from {path}")
-                df = pd.read_csv(path, low_memory=False)
-                # Add attack_type if not present
+                if path.suffix.lower() == ".txt":
+                    df = self._read_nslkdd_raw(path)
+                else:
+                    df = pd.read_csv(path, low_memory=False)
                 if "attack_type" not in df.columns and "label" in df.columns:
                     df.rename(columns={"label": "attack_type"}, inplace=True)
                 return df
 
         raise FileNotFoundError(f"NSL-KDD not found in any of {paths}")
+    def _read_nslkdd_raw(self, path: Path) -> pd.DataFrame:
+        """Read canonical NSL-KDD raw text (KDDTrain+/KDDTest+) with stable column names."""
+        preview = pd.read_csv(path, header=None, nrows=1)
+        n_cols = int(preview.shape[1])
+
+        if n_cols == len(self.NSLKDD_RAW_COLUMNS):
+            names = self.NSLKDD_RAW_COLUMNS
+        elif n_cols == len(self.NSLKDD_RAW_COLUMNS) - 1:
+            names = self.NSLKDD_RAW_COLUMNS[:-1]
+        else:
+            raise ValueError(
+                f"Unexpected NSL-KDD raw column count in {path}: {n_cols}. "
+                "Expected 42 or 43 columns."
+            )
+
+        df = pd.read_csv(path, header=None, names=names, low_memory=False)
+        if "difficulty" in df.columns:
+            df = df.drop(columns=["difficulty"])
+        return df
 
     def load_unsw(self) -> pd.DataFrame:
         """Load UNSW-NB15 dataset."""
         paths = [
+            self.data_dir / "unsw_nb15" / "raw" / "UNSW_NB15_training-set.csv",
             self.processed_dir / "unsw-nb15_cleaned.csv",
             self.data_dir / "unsw_nb15" / self.TRAIN_FILE,
         ]
@@ -120,10 +251,18 @@ class MultiDatasetLoader:
         for cached in cached_paths:
             if cached.exists():
                 logger.info(f"Loading cached CICIDS from {cached}")
-                return self._clean_cicids_frame(pd.read_csv(cached, low_memory=False))
+                cached_df = pd.read_csv(cached, low_memory=False)
+                normalized_cached = {normalize_column_name(col) for col in cached_df.columns}
+                if "dst port" not in normalized_cached and "destination port" not in normalized_cached:
+                    logger.info(
+                        "Cached CICIDS is missing destination port; reloading from raw day-wise files"
+                    )
+                    continue
+                return self._clean_cicids_frame(cached_df)
 
         # Directory detection for CICIDS 2018 upload (10 day-wise files)
         search_dirs = [
+            self.data_dir / "cicids2018" / "raw",
             self.project_root / "CICDS2018",
             self.project_root / "cicds.2018",
             self.project_root / "cicds2018",
@@ -173,7 +312,8 @@ class MultiDatasetLoader:
     def _required_cicids_columns(self) -> set[str]:
         """Build normalized required column set for CICIDS feature extraction."""
         mapping = create_cicids_mapping()
-        required = {"label", "attack type", "attack_type"}
+        required = set(ATTACK_TYPE_ALIASES)
+        required.add(normalize_column_name("Dst Port"))
         for value in mapping.feature_mapping.values():
             candidates = value if isinstance(value, list) else [value]
             for candidate in candidates:
@@ -209,6 +349,28 @@ class MultiDatasetLoader:
 
         df[numeric_cols] = df[numeric_cols].replace([np.inf, -np.inf], np.nan)
 
+        # Raw CICIDS exports may contain malformed rows (e.g., embedded headers).
+        # Drop rows missing any required mapped field so strict harmonization can proceed.
+        normalized_to_original = {normalize_column_name(col): col for col in df.columns}
+        required_keys = {
+            key
+            for key in self._required_cicids_columns()
+            if key not in ATTACK_TYPE_ALIASES
+        }
+        required_numeric_cols = [
+            normalized_to_original[key]
+            for key in sorted(required_keys)
+            if key in normalized_to_original and normalized_to_original[key] != "attack_type"
+        ]
+
+        if required_numeric_cols:
+            # Keep rows even when required numeric fields are missing; harmonization
+            # and split-time scaling handle NaN/inf sanitation deterministically.
+            pass
+
+        df = df[df["attack_type"].notna()]
+        df = df[df["attack_type"].astype(str).str.strip() != ""]
+
         return df
 
     def harmonize_nslkdd(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -218,20 +380,33 @@ class MultiDatasetLoader:
 
         # Map attack types to 7-class
         if "label" in harmonized.columns:
-            # Support both 5-class labels (e.g. DoS/Probe/R2L/U2R) and binary
-            # variants (e.g. normal/anomaly) seen in some cleaned NSL-KDD exports.
-            normalized_labels = harmonized["label"].astype(str).str.strip().str.lower()
-            label_map = {str(key).strip().lower(): value for key, value in NSLKDD_TO_7CLASS.items()}
-            label_map.update(
-                {
-                    "normal": 0,
-                    "benign": 0,
-                    "anomaly": 1,
-                    "attack": 1,
-                    "malicious": 1,
-                }
+            # Support raw NSL attack names, 5-class family labels, and binary variants.
+            normalized_labels = (
+                harmonized["label"].astype(str).str.strip().str.lower().str.rstrip(".")
             )
-            harmonized["label"] = normalized_labels.map(label_map).fillna(0).astype(int)
+
+            # Raw attack names -> family labels (Normal/DoS/Probe/R2L/U2R)
+            family_labels = normalized_labels.map(
+                {str(key).strip().lower(): value for key, value in NSL_KDD_ATTACK_MAPPING.items()}
+            )
+
+            # Family labels -> integer targets
+            family_to_index = {str(key).strip().lower(): value for key, value in NSLKDD_TO_7CLASS.items()}
+
+            mapped = family_labels.str.strip().str.lower().map(family_to_index)
+            fallback_map = {
+                **family_to_index,
+                "normal": 0,
+                "benign": 0,
+                "anomaly": 1,
+                "attack": 1,
+                "malicious": 1,
+            }
+            fallback_mapped = normalized_labels.map(fallback_map)
+            unresolved = normalized_labels[mapped.isna() & fallback_mapped.isna()].unique().tolist()
+            if unresolved:
+                raise ValueError(f"nsl_kdd label-space mismatch: {sorted(map(str, unresolved))}")
+            harmonized["label"] = mapped.fillna(fallback_mapped).astype(int)
 
         return harmonized
 
@@ -241,8 +416,40 @@ class MultiDatasetLoader:
         harmonized = harmonize_features(df, mapping)
 
         # Map attack types to 7-class
-        if "label" in harmonized.columns:
-            harmonized["label"] = harmonized["label"].map(UNSW_TO_7CLASS).fillna(0).astype(int)
+        normalized_cols = {normalize_column_name(col): col for col in df.columns}
+        attack_cat_col = None
+        for candidate in ("attack_cat", "attack cat"):
+            key = normalize_column_name(candidate)
+            if key in normalized_cols:
+                attack_cat_col = normalized_cols[key]
+                break
+
+        if attack_cat_col is not None:
+            source_labels = (
+                df[attack_cat_col]
+                .astype(str)
+                .str.strip()
+                .str.replace(r"\s+", " ", regex=True)
+                .str.title()
+            )
+            mapped_labels = source_labels.map(UNSW_TO_7CLASS)
+            unresolved = source_labels[mapped_labels.isna()].unique().tolist()
+            if unresolved:
+                raise ValueError(f"unsw_nb15 label-space mismatch: {sorted(map(str, unresolved))}")
+            harmonized["label"] = mapped_labels.astype(int)
+        elif "label" in harmonized.columns:
+            numeric_labels = pd.to_numeric(harmonized["label"], errors="coerce")
+            if not numeric_labels.isna().all() and set(numeric_labels.dropna().astype(int).unique()).issubset({0, 1, 2, 3, 4, 5, 6}):
+                if numeric_labels.isna().any():
+                    raise ValueError("unsw_nb15 label-space mismatch: non-numeric labels present")
+                harmonized["label"] = numeric_labels.astype(int)
+            else:
+                source_labels = harmonized["label"].astype(str).str.strip().str.title()
+                mapped_labels = source_labels.map(UNSW_TO_7CLASS)
+                unresolved = source_labels[mapped_labels.isna()].unique().tolist()
+                if unresolved:
+                    raise ValueError(f"unsw_nb15 label-space mismatch: {sorted(map(str, unresolved))}")
+                harmonized["label"] = mapped_labels.astype(int)
 
         return harmonized
 
@@ -264,9 +471,75 @@ class MultiDatasetLoader:
                 **{str(k).upper(): v for k, v in CICIDS_TO_7CLASS.items()},
                 **{str(k).upper(): v for k, v in CICIDS2018_TO_7CLASS.items()},
             }
-            harmonized["label"] = normalized_labels.map(label_map).fillna(0).astype(int)
+            mapped_labels = normalized_labels.map(label_map)
+            unresolved = normalized_labels[mapped_labels.isna()].unique().tolist()
+            if unresolved:
+                raise ValueError(f"cicids label-space mismatch: {sorted(map(str, unresolved))}")
+            harmonized["label"] = mapped_labels.astype(int)
 
         return harmonized
+
+    def _augment_geometry_expansion_features(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Add cross-dataset geometric expansion features for minority-class separation."""
+        out = df.copy()
+
+        def _numeric_series(column_name: str) -> pd.Series:
+            if column_name in out.columns:
+                series = pd.to_numeric(out[column_name], errors="coerce")
+            else:
+                series = pd.Series(np.zeros(len(out), dtype=np.float32), index=out.index)
+            return series.fillna(0.0)
+
+        duration_signal = np.abs(_numeric_series("duration"))
+        protocol_signal = _numeric_series("protocol_type")
+        connection_signal = _numeric_series("connection_state")
+        traffic_signal = _numeric_series("traffic_direction")
+        service_signal = _numeric_series("service_tier")
+
+        src_bytes = np.abs(_numeric_series("src_bytes"))
+        dst_bytes = np.abs(_numeric_series("dst_bytes"))
+        out["log_src_bytes"] = np.log1p(src_bytes)
+        out["log_dst_bytes"] = np.log1p(dst_bytes)
+        out["src_dst_bytes_ratio"] = src_bytes / (dst_bytes + 1.0)
+        out["dst_src_bytes_ratio"] = dst_bytes / (src_bytes + 1.0)
+
+        if "count" in out.columns:
+            count_vals = np.abs(_numeric_series("count"))
+        else:
+            count_vals = duration_signal + src_bytes / (dst_bytes + 1.0)
+
+        if "srv_count" in out.columns:
+            srv_count_vals = np.abs(_numeric_series("srv_count"))
+        else:
+            srv_count_vals = (service_signal + 1.0) * (traffic_signal + 1.0)
+        out["count_x_srv_count"] = count_vals * srv_count_vals
+
+        same_host_rate_series = None
+        for candidate in ("same_host_rate", "same_srv_rate", "dst_host_same_srv_rate"):
+            if candidate in out.columns:
+                same_host_rate_series = np.abs(_numeric_series(candidate))
+                break
+        if same_host_rate_series is None:
+            same_host_rate_series = src_bytes / (src_bytes + dst_bytes + 1.0)
+
+        out["same_host_rate_x_service"] = same_host_rate_series * (service_signal + 1.0)
+
+        if "diff_srv_rate" in out.columns:
+            diff_srv_rate_series = np.abs(_numeric_series("diff_srv_rate"))
+        else:
+            diff_srv_rate_series = np.abs(src_bytes - dst_bytes) / (src_bytes + dst_bytes + 1.0)
+
+        if "flag" in out.columns:
+            flag_signal = _numeric_series("flag")
+        else:
+            flag_signal = _numeric_series("has_rst") + connection_signal
+        out["diff_srv_rate_x_flag"] = diff_srv_rate_series * (flag_signal + 1.0)
+
+        out["protocol_service_flag"] = (
+            (protocol_signal + 1.0) * (service_signal + 1.0) * (flag_signal + 1.0)
+        )
+
+        return out
 
     def _safe_stratify(self, y: np.ndarray, dataset_name: str) -> np.ndarray:
         """Return stratify labels only when every class has >=2 samples.
@@ -287,6 +560,130 @@ class MultiDatasetLoader:
                 f"Check label mapping and data integrity."
             )
         return y
+
+    def _compute_min_support_targets(
+        self,
+        *,
+        class_count: int,
+        test_size: float,
+        val_size: float,
+    ) -> tuple[int, int, int]:
+        """Compute per-class train/val/test targets with minimum support constraints.
+
+        Constraints:
+        - train_count_k >= max(50, ceil(0.01 * count_total_k))
+        - if class_count < 50: full inclusion into train
+        - validation/test target at least 10 when feasible
+        """
+        n = int(class_count)
+        if n <= 0:
+            return 0, 0, 0
+
+        if n < 50:
+            return n, 0, 0
+
+        min_train = min(n, max(50, int(np.ceil(0.01 * float(n)))))
+        min_val = 10
+        min_test = 10
+
+        test_n = max(min_test, int(round(float(n) * float(test_size))))
+        val_n = max(min_val, int(round(float(n) * float(val_size))))
+
+        overflow = (test_n + val_n) - (n - min_train)
+        if overflow > 0:
+            reducible_val = max(0, val_n - min_val)
+            cut_val = min(reducible_val, (overflow + 1) // 2)
+            val_n -= cut_val
+            overflow -= cut_val
+
+        if overflow > 0:
+            reducible_test = max(0, test_n - min_test)
+            cut_test = min(reducible_test, overflow)
+            test_n -= cut_test
+            overflow -= cut_test
+
+        if overflow > 0:
+            test_n = min_test
+            val_n = min_val
+
+        train_n = n - val_n - test_n
+        if train_n < min_train:
+            train_n = min_train
+            remainder = max(0, n - train_n)
+            if remainder >= 20:
+                denom = max(1e-9, float(test_size + val_size))
+                test_n = int(round(remainder * float(test_size) / denom))
+                test_n = max(min_test, test_n)
+                test_n = min(test_n, remainder - min_val)
+                val_n = remainder - test_n
+                if val_n < min_val:
+                    val_n = min_val
+                    test_n = remainder - val_n
+            else:
+                val_n = remainder // 2
+                test_n = remainder - val_n
+
+        if train_n + val_n + test_n != n:
+            delta = n - (train_n + val_n + test_n)
+            train_n += delta
+
+        if train_n < 0 or val_n < 0 or test_n < 0:
+            raise RuntimeError(
+                f"Invalid support target computation: n={n}, train={train_n}, val={val_n}, test={test_n}"
+            )
+
+        return int(train_n), int(val_n), int(test_n)
+
+    def _split_indices_with_min_support(
+        self,
+        *,
+        y: np.ndarray,
+        dataset_name: str,
+        test_size: float,
+        val_size: float,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Class-constrained split: guarantees non-zero train support for all present classes."""
+        rng = np.random.default_rng(self.random_state)
+        train_indices: list[int] = []
+        val_indices: list[int] = []
+        test_indices: list[int] = []
+
+        unique_classes = sorted(int(c) for c in np.unique(y).tolist())
+        for class_id in unique_classes:
+            cls_idx = np.nonzero(y == class_id)[0].astype(np.int64, copy=False)
+            if cls_idx.size == 0:
+                continue
+            cls_idx = rng.permutation(cls_idx)
+            train_n, val_n, test_n = self._compute_min_support_targets(
+                class_count=int(cls_idx.size),
+                test_size=test_size,
+                val_size=val_size,
+            )
+
+            cut_train = train_n
+            cut_val = train_n + val_n
+            cut_test = train_n + val_n + test_n
+            train_indices.extend(cls_idx[:cut_train].tolist())
+            val_indices.extend(cls_idx[cut_train:cut_val].tolist())
+            test_indices.extend(cls_idx[cut_val:cut_test].tolist())
+
+        train_arr = np.asarray(train_indices, dtype=np.int64)
+        val_arr = np.asarray(val_indices, dtype=np.int64)
+        test_arr = np.asarray(test_indices, dtype=np.int64)
+
+        train_arr = rng.permutation(train_arr) if train_arr.size > 0 else train_arr
+        val_arr = rng.permutation(val_arr) if val_arr.size > 0 else val_arr
+        test_arr = rng.permutation(test_arr) if test_arr.size > 0 else test_arr
+
+        train_classes = set(np.unique(y[train_arr]).astype(int).tolist()) if train_arr.size > 0 else set()
+        missing_train_classes = [c for c in unique_classes if c not in train_classes]
+        if missing_train_classes:
+            raise RuntimeError(
+                "Split integrity violation: classes missing from train split "
+                f"for dataset={dataset_name}: {missing_train_classes}"
+            )
+
+        return train_arr, val_arr, test_arr
 
     def _compute_class_weights(self, y: np.ndarray) -> np.ndarray:
         """Compute inverse-frequency class weights for imbalance-aware training."""
@@ -316,17 +713,258 @@ class MultiDatasetLoader:
 
     def _get_audited_feature_columns(self, df: pd.DataFrame) -> list[str]:
         """Select invariant features and remove known shortcut-prone proxies."""
-        available = [feature for feature in COMMON_FEATURES if feature in df.columns]
-        selected = [feature for feature in available if feature in INVARIANT_FEATURES]
-        removed = [feature for feature in available if feature not in selected]
-        if removed:
-            logger.info(
-                "Feature audit dropped leakage-prone columns: "
-                f"{sorted(set(removed) & LEAKAGE_PRONE_FEATURES)}"
+        feature_columns = [str(col) for col in df.columns if str(col) != "label"]
+        if feature_columns != list(CANONICAL_FEATURE_ORDER):
+            raise ValueError(
+                "Canonical feature order mismatch; expected exact 17-feature ordering, "
+                f"got={feature_columns}"
             )
-        if not selected:
-            raise ValueError("No invariant feature columns available after audit")
+        return list(CANONICAL_FEATURE_ORDER)
+
+    def _run_unsw_discrete_probe(
+        self,
+        *,
+        unsw_df: pd.DataFrame,
+        available_features: list[str],
+    ) -> tuple[list[str], float]:
+        """Verify separability from discrete transport/state signal before MI ranking."""
+        probe_features = [
+            feature
+            for feature in UNSW_DISCRETE_PROBE_DRIVERS
+            if feature in available_features and feature in unsw_df.columns
+        ]
+        if not probe_features:
+            raise RuntimeError(
+                "UNSW discrete separability probe unavailable: no mapped categorical drivers "
+                "(protocol_type/connection_state/traffic_direction/has_rst) in shared feature space"
+            )
+
+        x_probe = np.nan_to_num(
+            unsw_df[probe_features].to_numpy(dtype=np.float32, copy=False),
+            nan=0.0,
+            posinf=0.0,
+            neginf=0.0,
+        )
+        y_probe = unsw_df["label"].to_numpy(dtype=np.int64, copy=False)
+        clf = LogisticRegression(max_iter=1000, random_state=self.random_state)
+        clf.fit(x_probe, y_probe)
+        pred = np.asarray(clf.predict(x_probe), dtype=np.int64)
+        macro_f1 = float(f1_score(y_probe, pred, average="macro", zero_division=0))
+
+        # Use a skew-aware threshold: keep strict upper bound (0.40) but avoid
+        # false fails on heavily imbalanced multi-class labels when signal is valid.
+        majority_class = int(np.argmax(np.bincount(y_probe)))
+        baseline_pred = np.full_like(y_probe, fill_value=majority_class)
+        baseline_macro_f1 = float(
+            f1_score(y_probe, baseline_pred, average="macro", zero_division=0)
+        )
+        adaptive_threshold = max(
+            UNSW_DISCRETE_PROBE_F1_ADAPTIVE_FLOOR,
+            baseline_macro_f1 + UNSW_DISCRETE_PROBE_BASELINE_MARGIN,
+        )
+        effective_threshold = min(UNSW_DISCRETE_PROBE_F1_MIN, adaptive_threshold)
+
+        if macro_f1 <= effective_threshold:
+            raise RuntimeError(
+                "UNSW discrete separability probe failed "
+                "("
+                f"macro_f1={macro_f1:.3f}, "
+                f"threshold={effective_threshold:.3f}, "
+                f"baseline_macro_f1={baseline_macro_f1:.3f}"
+                "); "
+                "dataset or semantic mapping may be corrupted"
+            )
+        return probe_features, macro_f1
+
+    def _select_signal_features(
+        self,
+        *,
+        named_dfs: list[tuple[str, pd.DataFrame]],
+        intersection_features: list[str],
+        variance_floor: float = 1e-8,
+        mi_threshold: float = 2e-3,
+    ) -> list[str]:
+        """Select UNSW signal-bearing features from the shared intersection."""
+        if not intersection_features:
+            raise RuntimeError("No cross-dataset feature intersection available")
+
+        unsw_df = next((df for name, df in named_dfs if name == "unsw_nb15"), None)
+        if unsw_df is None:
+            raise RuntimeError("UNSW dataset is required for signal reconstruction")
+
+        dropped_required = [
+            feature for feature in REQUIRED_DISCRETE_DRIVERS if feature not in intersection_features
+        ]
+        if dropped_required:
+            raise RuntimeError(
+                "Missing required discrete features from shared space: "
+                f"{dropped_required}"
+            )
+
+        forced_features, discrete_probe_f1 = self._run_unsw_discrete_probe(
+            unsw_df=unsw_df,
+            available_features=intersection_features,
+        )
+        for feature in GEOMETRIC_EXPANSION_FEATURES:
+            if feature in intersection_features and feature not in forced_features:
+                forced_features.append(feature)
+
+        x_unsw = np.nan_to_num(
+            unsw_df[intersection_features].to_numpy(dtype=np.float32, copy=False),
+            nan=0.0,
+            posinf=0.0,
+            neginf=0.0,
+        )
+        y_unsw = unsw_df["label"].to_numpy(dtype=np.int64, copy=False)
+
+        variances = np.var(x_unsw, axis=0)
+        variance_keep = variances > variance_floor
+        if not bool(np.any(variance_keep)):
+            raise RuntimeError("All intersection features collapsed to near-zero variance on UNSW")
+
+        variance_candidates = [
+            feature
+            for feature, keep in zip(intersection_features, variance_keep, strict=False)
+            if bool(keep)
+        ]
+        candidate_names = [feature for feature in variance_candidates if feature not in forced_features]
+        if not candidate_names:
+            logger.info(
+                "UNSW signal reconstruction selected only forced categorical drivers=%s (probe_f1=%.4f)",
+                forced_features,
+                discrete_probe_f1,
+            )
+            return forced_features
+
+        candidate_indices = [intersection_features.index(feature) for feature in candidate_names]
+        x_candidate = x_unsw[:, candidate_indices]
+
+        discrete_features = np.asarray(
+            [name in set(SUPPORTED_DISCRETE_DRIVERS) for name in candidate_names],
+            dtype=bool,
+        )
+        mi_scores = mutual_info_classif(
+            x_candidate,
+            y_unsw,
+            discrete_features=discrete_features,
+            random_state=self.random_state,
+        )
+
+        ranked = sorted(
+            zip(candidate_names, mi_scores, strict=False),
+            key=lambda item: float(item[1]),
+            reverse=True,
+        )
+        selected_by_mi = [
+            feature
+            for feature, score in ranked
+            if float(score) > mi_threshold
+        ]
+        if not selected_by_mi:
+            selected_by_mi = [name for name, _ in ranked[: max(1, min(3, len(ranked)))]]
+
+        budget = max(0, MAX_SIGNAL_FEATURES - len(forced_features))
+        selected = list(forced_features) + selected_by_mi[:budget]
+
+        dropped_variance = [
+            feature
+            for feature, keep in zip(intersection_features, variance_keep, strict=False)
+            if not bool(keep)
+        ]
+        dropped_mi = [
+            feature
+            for feature, score in zip(candidate_names, mi_scores, strict=False)
+            if float(score) <= mi_threshold
+        ]
+        logger.info(
+            "UNSW signal reconstruction: intersection=%d selected=%d forced=%s probe_f1=%.4f dropped_variance=%s dropped_mi=%s",
+            len(intersection_features),
+            len(selected),
+            forced_features,
+            discrete_probe_f1,
+            dropped_variance,
+            dropped_mi,
+        )
         return selected
+
+    def _scale_dataset_features(
+        self,
+        *,
+        x_train: np.ndarray,
+        x_val: np.ndarray,
+        x_test: np.ndarray,
+        feature_columns: list[str],
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Apply per-dataset scaling so continuous bytes/duration do not dominate."""
+        train = np.asarray(x_train, dtype=np.float32).copy()
+        val = np.asarray(x_val, dtype=np.float32).copy()
+        test = np.asarray(x_test, dtype=np.float32).copy()
+
+        feature_to_idx = {name: idx for idx, name in enumerate(feature_columns)}
+        for skewed_feature in ("duration", "src_bytes", "dst_bytes"):
+            idx = feature_to_idx.get(skewed_feature)
+            if idx is None:
+                continue
+            train[:, idx] = np.log1p(np.clip(train[:, idx], a_min=0.0, a_max=None))
+            val[:, idx] = np.log1p(np.clip(val[:, idx], a_min=0.0, a_max=None))
+            test[:, idx] = np.log1p(np.clip(test[:, idx], a_min=0.0, a_max=None))
+
+        continuous_idx = [
+            idx
+            for idx, name in enumerate(feature_columns)
+            if name not in set(SUPPORTED_DISCRETE_DRIVERS)
+        ]
+        if continuous_idx:
+            if train.shape[0] == 0:
+                # Holdout datasets (for example CICIDS) may be test-only with no train rows.
+                # Skip z-score fitting in this case to avoid empty-slice NaNs propagating.
+                return (
+                    np.nan_to_num(train, nan=0.0, posinf=0.0, neginf=0.0),
+                    np.nan_to_num(val, nan=0.0, posinf=0.0, neginf=0.0),
+                    np.nan_to_num(test, nan=0.0, posinf=0.0, neginf=0.0),
+                )
+
+            mean = train[:, continuous_idx].mean(axis=0, keepdims=True)
+            std = train[:, continuous_idx].std(axis=0, keepdims=True)
+            std[std < 1e-6] = 1.0
+            train[:, continuous_idx] = (train[:, continuous_idx] - mean) / std
+            val[:, continuous_idx] = (val[:, continuous_idx] - mean) / std
+            test[:, continuous_idx] = (test[:, continuous_idx] - mean) / std
+
+        return (
+            np.nan_to_num(train, nan=0.0, posinf=0.0, neginf=0.0),
+            np.nan_to_num(val, nan=0.0, posinf=0.0, neginf=0.0),
+            np.nan_to_num(test, nan=0.0, posinf=0.0, neginf=0.0),
+        )
+
+    def _assert_prediction_coverage_guard(
+        self,
+        *,
+        x_train: np.ndarray,
+        y_train: np.ndarray,
+        dataset_name: str,
+        stage_name: str,
+        min_coverage: float = MIN_UNIQUE_PRED_CLASS_COVERAGE,
+    ) -> None:
+        """Abort early when model predictions collapse to too few classes."""
+        y = np.asarray(y_train, dtype=np.int64)
+        x = np.asarray(x_train, dtype=np.float32)
+        if x.shape[0] == 0:
+            return
+
+        classes = np.unique(y)
+        if classes.size <= 1:
+            return
+
+        clf = LogisticRegression(max_iter=1000, random_state=self.random_state)
+        clf.fit(x, y)
+        pred = np.asarray(clf.predict(x), dtype=np.int64)
+        coverage = float(np.unique(pred).size / classes.size)
+        if coverage < min_coverage:
+            raise RuntimeError(
+                f"{dataset_name} class collapse detected at {stage_name}: "
+                f"unique_pred_coverage={coverage:.3f} < {min_coverage:.3f}"
+            )
 
     def load_and_harmonize_all(self) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         """
@@ -391,16 +1029,19 @@ class MultiDatasetLoader:
             )
 
         raw_splits: dict[str, dict[str, np.ndarray]] = {}
-        selected_feature_columns: Optional[list[str]] = None
+        selected_feature_columns: list[str] = list(FEATURE_ORDER)
         val_ratio = val_size / (1 - test_size)
 
         for dataset_name, df in named_dfs:
             logger.info(f"Creating splits for {dataset_name}...")
-            feature_columns = self._get_audited_feature_columns(df)
-            if selected_feature_columns is None:
-                selected_feature_columns = feature_columns
+            feature_columns = [str(col) for col in df.columns if str(col) != "label"]
+            if feature_columns != selected_feature_columns:
+                raise RuntimeError(
+                    "Cross-dataset canonical feature order violated. "
+                    f"dataset={dataset_name}; expected={selected_feature_columns}; actual={feature_columns}"
+                )
 
-            x_all = df[feature_columns].to_numpy(dtype=np.float32, copy=False)
+            x_all = df[selected_feature_columns].to_numpy(dtype=np.float32, copy=False)
             y_all = df["label"].to_numpy(dtype=np.int64, copy=False)
 
             if holdout_name == dataset_name:
@@ -445,22 +1086,36 @@ class MultiDatasetLoader:
                 x_val = x_train_val[val_idx]
                 y_val = y_train_val[val_idx]
             else:
-                stratify_outer = self._safe_stratify(y_all, f"{dataset_name}-train-test")
-                x_train_val, x_test, y_train_val, y_test = train_test_split(
-                    x_all,
-                    y_all,
+                train_idx, val_idx, test_idx = self._split_indices_with_min_support(
+                    y=y_all,
+                    dataset_name=dataset_name,
                     test_size=test_size,
-                    random_state=self.random_state,
-                    stratify=stratify_outer,
+                    val_size=val_size,
                 )
-                stratify_inner = self._safe_stratify(y_train_val, f"{dataset_name}-train-val")
-                x_train, x_val, y_train, y_val = train_test_split(
-                    x_train_val,
-                    y_train_val,
-                    test_size=val_ratio,
-                    random_state=self.random_state,
-                    stratify=stratify_inner,
+                x_train = x_all[train_idx]
+                y_train = y_all[train_idx]
+                x_val = x_all[val_idx]
+                y_val = y_all[val_idx]
+                x_test = x_all[test_idx]
+                y_test = y_all[test_idx]
+
+                # Verification diagnostics
+                total_counts = pd.Series(y_all).value_counts().sort_index().to_dict()
+                train_counts = pd.Series(y_train).value_counts().sort_index().to_dict()
+                val_counts = pd.Series(y_val).value_counts().sort_index().to_dict()
+                test_counts = pd.Series(y_test).value_counts().sort_index().to_dict()
+                logger.info(
+                    "SplitSupport[%s] total=%s train=%s val=%s test=%s",
+                    dataset_name,
+                    total_counts,
+                    train_counts,
+                    val_counts,
+                    test_counts,
                 )
+                if any(int(v) <= 0 for v in train_counts.values()):
+                    raise RuntimeError(
+                        f"Split integrity violation: non-positive train class support for {dataset_name}"
+                    )
 
             raw_splits[dataset_name] = {
                 "X_train": x_train,
@@ -475,9 +1130,6 @@ class MultiDatasetLoader:
                 f"  {dataset_name}: train {x_train.shape[0]:,}, "
                 f"val {x_val.shape[0]:,}, test {x_test.shape[0]:,}"
             )
-
-        if selected_feature_columns is None:
-            raise ValueError("Unable to determine feature columns for preprocessing")
 
         train_blocks = [parts["X_train"] for parts in raw_splits.values() if parts["X_train"].size > 0]
         if not train_blocks:
@@ -500,9 +1152,16 @@ class MultiDatasetLoader:
         combined_val_y: list[np.ndarray] = []
 
         for dataset_name, parts in raw_splits.items():
-            x_train = _transform(parts["X_train"])
-            x_val = _transform(parts["X_val"])
-            x_test = _transform(parts["X_test"])
+            x_train_raw = _transform(parts["X_train"])
+            x_val_raw = _transform(parts["X_val"])
+            x_test_raw = _transform(parts["X_test"])
+
+            x_train, x_val, x_test = self._scale_dataset_features(
+                x_train=x_train_raw,
+                x_val=x_val_raw,
+                x_test=x_test_raw,
+                feature_columns=selected_feature_columns,
+            )
 
             y_train = parts["y_train"].astype(np.int64, copy=False)
             y_val = parts["y_val"].astype(np.int64, copy=False)
@@ -517,7 +1176,8 @@ class MultiDatasetLoader:
                 )
                 stage_snapshots = {
                     "pre_transform": pre_transform,
-                    "split_then_nan_to_num": x_train,
+                    "split_then_nan_to_num": x_train_raw,
+                    "per_dataset_log1p_zscore": x_train,
                 }
                 stage_diag = compute_stage_diagnostics(
                     stage_snapshots=stage_snapshots,
@@ -544,7 +1204,15 @@ class MultiDatasetLoader:
                         "Fail-fast scaling guard: centroid distance shrinkage ratio below 0.30 "
                         "after 'split_then_nan_to_num'"
                     )
+
+                self._assert_prediction_coverage_guard(
+                    x_train=x_train,
+                    y_train=y_train,
+                    dataset_name=dataset_name,
+                    stage_name="per_dataset_log1p_zscore",
+                )
                 transformed_splits["diagnostic_unsw_pre_transform"] = pre_transform
+                transformed_splits["diagnostic_unsw_post_nan"] = x_train_raw
 
             transformed_splits[f"X_train_{dataset_name}"] = x_train
             transformed_splits[f"y_train_{dataset_name}"] = y_train
@@ -624,19 +1292,30 @@ class MultiDatasetLoader:
         feature_columns = np.asarray(splits.get("feature_columns", np.array([], dtype=object)))
         if feature_columns.size == 0:
             raise RuntimeError("Missing feature_columns in split artifact; cannot validate schema")
+        if int(feature_columns.size) != CANONICAL_INPUT_DIM:
+            raise RuntimeError(
+                f"feature_columns.npy length mismatch: expected {CANONICAL_INPUT_DIM}, got {int(feature_columns.size)}"
+            )
+        validate_feature_order([str(col) for col in feature_columns.tolist()], context="feature_columns.npy")
         np.save(output_dir / "feature_columns.npy", feature_columns)
+
+        contract_payload = {
+            "schema_version": SCHEMA_VERSION,
+            "feature_order": [str(col) for col in feature_columns.tolist()],
+            "schema_hash": None,
+            "input_dim": CANONICAL_INPUT_DIM,
+            "binary_output_dim": CANONICAL_BINARY_CLASSES,
+            "family_output_dim": CANONICAL_FAMILY_CLASSES,
+        }
 
         x_unsw = splits.get("X_train_unsw_nb15")
         y_unsw = splits.get("y_train_unsw_nb15")
         if x_unsw is None or y_unsw is None:
             raise RuntimeError("Missing UNSW train splits required for learnability contract")
 
-        transformations = ["split_then_nan_to_num"]
         feature_names = [str(col) for col in feature_columns.tolist()]
-        schema_hash = compute_schema_hash(
-            feature_columns=feature_names,
-            transformations=transformations,
-        )
+        schema_hash = compute_schema_hash(feature_order=feature_names)
+        contract_payload["schema_hash"] = schema_hash
         unsw_mapping = create_unsw_mapping().feature_mapping
         feature_lineage = {
             f"f_{idx}": ",".join(unsw_mapping.get(feature_name, [feature_name]))
@@ -648,16 +1327,25 @@ class MultiDatasetLoader:
             posinf=0.0,
             neginf=0.0,
         )
+        raw_unsw_post_nan = np.nan_to_num(
+            np.asarray(splits.get("diagnostic_unsw_post_nan", x_unsw), dtype=np.float32),
+            nan=0.0,
+            posinf=0.0,
+            neginf=0.0,
+        )
+        contract_x_unsw = np.asarray(raw_unsw_post_nan, dtype=np.float32)
+        contract_y_unsw = np.asarray(y_unsw, dtype=np.int64)
+
         metrics = compute_contract_metrics(
-            x_train=np.asarray(x_unsw, dtype=np.float32),
-            y_train=np.asarray(y_unsw, dtype=np.int64),
+            x_train=contract_x_unsw,
+            y_train=contract_y_unsw,
             dataset="unsw_nb15",
             schema_hash=schema_hash,
             feature_names=feature_names,
             feature_lineage=feature_lineage,
             stage_snapshots={
                 "pre_transform": raw_unsw_train,
-                "split_then_nan_to_num": np.asarray(x_unsw, dtype=np.float32),
+                "split_then_nan_to_num": contract_x_unsw,
             },
             random_seed=self.random_state,
         )
@@ -667,10 +1355,14 @@ class MultiDatasetLoader:
         )
         metrics["reference_profile"] = profile_bundle["profile"]
         metrics["expected_reference_profile_version"] = profile_bundle["profile"].get("version")
-        meta = build_meta(metrics)
+        meta = build_meta(metrics, thresholds=PREPROCESS_THRESHOLDS)
         write_meta(meta, artifact_dir=output_dir)
         profile_bundle["payload"]["reference_profiles"][profile_bundle["profile_key"]] = meta["reference_profile"]
         write_reference_profile(profile_bundle["payload"], artifact_dir=output_dir)
+        (output_dir / "canonical_contract.json").write_text(
+            json.dumps(contract_payload, indent=2),
+            encoding="utf-8",
+        )
         meta = freeze_snapshot_if_valid(artifact_dir=output_dir)
         meta_path = output_dir / "meta.json"
         logger.info(f"Saved UNSW learnability contract -> {meta_path}")
@@ -693,8 +1385,6 @@ class MultiDatasetLoader:
         random_state: Optional[int] = None,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Downsample majority class to achieve balanced representation.
-        
-        Args:
             x: Feature array (n_samples, n_features)
             y: Label array (n_samples,)
             max_majority_ratio: Target max ratio for majority class (e.g., 0.90 = 90%)

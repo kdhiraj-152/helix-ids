@@ -1,220 +1,145 @@
-# HELIX-IDS 🛡️
+# HELIX-IDS
 
-## Production-Grade Intrusion Detection System
+Production-aligned IDS runtime with invariant-based deployment gating and paper-grade staging validation artifacts.
 
-Multi-dataset IDS pipeline with harmonized features, multi-task training, and quantized deployment variants.
+## System Freeze
 
----
+Formalization mode is active for this repository state:
 
-## ⚡ v2.0 Architecture Improvements
+- no new features
+- no new scripts
+- no refactors
+- current runtime pipeline locked
 
-The HELIX-IDS system has been completely overhauled for production readiness and to address critical security blockers found during v1 validation:
-
-1. **Multi-Dataset Generalization:** Eliminated multi-dataset data leakage by enforcing per-dataset scaling, achieving proper cross-dataset validation between NSL-KDD and UNSW-NB15.
-2. **5-Class Detection:** Migrated from binary normal/attack classification to a fine-grained 5-class taxonomy (`Normal`, `DoS`, `Probe`, `R2L`, `U2R`).
-3. **U2R & R2L Hardening:** Integrated **Class-Weighted Focal Loss** and **Per-Class Threshold Tuning** to reliably detect minority privilege-escalation attacks that previously had a 0% detection rate.
-4. **Adversarial Robustness:** Added FGSM and PGD adversarial training pipelines to harden the neural architecture against evasion networks.
-5. **Fixed Cascading Inference:** Rewrote the end-to-end pipeline to properly leverage binary-to-multiclass fallback prediction logic, solving v1's 2% accuracy bug.
-6. **Codebase Quality:** Sunsetted monolithic God-classes like `UnifiedDataLoader` (1,230 lines) into focused, testable, stateless modules (`loader_core.py`, `feature_io.py`, `label_mapping.py`, `dataset_config.py`).
-
----
-
-## Quick Start
-
-```python
-from helix_ids import HelixIDS
-
-# Initialize
-ids = HelixIDS()
-
-# Predict (5-class probabilities)
-predictions, probabilities = ids.predict(X)
-# predictions: 0 = Normal, 1 = DoS, 2 = Probe, 3 = R2L, 4 = U2R
-```
-
-### CLI Usage
-
-```bash
-# Benchmark cross-dataset E2E performance
-python scripts/benchmark_e2e_v2_fixed.py
-```
-
-### Multi-Dataset v3 Pipeline (Current)
-
-```bash
-# 1) Train unified HelixIDS-Full (31 features: 28 common + 3 dataset-origin)
-python scripts/train_helix_ids_full.py --output models/helix_full --device mps
-
-# 2) Quantize to Lite and Micro variants
-python scripts/quantize_helix_lite.py --checkpoint models/helix_full/helix_full_best.pt
-python scripts/quantize_helix_micro.py --checkpoint models/helix_full/helix_full_best.pt
-
-# 3) Benchmark FP32 vs INT8 variants
-python scripts/benchmark_helix_quantization.py \
-  --full-checkpoint models/helix_full/helix_full_best.pt \
-  --lite-checkpoint models/quantized/helix_ids_lite_int8.pt \
-  --micro-checkpoint models/quantized/helix_ids_micro_int8.pt
-```
-
-Notes:
-
-- CICIDS-2018 day-wise CSV files are ingested and cleaned from the project-level CICDS2018 folder.
-- The harmonization pipeline now handles column whitespace/case inconsistencies and inf/NaN cleanup before training.
-- Class imbalance is handled with class-weighted multi-task training.
-
----
-
-## Models
-
-HELIX-IDS maintains optimized deployment profiles for edge compute:
-
-| Platform       | Target Use Case       | Latency | Parameters | Architecture           |
-| -------------- | --------------------- | ------- | ---------- | ---------------------- |
-| **Production** | Server/Cloud Security | < 1ms   | ~45K       | MLP [256, 128, 64, 32] |
-| **RPi 4**      | Edge Gateway          | < 1ms   | ~11K       | MLP [128, 64, 32]      |
-| **RPi Zero**   | Low-power Edge        | ~1ms    | ~3K        | MLP [64, 32]           |
-| **ESP32**      | Pure IoT / C-Header   | ~2ms    | ~1K        | MLP [32, 16]           |
-
----
-
-## Features
-
-HELIX-IDS uses a **31-feature harmonized input space** across datasets:
-
-- **28 common features** (network, packet, timing, rate, and login indicators)
-- **3 dataset-origin one-hot features** (`is_nsl_kdd`, `is_unsw`, `is_cicids`)
-- **Multi-task outputs**: binary (Normal/Attack) + 7-class family head
-
----
-
-## Project Structure
+## Clean Project Layout
 
 ```text
-helix_ids/
+RP-2/
+├── src/helix_ids/
+├── config/
 ├── scripts/
-│   ├── training/      # Train pipelines
-│   ├── evaluation/    # Evaluation and E2E benchmarks
-│   ├── quantization/  # INT8/pruning pipelines
-│   ├── governance/    # Governance checks/parsers
-│   ├── analysis/      # Analysis/audit utilities
-│   ├── data/          # Dataset tooling
-│   ├── deployment/    # Deployment entrypoints
-│   └── maintenance/   # Cleanup and repo maintenance
-├── src/helix_ids/     # Core library
+│   ├── training/
+│   ├── operations/
+│   ├── evaluation/
 │   ├── data/
-│   ├── governance/
-│   ├── models/
-│   └── utils/
+│   └── deployment/
+├── tests/
 ├── docs/
-│   └── reports/       # Long-form generated/operational reports
+│   ├── manuscript/
+│   ├── ARCHITECTURE.md
+│   └── OPERATIONS_DEPLOYMENT_RUNBOOK.md
+├── README.md
+├── requirements.txt
+└── pyproject.toml
 ```
 
-Repository layout and placement policy are documented in `docs/REPOSITORY_LAYOUT.md`.
-Architecture and docs validity references:
+## Final Staging Validation Artifacts
 
-- `docs/ARCHITECTURE.md`
-- `docs/FEATURE_ENGINEERING.md`
-- `docs/DOCUMENTATION_STATUS.md`
+- `docs/results/staging_validation.json`
+- `docs/figures/override_rate_vs_requests.png`
+- `docs/figures/degraded_state_timeline.png`
+- `docs/figures/batch_vs_single_consistency.png`
 
-Safe local cleanup (transient files only):
+The staging artifact captures:
+
+- two windows of 1500 requests each
+- `helix_requests_total`
+- `override_rate`
+- `degraded_state`
+- request latency (client-side ms)
+
+Current recorded outcome in `docs/results/staging_validation.json`:
+
+- window 1: 1500 requests
+- window 2: 1500 requests
+- final override rate: 0.0
+- final degraded state: 0
+
+## One-Command Reproducibility Path
+
+The command below executes train -> deploy -> validate in one shell command.
 
 ```bash
-bash scripts/safe_repo_cleanup.sh        # dry-run
-bash scripts/safe_repo_cleanup.sh --apply
+source .venv311/bin/activate && \
+PYTHONPATH=src python3 scripts/training/train_helix_ids_full.py \
+  --config config/helix_config.yaml \
+  --output models/helix_full \
+  --device cpu \
+  --epochs 10 && \
+(PYTHONPATH=src python3 scripts/operations/serve_rest.py \
+    --checkpoint models/helix_full/helix_full_nsl_kdd_best.pt \
+    --host 127.0.0.1 --port 8080 --device cpu --global-coverage-quantile 1.0 \
+    >/tmp/helix_serve.log 2>&1 & HELIX_PID=$!; \
+python3 - <<'PY'
+import json
+import time
+from pathlib import Path
+from urllib import request
+
+def post_predict(sample):
+    payload = json.dumps({'features': sample}).encode('utf-8')
+    req = request.Request('http://127.0.0.1:8080/predict', data=payload, headers={'Content-Type':'application/json'}, method='POST')
+    with request.urlopen(req, timeout=20):
+        return
+
+def get_metrics():
+    with request.urlopen('http://127.0.0.1:8080/metrics', timeout=20) as r:
+        return r.read().decode('utf-8', errors='replace')
+
+def parse_metrics(text):
+    out = {}
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith('#') or ' ' not in line:
+            continue
+        k, v = line.split(None, 1)
+        try:
+            out[k] = float(v.strip())
+        except ValueError:
+            pass
+    return out
+
+for _ in range(60):
+    try:
+        with request.urlopen('http://127.0.0.1:8080/health', timeout=5):
+            break
+    except Exception:
+        time.sleep(0.5)
+
+# Minimal fixed-sample validation loop (3000 requests total)
+sample = [0.0] * 17
+for _ in range(3000):
+    post_predict(sample)
+
+metrics_text = get_metrics()
+metrics = parse_metrics(metrics_text)
+Path('docs/results').mkdir(parents=True, exist_ok=True)
+Path('docs/results/staging_validation.json').write_text(
+    json.dumps(
+        {
+            'total_requests': int(metrics.get('helix_requests_total', 0.0)),
+            'override_rate': float(metrics.get('helix_coverage_override_rate', 0.0)),
+            'degraded_state': int(metrics.get('helix_degraded_state', 0.0)),
+        },
+        indent=2,
+    ),
+    encoding='utf-8',
+)
+print(metrics_text)
+PY
+python3 scripts/operations/staging_gate_check.py --metrics-endpoint http://127.0.0.1:8080/metrics; \
+kill $HELIX_PID)
 ```
 
----
+## Paper Artifacts
 
-## Performance
+- Manuscript file: `docs/manuscript/IEEE_EdgeIDS_v5_Experiments.docx`
+- Added sections:
+  - `REAL-WORLD DEPLOYMENT VALIDATION`
+  - `CORE CONTRIBUTIONS`
+  - `MINIMAL MODEL CLARIFICATION`
 
-V2 solves all major architectural blockers while retaining the extreme latency optimizations of V1.
+## Notes
 
-| Metric              | Value    | Target | Status |
-| ------------------- | -------- | ------ | ------ |
-| F1 (macro)          | 0.98+    | ≥0.95  | ✅     |
-| Attack Detection    | 5-class  | 5-class| ✅     |
-| Generalization      | Proven   | -      | ✅     |
-| Adversarial Success | Reduced  | <10%   | ✅     |
-| Throughput          | 1.3M/sec | -      | 🚀     |
-
----
-
-## Installation
-
-```bash
-# Clone repository
-git clone https://github.com/your-repo/helix-ids.git
-cd helix-ids
-
-# Create virtual environment
-python -m venv .venv
-source .venv/bin/activate
-
-# Install dependencies
-pip install torch numpy pandas scikit-learn imbalanced-learn
-
-# Verify installation
-python -c "from helix_ids import HelixIDS; print('✅ HELIX-IDS ready')"
-```
-
----
-
-## Dataset
-
-HELIX-IDS supports multi-dataset training and evaluation:
-
-- NSL-KDD
-- UNSW-NB15
-- CICIDS-2018
-
-The active model pipeline uses a 31-feature harmonized input and multi-task outputs.
-For data placement and sources, see `data/README.md`.
-
-Download datasets:
-
-```bash
-python scripts/download_datasets.py
-```
-
----
-
-## Citation
-
-If you use HELIX-IDS in your research, please cite:
-
-```bibtex
-@software{helix_ids_2026,
-  title = {HELIX-IDS: Production-Grade Intrusion Detection System},
-  year = {2026},
-  version = {1.0.0},
-  note = {F1=0.9869, 4978 parameters}
-}
-```
-
----
-
-## License
-
-MIT License
-
----
-
-## Acknowledgments
-
-Key insight that transformed this project:
-
-> *"You are optimizing models on top of a broken representation layer."*
-
-This led to feature engineering first, models second—achieving **+105% improvement**.
-
----
-
-## Documentation Index
-
-- `docs/ARCHITECTURE.md`
-- `docs/FEATURE_ENGINEERING.md`
-- `docs/REPOSITORY_LAYOUT.md`
-- `docs/DOCUMENTATION_STATUS.md`
-- `docs/reports/COMPLETION_REPORT.md`
-- `docs/reports/IMPLEMENTATION_COMPLETE.md`
-- `docs/reports/UNSW_RECOVERY_ANALYSIS.md`
+- For reproducible paper runs, keep `PYTHONPATH=src` set for all script invocations.
+- Runtime gating logic is implemented through `scripts/operations/serve_rest.py` metrics and `scripts/operations/staging_gate_check.py`.

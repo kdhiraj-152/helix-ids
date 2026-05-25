@@ -220,6 +220,7 @@ class TestMultiTaskLoss:
         assert loss_fn is not None
         assert abs(loss_fn.lambda_binary - 1.0) < 1e-12
         assert abs(loss_fn.lambda_family - 0.8) < 1e-12
+        assert loss_fn.balance_strategy == "weighted_ce"
     
     def test_basic_loss_computation(self, batch_data):
         """Test basic loss computation."""
@@ -329,6 +330,294 @@ class TestMultiTaskLoss:
         assert abs(loss1.item() - loss2.item()) > 0.01
         assert abs(loss1.item() - loss3.item()) > 0.01
 
+    def test_focal_strategy_supported(self):
+        """Test focal strategy computes a valid scalar loss."""
+        batch_size = 24
+        binary_logits = torch.randn(batch_size, 2)
+        family_logits = torch.randn(batch_size, 7)
+        binary_labels = torch.randint(0, 2, (batch_size,))
+        family_labels = torch.randint(0, 7, (batch_size,))
+
+        binary_weights = torch.tensor([0.7, 1.3], dtype=torch.float32)
+        family_weights = torch.ones(7, dtype=torch.float32)
+        family_weights[0] = 0.5
+
+        loss_fn = MultiTaskLoss(
+            lambda_binary=1.0,
+            lambda_family=0.8,
+            balance_strategy="focal",
+            focal_gamma=2.0,
+        )
+        total_loss, loss_dict = loss_fn(
+            binary_logits,
+            binary_labels,
+            family_logits,
+            family_labels,
+            binary_class_weights=binary_weights,
+            family_class_weights=family_weights,
+        )
+
+        assert total_loss.item() > 0
+        assert loss_dict["balance_strategy"] == "focal"
+
+    def test_family_margin_penalty_increases_total_loss_when_enabled(self):
+        """Enable family margin hinge term and verify it contributes positively."""
+        batch_size = 16
+        binary_logits = torch.zeros(batch_size, 2)
+        family_logits = torch.zeros(batch_size, 7)
+        binary_labels = torch.randint(0, 2, (batch_size,))
+        family_labels = torch.randint(0, 7, (batch_size,))
+
+        base_loss_fn = MultiTaskLoss(
+            lambda_binary=1.0,
+            lambda_family=0.8,
+            balance_strategy="weighted_ce",
+            family_margin_loss_weight=0.0,
+            family_logit_margin=1.0,
+        )
+        margin_loss_fn = MultiTaskLoss(
+            lambda_binary=1.0,
+            lambda_family=0.8,
+            balance_strategy="weighted_ce",
+            family_margin_loss_weight=0.2,
+            family_logit_margin=1.0,
+        )
+
+        total_base, base_dict = base_loss_fn(
+            binary_logits,
+            binary_labels,
+            family_logits,
+            family_labels,
+        )
+        total_margin, margin_dict = margin_loss_fn(
+            binary_logits,
+            binary_labels,
+            family_logits,
+            family_labels,
+        )
+
+        assert margin_dict["family_margin"] >= 0.0
+        assert total_margin.item() >= total_base.item()
+        assert margin_dict["family_margin_loss_weight"] == pytest.approx(0.2)
+
+    def test_class4_logit_penalty_increases_total_loss_when_enabled(self):
+        """Enable class-4 blanket-logit penalty and verify it contributes positively."""
+        batch_size = 16
+        binary_logits = torch.zeros(batch_size, 2)
+        family_logits = torch.zeros(batch_size, 7)
+        family_logits[:, 4] = 6.0
+        binary_labels = torch.randint(0, 2, (batch_size,))
+        family_labels = torch.randint(0, 7, (batch_size,))
+
+        base_loss_fn = MultiTaskLoss(
+            lambda_binary=1.0,
+            lambda_family=0.8,
+            balance_strategy="weighted_ce",
+            family_margin_loss_weight=0.0,
+            family_class4_logit_penalty_weight=0.0,
+        )
+        penalty_loss_fn = MultiTaskLoss(
+            lambda_binary=1.0,
+            lambda_family=0.8,
+            balance_strategy="weighted_ce",
+            family_margin_loss_weight=0.0,
+            family_class4_logit_penalty_weight=0.05,
+        )
+
+        total_base, base_dict = base_loss_fn(
+            binary_logits,
+            binary_labels,
+            family_logits,
+            family_labels,
+        )
+        total_penalty, penalty_dict = penalty_loss_fn(
+            binary_logits,
+            binary_labels,
+            family_logits,
+            family_labels,
+        )
+
+        assert base_dict["family_class4_logit_penalty"] >= 0.0
+        assert penalty_dict["family_class4_logit_penalty"] > 0.0
+        assert total_penalty.item() > total_base.item()
+        assert penalty_dict["family_class4_logit_penalty_weight"] == pytest.approx(0.05)
+
+    def test_class4_logit_penalty_is_zero_when_class4_does_not_outrank_others(self):
+        """Relative penalty should be zero when class-4 logit is not above max competing logit."""
+        batch_size = 8
+        binary_logits = torch.zeros(batch_size, 2)
+        family_logits = torch.full((batch_size, 7), 6.0)
+        binary_labels = torch.randint(0, 2, (batch_size,))
+        family_labels = torch.randint(0, 7, (batch_size,))
+
+        loss_fn = MultiTaskLoss(
+            lambda_binary=1.0,
+            lambda_family=0.8,
+            balance_strategy="weighted_ce",
+            family_margin_loss_weight=0.0,
+            family_class4_logit_penalty_weight=0.2,
+        )
+
+        _total, loss_dict = loss_fn(
+            binary_logits,
+            binary_labels,
+            family_logits,
+            family_labels,
+        )
+
+        assert loss_dict["family_class4_logit_penalty"] == pytest.approx(0.0, abs=1e-8)
+
+    def test_feature_separation_term_rewards_class4_non4_centroid_distance(self):
+        """Feature-separation term should reduce total loss when class-4/non-4 centroids are farther apart."""
+        batch_size = 8
+        binary_logits = torch.zeros(batch_size, 2)
+        family_logits = torch.zeros(batch_size, 7)
+        binary_labels = torch.randint(0, 2, (batch_size,))
+        family_labels = torch.tensor([4, 4, 4, 4, 1, 1, 2, 3], dtype=torch.long)
+
+        collapsed_features = torch.ones(batch_size, 4)
+        separated_features = torch.tensor(
+            [
+                [3.0, 3.0, 3.0, 3.0],
+                [3.0, 3.0, 3.0, 3.0],
+                [3.0, 3.0, 3.0, 3.0],
+                [3.0, 3.0, 3.0, 3.0],
+                [-1.0, -1.0, -1.0, -1.0],
+                [-1.0, -1.0, -1.0, -1.0],
+                [-1.0, -1.0, -1.0, -1.0],
+                [-1.0, -1.0, -1.0, -1.0],
+            ],
+            dtype=torch.float32,
+        )
+
+        loss_fn = MultiTaskLoss(
+            lambda_binary=1.0,
+            lambda_family=0.8,
+            balance_strategy="weighted_ce",
+            family_margin_loss_weight=0.0,
+            family_class4_logit_penalty_weight=0.0,
+            family_feature_separation_weight=0.05,
+        )
+
+        total_collapsed, collapsed_dict = loss_fn(
+            binary_logits,
+            binary_labels,
+            family_logits,
+            family_labels,
+            feature_embeddings=collapsed_features,
+        )
+        total_separated, separated_dict = loss_fn(
+            binary_logits,
+            binary_labels,
+            family_logits,
+            family_labels,
+            feature_embeddings=separated_features,
+        )
+
+        assert separated_dict["family_feature_separation"] < collapsed_dict["family_feature_separation"]
+        assert total_separated.item() < total_collapsed.item()
+
+    def test_feature_separation_term_is_bounded_by_negative_one(self):
+        """Bounded separation should saturate at >= -1.0 regardless of huge centroid distance."""
+        batch_size = 8
+        binary_logits = torch.zeros(batch_size, 2)
+        family_logits = torch.zeros(batch_size, 7)
+        binary_labels = torch.randint(0, 2, (batch_size,))
+        family_labels = torch.tensor([4, 4, 4, 4, 1, 1, 2, 3], dtype=torch.long)
+
+        huge_separated_features = torch.tensor(
+            [
+                [1000.0, 1000.0, 1000.0, 1000.0],
+                [1000.0, 1000.0, 1000.0, 1000.0],
+                [1000.0, 1000.0, 1000.0, 1000.0],
+                [1000.0, 1000.0, 1000.0, 1000.0],
+                [-1000.0, -1000.0, -1000.0, -1000.0],
+                [-1000.0, -1000.0, -1000.0, -1000.0],
+                [-1000.0, -1000.0, -1000.0, -1000.0],
+                [-1000.0, -1000.0, -1000.0, -1000.0],
+            ],
+            dtype=torch.float32,
+        )
+
+        loss_fn = MultiTaskLoss(
+            lambda_binary=1.0,
+            lambda_family=0.8,
+            balance_strategy="weighted_ce",
+            family_margin_loss_weight=0.0,
+            family_class4_logit_penalty_weight=0.0,
+            family_feature_separation_weight=0.05,
+        )
+
+        _total, loss_dict = loss_fn(
+            binary_logits,
+            binary_labels,
+            family_logits,
+            family_labels,
+            feature_embeddings=huge_separated_features,
+        )
+
+        assert loss_dict["family_feature_separation"] >= -1.000001
+        assert loss_dict["family_feature_separation"] <= 0.0
+
+    def test_family_class4_target_pressure_scaling_reduces_loss_for_class4_labels(self):
+        """Target-pressure scaling should downweight per-sample CE for class-4 labels only."""
+        batch_size = 8
+        binary_logits = torch.zeros(batch_size, 2)
+        binary_labels = torch.randint(0, 2, (batch_size,))
+
+        # Uniform logits => identical per-sample CE before scaling.
+        family_logits = torch.zeros(batch_size, 7)
+        mixed_labels = torch.tensor([4, 4, 1, 2, 3, 0, 5, 6], dtype=torch.long)
+        no_class4_labels = torch.tensor([0, 1, 2, 3, 5, 6, 0, 1], dtype=torch.long)
+
+        base_loss_fn = MultiTaskLoss(
+            lambda_binary=1.0,
+            lambda_family=0.8,
+            balance_strategy="weighted_ce",
+            family_class4_target_scale=1.0,
+        )
+        scaled_loss_fn = MultiTaskLoss(
+            lambda_binary=1.0,
+            lambda_family=0.8,
+            balance_strategy="weighted_ce",
+            family_class4_target_scale=0.3,
+        )
+
+        total_base_mixed, _ = base_loss_fn(
+            binary_logits,
+            binary_labels,
+            family_logits,
+            mixed_labels,
+        )
+        total_scaled_mixed, _ = scaled_loss_fn(
+            binary_logits,
+            binary_labels,
+            family_logits,
+            mixed_labels,
+        )
+        total_base_no4, _ = base_loss_fn(
+            binary_logits,
+            binary_labels,
+            family_logits,
+            no_class4_labels,
+        )
+        total_scaled_no4, _ = scaled_loss_fn(
+            binary_logits,
+            binary_labels,
+            family_logits,
+            no_class4_labels,
+        )
+
+        # Mixed-label batch should have lower total loss under class-4 scaling.
+        assert total_scaled_mixed.item() < total_base_mixed.item()
+        # No-class4 batch should be unchanged.
+        assert total_scaled_no4.item() == pytest.approx(total_base_no4.item(), rel=0.0, abs=1e-8)
+
+    def test_invalid_balance_strategy_raises(self):
+        """Test invalid balance strategy is rejected."""
+        with pytest.raises(ValueError):
+            MultiTaskLoss(balance_strategy="invalid")
+
 
 # ============================================================================
 # Config Tests
@@ -340,7 +629,7 @@ class TestTrainingConfig:
     def test_default_config(self):
         """Test default training config."""
         config = TrainingConfig()
-        assert config.input_dim == 18
+        assert config.input_dim == 17
         assert config.batch_size == 256
         assert config.epochs == 150
         assert abs(config.learning_rate - 1e-3) < 1e-12

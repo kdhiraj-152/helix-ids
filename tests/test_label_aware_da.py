@@ -133,11 +133,28 @@ class TestClassConditionalMMDLoss:
         source_labels = torch.zeros(20, dtype=torch.long)
         target_labels = torch.zeros(15, dtype=torch.long)
 
-        loss, _ = mmd(source_feats, target_feats, source_labels, target_labels)
+        loss, loss_dict = mmd(source_feats, target_feats, source_labels, target_labels)
 
         assert loss.item() >= 0
+        assert torch.is_tensor(loss)
+        assert "mmd_loss" in loss_dict
         assert "total" in loss_dict
-        assert "mmd_class_0" in loss_dict
+        assert torch.isfinite(loss)
+
+    def test_single_class_stability(self):
+        """Single-class batches should remain numerically stable and structured."""
+        mmd = ClassConditionalMMDLoss(num_classes=5, kernel="multi")
+        x_source = torch.randn(32, 32)
+        x_target = torch.randn(32, 32)
+        y_source = torch.zeros(32, dtype=torch.long)
+        y_target = torch.zeros(32, dtype=torch.long)
+
+        loss, meta = mmd(x_source, x_target, y_source, y_target)
+
+        assert "mmd_loss" in meta
+        assert not torch.isnan(loss)
+        assert torch.isfinite(loss)
+        assert loss.item() >= 0.0
 
     def test_forward_multiple_classes(self):
         """Test forward pass with multiple classes."""

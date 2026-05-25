@@ -364,7 +364,8 @@ def test_get_action_directive_composite_failure() -> None:
     }
 
     action = get_action_directive(diagnosis)
-    assert action["type"] == "MULTI_STAGE_REPAIR"
+    assert action["type"] == "PROBE"
+    assert action["objective"] == "increase_diagnostic_confidence"
 
 
 def test_get_action_directive_distribution_shift() -> None:
@@ -373,7 +374,7 @@ def test_get_action_directive_distribution_shift() -> None:
         "mode": "distribution_shift",
         "stage": None,
         "kill_list": [],
-        "confidence": 0.3,
+        "confidence": 0.7,
     }
     action = get_action_directive(diagnosis)
     assert action["type"] == "REFRESH_BASELINE"
@@ -388,7 +389,7 @@ def test_get_action_directive_suppresses_low_confidence_actions() -> None:
         "confidence": 0.1,
     }
     action = get_action_directive(diagnosis)
-    assert action["type"] == "NO_OP"
+    assert action["type"] == "PROBE"
     assert action["reason"] == "insufficient_diagnostic_confidence"
 
 
@@ -401,7 +402,7 @@ def test_get_action_directive_suppresses_uncalibrated_actions() -> None:
         "confidence": 0.6,
     }
     action = get_action_directive(diagnosis)
-    assert action["type"] == "NO_OP"
+    assert action["type"] == "PROBE"
     assert action["reason"] == "insufficient_diagnostic_confidence"
 
 
@@ -434,11 +435,333 @@ def test_create_summary() -> None:
         "MULTI_STAGE_REPAIR",
         "VALIDATE_METRICS",
         "FEATURE_ENGINEERING",
-        "NO_OP",
+        "PROBE",
     }
-    assert isinstance(summary["confidence"], float)
-    assert 0 <= summary["confidence"] <= 1
-    assert summary["mode"] in {"single", "composite", "weak_signal", "inconsistent", "distribution_shift"}
+
+
+def test_derive_root_cause_marks_non_identifiable_when_probes_exhausted() -> None:
+    meta = {
+        "reference_profile": _reference_profile(),
+        "centroid_min_distance": 0.02,
+        "unique_pred_coverage": 0.79,
+        "linear_probe_macro_f1": 0.33,
+        "random_macro_f1": 0.15,
+        "label_entropy": 1.2,
+        "num_classes": 4,
+        "feature_degeneracy": {"zero_variance_fraction": 0.02},
+        "stage_diagnostics": {},
+        "stage_transitions": {},
+        "diagnostic_cycle": {
+            "iteration": 2,
+            "probes_exhausted": True,
+            "probe_results": [
+                {"hypothesis": "class_prediction_collapse", "confirms": False},
+                {"hypothesis": "label_distribution_issue", "confirms": False},
+            ],
+        },
+    }
+
+    diagnosis = derive_root_cause(meta)
+    assert diagnosis["mode"] == "non_identifiable"
+    assert diagnosis["primary"] == "irreducible_uncertainty"
+    assert "irreducible_uncertainty" in diagnosis["flags"]
+    assert isinstance(diagnosis["diagnostic_cycle"]["confidence_trajectory"], list)
+    assert isinstance(diagnosis["confidence"], float)
+    assert 0 <= diagnosis["confidence"] <= 1
+    assert diagnosis["mode"] in {
+        "single",
+        "composite",
+        "weak_signal",
+        "inconsistent",
+        "distribution_shift",
+        "uncalibrated",
+        "non_identifiable",
+    }
+
+
+def test_conflicting_probe_signals() -> None:
+    meta = {
+        "reference_profile": _reference_profile(),
+        "centroid_min_distance": 0.015,
+        "unique_pred_coverage": 0.82,
+        "linear_probe_macro_f1": 0.31,
+        "random_macro_f1": 0.15,
+        "label_entropy": 1.2,
+        "num_classes": 4,
+        "feature_degeneracy": {"zero_variance_fraction": 0.02},
+        "stage_diagnostics": {},
+        "stage_transitions": {},
+        "diagnostic_cycle": {
+            "probe_results": [
+                {"probe": "inspect_label_distribution", "hypothesis": "class_prediction_collapse", "confirms": True},
+                {"probe": "inspect_label_distribution", "hypothesis": "class_prediction_collapse", "confirms": False},
+            ]
+        },
+    }
+    diagnosis = derive_root_cause(meta)
+    assert any(flag.startswith("conflicting_probe_signals") for flag in diagnosis["flags"])
+    traj = diagnosis["diagnostic_cycle"]["confidence_trajectory"]
+    assert max(traj) - traj[0] <= 0.15 + 1e-9
+
+
+def test_false_positive_probe() -> None:
+    base_meta = {
+        "reference_profile": _reference_profile(),
+        "centroid_min_distance": 0.02,
+        "unique_pred_coverage": 0.78,
+        "linear_probe_macro_f1": 0.34,
+        "random_macro_f1": 0.15,
+        "label_entropy": 1.2,
+        "num_classes": 4,
+        "feature_degeneracy": {"zero_variance_fraction": 0.02},
+        "stage_diagnostics": {},
+        "stage_transitions": {},
+    }
+    with_probe = {
+        **base_meta,
+        "diagnostic_cycle": {
+            "probe_results": [
+                {
+                    "probe": "inspect_label_distribution",
+                    "hypothesis": "class_prediction_collapse",
+                    "confirms": True,
+                    "noisy": True,
+                }
+            ]
+        },
+    }
+    d0 = derive_root_cause(base_meta)
+    d1 = derive_root_cause(with_probe)
+    assert "false_positive_probe_signal" in d1["flags"]
+    assert d1["confidence"] <= d0["confidence"] + 1e-9
+
+
+def test_probe_loop_stagnation() -> None:
+    meta = {
+        "reference_profile": _reference_profile(),
+        "centroid_min_distance": 0.02,
+        "unique_pred_coverage": 0.79,
+        "linear_probe_macro_f1": 0.33,
+        "random_macro_f1": 0.15,
+        "label_entropy": 1.2,
+        "num_classes": 4,
+        "feature_degeneracy": {"zero_variance_fraction": 0.02},
+        "stage_diagnostics": {},
+        "stage_transitions": {},
+        "diagnostic_cycle": {
+            "probe_results": [
+                {"probe": "variance_floor_scan", "hypothesis": "feature_degeneracy", "confirms": False, "noisy": True},
+                {"probe": "variance_floor_scan", "hypothesis": "feature_degeneracy", "confirms": False, "noisy": True},
+                {"probe": "variance_floor_scan", "hypothesis": "feature_degeneracy", "confirms": False, "noisy": True},
+            ]
+        },
+    }
+    diagnosis = derive_root_cause(meta)
+    assert "probe_loop_stagnation" in diagnosis["flags"]
+    assert diagnosis["mode"] == "non_identifiable"
+
+
+def test_monotonic_information_gain_bound() -> None:
+    meta = {
+        "reference_profile": _reference_profile(),
+        "centroid_min_distance": 0.02,
+        "unique_pred_coverage": 0.78,
+        "linear_probe_macro_f1": 0.33,
+        "random_macro_f1": 0.15,
+        "label_entropy": 1.2,
+        "num_classes": 4,
+        "feature_degeneracy": {"zero_variance_fraction": 0.02},
+        "stage_diagnostics": {},
+        "stage_transitions": {},
+        "diagnostic_cycle": {
+            "probe_results": [
+                {
+                    "probe": "inspect_label_distribution",
+                    "hypothesis": "class_prediction_collapse",
+                    "confirms": True,
+                    "information_gain_bound": 0.05,
+                }
+            ]
+        },
+    }
+    diagnosis = derive_root_cause(meta)
+    step = diagnosis["diagnostic_cycle"]["probe_steps"][0]
+    assert abs(step["new_confidence"] - step["old_confidence"]) <= step["max_allowed_delta"] + 1e-9
+
+
+def test_probe_redundancy_filter_discards_similar_probe() -> None:
+    meta = {
+        "reference_profile": _reference_profile(),
+        "centroid_min_distance": 0.0005,
+        "unique_pred_coverage": 0.9,
+        "linear_probe_macro_f1": 0.5,
+        "random_macro_f1": 0.15,
+        "label_entropy": 1.5,
+        "num_classes": 3,
+        "feature_degeneracy": {"zero_variance_fraction": 0.01},
+        "stage_diagnostics": {},
+        "stage_transitions": {},
+        "diagnostic_cycle": {
+            "probe_results": [
+                {
+                    "probe": "run_without_scaling",
+                    "type": "ablation",
+                    "target": "scaler",
+                    "disambiguates": ["feature_space_collapse", "scaling_destruction"],
+                    "hypothesis": "feature_space_collapse",
+                    "confirms": False,
+                }
+            ]
+        },
+    }
+    diagnosis = derive_root_cause(meta)
+    assert "redundant_probe_filtered:run_without_scaling" in diagnosis["flags"]
+    assert all(p.get("probe") != "run_without_scaling" for p in diagnosis["probe_candidates"])
+
+
+def test_probe_budget_exhaustion_forces_non_identifiable() -> None:
+    meta = {
+        "reference_profile": _reference_profile(),
+        "centroid_min_distance": 0.02,
+        "unique_pred_coverage": 0.79,
+        "linear_probe_macro_f1": 0.33,
+        "random_macro_f1": 0.15,
+        "label_entropy": 1.2,
+        "num_classes": 4,
+        "feature_degeneracy": {"zero_variance_fraction": 0.02},
+        "stage_diagnostics": {},
+        "stage_transitions": {},
+        "probe_cost_budget": 0.1,
+        "diagnostic_cycle": {
+            "probe_results": [
+                {"probe": "inspect_label_distribution", "hypothesis": "class_prediction_collapse", "confirms": False, "execution_cost": 0.2}
+            ]
+        },
+    }
+    diagnosis = derive_root_cause(meta)
+    assert diagnosis["mode"] == "non_identifiable"
+    assert diagnosis["diagnostic_cycle"]["terminal_reason"] == "budget_exhausted"
+
+
+def test_probe_bias_detected_discounts_update() -> None:
+    meta = {
+        "reference_profile": _reference_profile(),
+        "centroid_min_distance": 0.02,
+        "unique_pred_coverage": 0.79,
+        "linear_probe_macro_f1": 0.33,
+        "random_macro_f1": 0.15,
+        "label_entropy": 1.2,
+        "num_classes": 4,
+        "feature_degeneracy": {"zero_variance_fraction": 0.02},
+        "stage_diagnostics": {},
+        "stage_transitions": {},
+        "diagnostic_cycle": {
+            "probe_results": [
+                {
+                    "probe": "inspect_label_distribution",
+                    "hypothesis": "class_prediction_collapse",
+                    "confirms": True,
+                    "probe_changes_distribution": True,
+                }
+            ]
+        },
+    }
+    diagnosis = derive_root_cause(meta)
+    assert "probe_bias_detected" in diagnosis["flags"]
+    step = diagnosis["diagnostic_cycle"]["probe_steps"][0]
+    assert abs(step["new_confidence"] - step["old_confidence"]) <= 0.075 + 1e-9
+
+
+def test_probe_isolation() -> None:
+    meta = {
+        "reference_profile": _reference_profile(),
+        "centroid_min_distance": 0.02,
+        "unique_pred_coverage": 0.79,
+        "linear_probe_macro_f1": 0.33,
+        "random_macro_f1": 0.15,
+        "label_entropy": 1.2,
+        "num_classes": 4,
+        "feature_degeneracy": {"zero_variance_fraction": 0.02},
+        "stage_diagnostics": {},
+        "stage_transitions": {},
+        "diagnostic_cycle": {
+            "probe_results": [
+                {
+                    "probe": "inspect_label_distribution",
+                    "hypothesis": "class_prediction_collapse",
+                    "confirms": True,
+                    "affected_hypotheses": ["class_prediction_collapse", "label_distribution_issue"],
+                }
+            ]
+        },
+    }
+    diagnosis = derive_root_cause(meta)
+    assert "probe_not_isolated" in diagnosis["flags"]
+
+
+def test_confidence_collapse_all_hypotheses_contradicted() -> None:
+    meta = {
+        "reference_profile": _reference_profile(),
+        "centroid_min_distance": 0.015,
+        "unique_pred_coverage": 0.79,
+        "linear_probe_macro_f1": 0.30,
+        "random_macro_f1": 0.15,
+        "label_entropy": 1.1,
+        "num_classes": 4,
+        "feature_degeneracy": {"zero_variance_fraction": 0.02},
+        "stage_diagnostics": {},
+        "stage_transitions": {},
+        "diagnostic_cycle": {
+            "probe_results": [
+                {"probe": "inspect_label_distribution", "hypothesis": "class_prediction_collapse", "confirms": False},
+                {"probe": "run_without_scaling", "hypothesis": "feature_space_collapse", "confirms": False},
+                {"probe": "inject_synthetic_signal_test", "hypothesis": "weak_signal", "confirms": False},
+            ]
+        },
+    }
+    diagnosis = derive_root_cause(meta)
+    assert diagnosis["mode"] == "non_identifiable"
+    assert diagnosis["confidence"] >= 0.05
+    assert diagnosis["confidence"] <= 0.3
+
+
+def test_diagnostic_cycle_log_integrity() -> None:
+    meta = {
+        "reference_profile": _reference_profile(),
+        "centroid_min_distance": 0.02,
+        "unique_pred_coverage": 0.79,
+        "linear_probe_macro_f1": 0.33,
+        "random_macro_f1": 0.15,
+        "label_entropy": 1.2,
+        "num_classes": 4,
+        "feature_degeneracy": {"zero_variance_fraction": 0.02},
+        "stage_diagnostics": {},
+        "stage_transitions": {},
+        "diagnostic_cycle": {
+            "probe_results": [
+                {"probe": "inspect_label_distribution", "hypothesis": "class_prediction_collapse", "confirms": True},
+                {"probe": "variance_floor_scan", "hypothesis": "feature_degeneracy", "confirms": False},
+            ]
+        },
+    }
+    diagnosis = derive_root_cause(meta)
+    cycle = diagnosis["diagnostic_cycle"]
+    assert len(cycle["confidence_trajectory"]) == cycle["iteration"]
+    assert len(cycle["probe_steps"]) == len(cycle["probes_run"])
+    assert len(cycle["confidence_trajectory"]) == len(cycle["probes_run"]) + 1
+
+
+def test_action_layer_frozen_until_confidence_verified() -> None:
+    diagnosis = {
+        "primary": "feature_space_collapse",
+        "mode": "single",
+        "confidence": 0.59,
+        "stage": None,
+        "kill_list": [],
+        "probe_candidates": [],
+    }
+    action = get_action_directive(diagnosis)
+    assert action["type"] == "PROBE"
 
 
 def test_format_failure_message() -> None:

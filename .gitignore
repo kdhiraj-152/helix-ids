@@ -11,6 +11,7 @@ dist/
 
 # Virtual environments
 .venv/
+.venv*/
 venv/
 
 # Tool caches
@@ -33,9 +34,19 @@ htmlcov/
 checkpoints/
 models/
 results/
+outputs/
+artifacts/
+.code-review-graph/
+
+# Local agent/tooling state
+.opencode.json
+.mcp.json
+.coverage
 
 # Large/local datasets
 # Keep dataset manifests/docs in git if needed, ignore bulk files.
+data/**/raw/
+data/**/raw
 data/**/*.csv
 data/**/*.npy
 data/**/*.npz

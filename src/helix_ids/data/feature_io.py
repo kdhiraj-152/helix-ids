@@ -6,6 +6,8 @@ Responsible solely for reading CSV / ARFF / TXT files from disk.
 """
 
 import logging
+import os
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -47,6 +49,14 @@ def find_data_files(base_path: Path) -> list[Path]:
 
     exclude = {"feature", "metadata", "readme", "list_event"}
     files = [f for f in files if not any(p in f.name.lower() for p in exclude)]
+
+    # Optional fast-path for experimentation: skip the largest CICIDS raw dump.
+    if os.environ.get("HELIX_SKIP_LARGE_CICIDS", "0") == "1":
+        files = [
+            f
+            for f in files
+            if f.name != "Thuesday-20-02-2018_TrafficForML_CICFlowMeter.csv"
+        ]
     return sorted(files)
 
 
@@ -118,9 +128,15 @@ def _load_arff(filepath: Path) -> pd.DataFrame:
 
 
 def _load_csv(filepath: Path) -> pd.DataFrame:
+    file_size_mb = filepath.stat().st_size / (1024 * 1024) if filepath.exists() else 0.0
+    use_chunked_read = file_size_mb >= 256.0
+
     for enc in ("utf-8", "latin-1"):
         try:
-            df = pd.read_csv(filepath, low_memory=False, encoding=enc)
+            if use_chunked_read:
+                df = _read_csv_in_chunks(filepath, encoding=enc)
+            else:
+                df = pd.read_csv(filepath, low_memory=False, encoding=enc)
             df.columns = df.columns.str.strip()
             return df
         except UnicodeDecodeError:
@@ -128,8 +144,52 @@ def _load_csv(filepath: Path) -> pd.DataFrame:
         except Exception:
             break
     # Fallback: auto-detect separator
-    df = pd.read_csv(filepath, low_memory=False, sep=None, engine="python")
+    if use_chunked_read:
+        df = _read_csv_in_chunks(filepath, encoding=None)
+    else:
+        df = pd.read_csv(filepath, low_memory=False, sep=None, engine="python")
     df.columns = df.columns.str.strip()
+    return df
+
+
+def _read_csv_in_chunks(filepath: Path, encoding: Optional[str], chunk_rows: int = 200000) -> pd.DataFrame:
+    """Read a large CSV in chunks to reduce single-call blocking and memory spikes."""
+    start_time = time.perf_counter()
+    chunk_iter = pd.read_csv(
+        filepath,
+        low_memory=False,
+        encoding=encoding,
+        sep=None if encoding is None else ",",
+        engine="python" if encoding is None else None,
+        chunksize=chunk_rows,
+    )
+
+    chunks: list[pd.DataFrame] = []
+    total_rows = 0
+    for chunk_idx, chunk in enumerate(chunk_iter, start=1):
+        chunks.append(chunk)
+        total_rows += int(chunk.shape[0])
+        if chunk_idx % 5 == 0:
+            logger.info("CSV chunk progress %s: chunk=%d", filepath.name, chunk_idx)
+
+    if not chunks:
+        return pd.DataFrame()
+
+    logger.info(
+        "CSV chunk read complete %s: chunks=%d rows=%d elapsed=%.2fs",
+        filepath.name,
+        len(chunks),
+        total_rows,
+        time.perf_counter() - start_time,
+    )
+    concat_start = time.perf_counter()
+    df = pd.concat(chunks, ignore_index=True)
+    logger.info(
+        "CSV chunk concat complete %s: rows=%d elapsed=%.2fs",
+        filepath.name,
+        int(df.shape[0]),
+        time.perf_counter() - concat_start,
+    )
     return df
 
 

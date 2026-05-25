@@ -1,0 +1,1081 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+\documentclass[
+  conference]{IEEEtran}
+\usepackage{xcolor}
+\usepackage{amsmath,amssymb}
+\setcounter{secnumdepth}{-\maxdimen} % remove section numbering
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math} % this also loads fontspec
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+\usepackage{lmodern}
+\ifPDFTeX\else
+  % xetex/luatex font selection
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{longtable,booktabs,array}
+\newcounter{none} % for unnumbered tables
+\usepackage{calc} % for calculating minipage widths
+% Correct order of tables after \paragraph or \subparagraph
+\usepackage{etoolbox}
+\makeatletter
+\patchcmd\longtable{\par}{\if@noskipsec\mbox{}\fi\par}{}{}
+\makeatother
+% Allow footnotes in longtable head/foot
+\IfFileExists{footnotehyper.sty}{\usepackage{footnotehyper}}{\usepackage{footnote}}
+\makesavenoteenv{longtable}
+\usepackage{graphicx}
+\makeatletter
+\newsavebox\pandoc@box
+\newcommand*\pandocbounded[1]{% scales image to fit in text height/width
+  \sbox\pandoc@box{#1}%
+  \Gscale@div\@tempa{\textheight}{\dimexpr\ht\pandoc@box+\dp\pandoc@box\relax}%
+  \Gscale@div\@tempb{\linewidth}{\wd\pandoc@box}%
+  \ifdim\@tempb\p@<\@tempa\p@\let\@tempa\@tempb\fi% select the smaller of both
+  \ifdim\@tempa\p@<\p@\scalebox{\@tempa}{\usebox\pandoc@box}%
+  \else\usebox{\pandoc@box}%
+  \fi%
+}
+% Set default figure placement to htbp
+\def\fps@figure{htbp}
+\makeatother
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\usepackage{bookmark}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\urlstyle{same}
+\hypersetup{
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+
+\author{}
+\date{}
+
+\begin{document}
+
+\section{HELIX: Diagnosing and Provably Restoring Post-Hoc Control Layer
+Collapse via Threshold
+Decoupling}\label{helix-diagnosing-and-provably-restoring-post-hoc-control-layer-collapse-via-threshold-decoupling}
+
+\textbf{K Dhiraj}\\
+Department of Computer Science and Engineering\\
+Chandigarh University\\
+k.dhiraj.srihari@gmail.com
+
+\textbf{Abstract---} Post-hoc control layers impose inference-time
+constraints on trained classifiers without modifying model weights.
+HELIX is a margin-based module for class-selective override in a neural
+IDS, designed to suppress low-confidence class-4 predictions. We
+formally define \textbf{control collapse} --- a structural failure mode
+in which the override layer processes every prediction but modifies none
+--- using a dual criterion: override\_rate \textless{} \(\varepsilon\)
+and KL divergence between pre- and post-override prediction
+distributions equal to zero.
+
+We prove that the \emph{online\_hybrid} configuration satisfies both
+criteria exactly on UNSW-NB15 (override\_rate = 0.0, KL = 0.0) and
+NSL-KDD (override\_rate = 0.0, KL = 0.0), despite class-4 prediction
+mass of 20.6\% and 42.0\% respectively. The root cause is adaptive
+threshold coupling: the threshold is estimated from the same margin
+stream it is meant to bound, and a dimensional mismatch
+(\(\tau_a \sim O(10^4)\) vs.~\(z_{\text{norm}} \sim O(1)\)) causes the
+gate to fail silently.
+
+A minimal corrective intervention --- freezing the adaptive threshold at
+calibration time, where
+\(\tau_a^{\text{frozen}} = \mu_{\text{cal}} + 0.754\sigma_{\text{cal}} = 81{,}921\)
+logit units --- breaks the coupling and restores non-zero override
+actuation. Bootstrap validation (n = 1,000 resamples, 95\% CI) confirms
+statistically stable restoration: UNSW override\_rate = 0.0947
+{[}0.09125, 0.09836{]}; NSL override\_rate = 0.3784 {[}0.37230,
+0.38459{]}. The collapsed and active configurations have non-overlapping
+CIs, with zero-width variance under collapse confirming deterministic
+architectural failure rather than sampling noise.
+
+One transparency result merits disclosure: under current calibration,
+the decoupled \emph{frozen\_z\_hybrid} configuration is numerically
+identical to the simpler \emph{fixed\_tau\_only} baseline. The z-score
+normalization channel adds architectural robustness but no additional
+discriminative signal at these parameter settings.
+
+\textbf{Index Terms---} intrusion detection system, post-hoc control,
+confidence thresholding, control collapse, conformal calibration,
+selective classification, edge security.
+
+\subsection{I. INTRODUCTION}\label{i.-introduction}
+
+Post-hoc inference control is a practical alternative to full retraining
+when decision-level constraints must be imposed on a deployed classifier
+{[}1{]}--{[}4{]}. The standard use case in intrusion detection is
+conservative reclassification: when the model assigns uncertain top-1
+predictions to a high-cost class, override the prediction at inference
+time rather than retrain the model to fix it.
+
+The natural confidence signal for such a criterion is the
+\textbf{decision margin} --- the gap between the top-1 and second-best
+logit scores. Margin-based thresholding is used in confidence
+calibration {[}5{]}, selective classification {[}6{]}, and reject-option
+design {[}7{]}. A common refinement is the \textbf{adaptive threshold}:
+compute the override boundary from the running statistics of the
+observed margin distribution, so the violation rate stays roughly stable
+even as the input distribution shifts.
+
+Under a specific implementation pattern, adaptive thresholding can
+nullify the control layer it is intended to enforce.
+
+\textbf{The central result:} When the threshold is estimated online from
+the same stream over which violations are evaluated, and when the
+threshold estimator and the comparison operand live in different units,
+the override probability converges to zero by construction. The control
+layer runs on every sample and changes none. We call this failure
+\textbf{control collapse}, define it formally, prove it holds in the
+HELIX system, identify the mechanism, and show a minimal fix.
+
+The failure mode is not exposed by existing methods. Confidence
+calibration {[}5, 8{]} operates in probability space with static
+parameters. OOD detection {[}9, 10{]} applies fixed, pre-computed
+thresholds. Conformal prediction {[}11, 12{]} provides coverage
+guarantees precisely \emph{because} it freezes the nonconformity
+threshold before inference --- exactly the safeguard that the online
+hybrid configuration violates. Selective classification {[}6, 13{]}
+analyzes static coverage constraints; online threshold drift is out of
+scope. This paper fills that gap.
+
+\textbf{Contributions:} 1. \textbf{Formal collapse definition} via a
+dual criterion (override\_rate \textless{} \(\varepsilon\), KL
+divergence = 0) with exact measured values. 2. \textbf{Collapse proof}
+showing \emph{online\_hybrid} satisfies both necessary and sufficient
+conditions on two datasets. 3. \textbf{Mechanistic explanation} ---
+Proposition 1 --- establishing coupling-induced convergence of override
+probability to zero. 4. \textbf{Minimal corrective intervention} ---
+frozen threshold decoupling --- restoring non-zero actuation, with
+bootstrap confirmation of stability. 5.
+\textbf{Controllability--correctness analysis} documenting the trade-off
+and its calibration context, including the transparency result that
+\emph{frozen\_z\_hybrid} \(\equiv\) \emph{fixed\_tau\_only} under
+current parameters.
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{II. RELATED WORK}\label{ii.-related-work}
+
+\subsubsection{A. Confidence
+Calibration}\label{a.-confidence-calibration}
+
+Guo et al.~{[}5{]} show that modern neural networks are systematically
+miscalibrated and propose temperature scaling as a fix. Platt scaling
+{[}14{]} and isotonic regression {[}15{]} address the same objective via
+different parametric forms. All these methods work in probability space
+with a temperature parameter that is static after calibration. None
+analyzes the behavior of an override threshold that is continuously
+re-estimated from the test stream. The control collapse failure mode is
+invisible to calibration analysis because calibration is not in the
+loop.
+
+\subsubsection{B. Out-of-Distribution
+Detection}\label{b.-out-of-distribution-detection}
+
+Hendrycks and Gimpel {[}9{]} propose maximum softmax probability as a
+baseline OOD score; Lee et al.~{[}10{]} use Mahalanobis distance in
+feature space; ODIN {[}16{]} combines temperature scaling and input
+perturbations. All three apply a \textbf{fixed, pre-computed threshold}
+to the score --- the coupling problem does not arise. Collapse is
+specific to the regime where the threshold co-evolves with the score
+distribution during evaluation.
+
+\subsubsection{C. Conformal Prediction and Selective
+Classification}\label{c.-conformal-prediction-and-selective-classification}
+
+Conformal prediction {[}11, 12{]} provides valid coverage guarantees
+under exchangeability by computing the nonconformity threshold on a
+held-out calibration set and \textbf{freezing it before inference}.
+Selective classification {[}6, 13{]} similarly fixes coverage
+constraints at deployment. Both frameworks are structurally correct for
+the same reason the frozen HELIX variant works: threshold and evaluation
+stream are decoupled. The present work documents what happens when that
+safeguard is removed.
+
+\subsubsection{D. Adaptive Thresholding in Streaming
+Settings}\label{d.-adaptive-thresholding-in-streaming-settings}
+
+Concept drift detection {[}17, 18{]} uses adaptive thresholds on the
+label or classifier space, not on the confidence threshold applied to
+the classifier's own output. The self-referential pattern --- threshold
+adapts to the same signal it is meant to bound --- is specific to
+post-hoc control overrides. This paper provides a formal analysis of
+that case.
+
+\textbf{Why existing work misses this.} All surveyed methods either use
+fixed thresholds from held-out calibration, operate in a different
+representation space, or do not model self-referential threshold--margin
+feedback. The \emph{online\_hybrid} configuration violates all three
+safeguards simultaneously.
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{III. PROBLEM SETUP AND FORMAL
+DEFINITIONS}\label{iii.-problem-setup-and-formal-definitions}
+
+\subsubsection{A. Margin Definition}\label{a.-margin-definition}
+
+Let \(\mathbf{z}(x) \in \mathbb{R}^K\) denote the pre-softmax logit
+vector from classifier \(f\) on input \(x\). HELIX computes margins in
+\textbf{logit space}:
+
+\[m = z_{(1)} - z_{(2)}\]
+
+where \(z_{(1)}\) and \(z_{(2)}\) are the top-1 and second-best logit
+values. Logit-space margins are required for dimensional consistency
+with threshold values \(\tau_f = 70{,}000\) and
+\(\tau_a^{\text{frozen}} = 81{,}921\) (both in logit units). All
+threshold comparisons, z-score normalizations, and distributional
+analyses in this paper are in logit margin space.
+
+\subsubsection{B. Calibration
+Statistics}\label{b.-calibration-statistics}
+
+The following parameters are estimated from the UNSW-NB15 calibration
+split and frozen before test evaluation:
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}lll@{}}
+\toprule\noalign{}
+Parameter & Value & Units \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+\(\mu_{\text{cal}}\) & 67,137.24 & logit units \\
+\(\sigma_{\text{cal}}\) & 19,616.67 & logit units \\
+\(\tau_a^{\text{frozen}}\) & 81,921.39 & logit units \\
+\(\tau_f\) & 70,000.00 & logit units \\
+\end{longtable}
+}
+
+The frozen threshold's normalized position:
+
+\[z_{\tau_a} = \frac{\tau_a^{\text{frozen}} - \mu_{\text{cal}}}{\sigma_{\text{cal}}} = \frac{81{,}921.39 - 67{,}137.24}{19{,}616.67} \approx 0.754\]
+
+This places \(\tau_a^{\text{frozen}}\) at approximately the \textbf{77th
+percentile} of the calibration margin distribution, converting HELIX
+from a dynamic estimator into a deterministic constraint function. The
+fixed threshold \(\tau_f = 70{,}000\) sits at
+\(z_{\tau_f} \approx 0.146\), or roughly the \textbf{56th percentile}.
+In principle, the OR gate covers class-4 samples from the 56th to the
+77th percentile of calibration confidence --- though as Section V shows,
+the two gates produce identical decisions under current
+parameterization.
+
+\subsubsection{C. The Override Rule}\label{c.-the-override-rule}
+
+\[\hat{y} = \begin{cases} \arg\max_{k \neq 4} z_k(x) & \text{if } y = 4 \;\wedge\; \left( m < \tau_f \;\vee\; \frac{m - \mu_{\text{cal}}}{\sigma_{\text{cal}}} < \tau_a \right) \\ y & \text{otherwise} \end{cases}\]
+
+where \(y = \arg\max_k z_k\) and all parameters are as defined in
+Section III.B.
+
+\textbf{Figure 1} shows the full inference-time pipeline, from raw
+logits through margin computation to the dual-gate threshold check and
+override decision.
+
+\begin{figure}
+\centering
+\includegraphics[width=0.72\linewidth,height=\textheight,keepaspectratio,alt={Figure 1. HELIX inference-time control pipeline. The dual-gate threshold check (fixed: m \textless{} 70\{,\}000; adaptive: z\_\{ ext\{norm\}\} \textless{}    au\_a) evaluates an OR condition on every class-4 top prediction.}]{docs/fig_revamp/fig1.png}
+\caption{Figure 1. HELIX inference-time control pipeline. The dual-gate
+threshold check (fixed: \(m < 70{,}000\); adaptive:
+\(z_{ ext{norm}} <    au_a\)) evaluates an OR condition on every class-4
+top prediction.}
+\end{figure}
+
+The control layer is logically well-formed; inactivity under
+\emph{online\_hybrid} is not a logic error --- it is gate failure from
+null-threshold propagation, as established in Section IV.
+
+\subsubsection{D. Ablation
+Configurations}\label{d.-ablation-configurations}
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.2000}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.2000}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.2000}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.2000}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.2000}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Configuration
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+\(\tau_f\)
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+\(\tau_a\)
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+\(\tau_a\) update
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+\(\tau_a\) (logit)
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+\texttt{fixed\_tau\_only} & 70,000 & --- & N/A & --- \\
+\texttt{percentile\_only} & 0 & online & Running percentile & null at
+eval \\
+\texttt{online\_hybrid} & 70,000 & online & Running percentile & null at
+eval \\
+\texttt{frozen\_z\_hybrid} & 70,000 & frozen & Calibration &
+81,921.39 \\
+\end{longtable}
+}
+
+\subsubsection{E. Algorithm 1: HELIX Inference Control
+(frozen\_z\_hybrid)}\label{e.-algorithm-1-helix-inference-control-frozen_z_hybrid}
+
+\begin{verbatim}
+Algorithm 1: HELIX Inference-Time Override (frozen_z_hybrid variant)
+-------------------------------------------------------------------
+Input:  z ∈ ℝ^K          — raw logit vector
+        τ_f = 70,000      — fixed logit-margin threshold
+        τ_a = 81,921.39   — frozen adaptive threshold (≈ 77th pctile of cal.)
+        μ_cal = 67,137.24, σ_cal = 19,616.67  — calibration statistics
+
+Output: ŷ ∈ {0,...,K−1}
+
+ 1:  y      ← argmax_k z_k                    // O(K)
+ 2:  if y ≠ 4 then return y                   // no override candidate
+ 3:  z_(1) ← max(z);  z_(2) ← second_max(z)  // O(K)
+ 4:  m      ← z_(1) - z_(2)                   // O(1)
+ 5:  z_norm ← (m - μ_cal) / σ_cal             // O(1)
+ 6:  gate_f ← (m < τ_f)                       // O(1)
+ 7:  gate_a ← (z_norm < τ_a)                  // O(1) — τ_a is a scalar constant
+ 8:  if gate_f OR gate_a then
+ 9:      return argmax_{k≠4} z_k              // O(K), override class 4
+10:  else
+11:      return 4
+-------------------------------------------------------------------
+\end{verbatim}
+
+\subsubsection{F. Computational
+Overhead}\label{f.-computational-overhead}
+
+HELIX adds strictly \textbf{O(1)} computation per sample beyond the base
+model forward pass:
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}lll@{}}
+\toprule\noalign{}
+Step & Complexity & Notes \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+argmax / top-2 & O(K) & Unavoidable; same as base model \\
+Margin, z-normalization & O(1) & 3 scalar arithmetic operations \\
+Gate evaluation & O(1) & 2 comparisons + 1 OR \\
+Override argmax & O(K) & Over K−1 classes \\
+\textbf{HELIX overhead} & \textbf{O(1)} & All post-argmax operations \\
+\end{longtable}
+}
+
+Memory overhead is four scalar constants
+(\(\tau_f, \tau_a^{\text{frozen}}, \mu_{\text{cal}}, \sigma_{\text{cal}}\)),
+independent of model size, batch size, or sequence length. No
+retraining, no gradient computation, no additional layers.
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{IV. FAILURE MECHANISM AND
+DIAGNOSIS}\label{iv.-failure-mechanism-and-diagnosis}
+
+\subsubsection{A. Formal Definition}\label{a.-formal-definition}
+
+\textbf{Definition 1 (Control Collapse --- Dual Criterion).} Let
+\(\mathcal{M} = \{x : y(x) = 4\}\) be the set of class-4 candidate
+samples, and let \(P(y)\) and \(P(\hat{y})\) denote the prediction
+distributions before and after HELIX override. A HELIX control layer is
+in \textbf{control collapse} if and only if both hold:
+
+\textbf{Criterion 1 (Actuation failure):}
+\[r = \frac{|\{x \in \mathcal{D} : \text{override}(x)\}|}{|\mathcal{D}|} < \varepsilon, \quad \varepsilon = 0.001\]
+
+\textbf{Criterion 2 (Distribution invariance):}
+\[D_{\text{KL}}\!\left(P(\hat{y}) \;\|\; P(y)\right) = 0\]
+
+The dual criterion is necessary because Criterion 1 alone could be
+satisfied when class-4 candidate mass is genuinely low, while Criterion
+2 alone could hold trivially. Together they establish that the control
+layer produces zero actuation \emph{and} leaves the prediction
+distribution unchanged --- it is a null operator. Note that
+\(D_{\text{KL}} = 0\) establishes distributional identity, while
+\(D_{\text{KL}} > 10\) (as seen in active configurations) indicates
+strong distributional intervention rather than marginal perturbation.
+
+\subsubsection{B. Collapse Proof for
+online\_hybrid}\label{b.-collapse-proof-for-online_hybrid}
+
+\textbf{Claim.} \emph{online\_hybrid} is in control collapse on both
+UNSW-NB15 and NSL-KDD.
+
+\textbf{Proof by direct measurement:}
+
+\emph{UNSW-NB15 (n = 26,302 samples):} - Criterion 1: override\_rate =
+0.0 \textless{} 0.001 (satisfied; override\_count = 0) - Criterion 2:
+\(D_{\text{KL}}(P(\hat{y}) \| P(y)) = 0.0\) (satisfied) -
+\texttt{collapsed} = \textbf{True}
+
+\emph{NSL-KDD (n = 22,278 samples):} - Criterion 1: override\_rate = 0.0
+\textless{} 0.001 (satisfied; override\_count = 0) - Criterion 2:
+\(D_{\text{KL}}(P(\hat{y}) \| P(y)) = 0.0\) (satisfied) -
+\texttt{collapsed} = \textbf{True}
+
+Both criteria hold exactly --- \(D_{\text{KL}} = 0.0\) is not numerical
+roundoff. It reflects bit-identical pre- and post-override prediction
+vectors, confirmed by metric identity between \emph{online\_hybrid} and
+\emph{percentile\_only} across all performance measures. \textbf{Figure
+3 (left panels)} renders this distributional identity visually: the pre-
+and post-override margin histograms are indistinguishable.
+
+\textbf{Thus, \emph{online\_hybrid} satisfies both the necessary and
+sufficient conditions for control collapse across both datasets.}
+\(\square\)
+
+\textbf{Table 3: Collapse quantification}
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.2000}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.2000}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.2000}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.2000}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.2000}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Dataset
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Configuration
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Override rate
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+KL divergence
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Collapsed state
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+UNSW & \texttt{fixed\_tau\_only} & 0.0947 & 10.218 & \textbf{No} \\
+UNSW & \texttt{percentile\_only} & 0.0000 & 0.000 & Yes \\
+UNSW & \texttt{online\_hybrid} & \textbf{0.0000} & \textbf{0.000} &
+Yes \\
+UNSW & \texttt{frozen\_z\_hybrid} & 0.0947 & 10.218 & \textbf{No} \\
+NSL & \texttt{fixed\_tau\_only} & 0.3784 & 22.922 & \textbf{No} \\
+NSL & \texttt{percentile\_only} & 0.0000 & 0.000 & Yes \\
+NSL & \texttt{online\_hybrid} & \textbf{0.0000} & \textbf{0.000} &
+Yes \\
+NSL & \texttt{frozen\_z\_hybrid} & 0.3784 & 22.922 & \textbf{No} \\
+\end{longtable}
+}
+
+\emph{Collapse threshold \(\varepsilon\) = 0.001. KL metric:
+\(D_{\text{KL}}(\text{pre\_top1} \| \text{post\_pred})\) over class-4
+margin distributions.}
+
+The KL values of 10.218 (UNSW) and 22.922 (NSL) for active
+configurations show that override intervention produces substantial
+redistribution of the class-4 margin density --- not a marginal shift.
+This contrast with the collapsed configurations
+(\(D_{\text{KL}} = 0.0\)) is the core empirical result.
+
+\subsubsection{C. Mechanism: Coupling-Induced
+Collapse}\label{c.-mechanism-coupling-induced-collapse}
+
+\textbf{Proposition 1 (Coupling-Induced Override Collapse).} \emph{Let
+\(\{m_t\}\) be a bounded sequence of logit-space margins. Let
+\(\tau_a(t) = \hat{F}^{-1}_M(q, t)\) be the \(q\)-th empirical quantile
+of \(\{m_1, \ldots, m_t\}\) (online estimate). Suppose the adaptive gate
+evaluates \(z_{\text{norm}}(m_t) < \tau_a(t)\), where
+\(z_{\text{norm}}\) is dimensionless and \(\tau_a(t)\) is in logit
+units. If \(\tau_a(t) \gg \max_t z_{\text{norm}}(m_t)\) (unit mismatch
+regime), the gate is trivially satisfied, reducing the effective
+override decision to the fixed gate alone. If the fixed gate is also
+disabled (\(\tau_f = \text{null}\) or \(\tau_f = 0\)), then
+\(P(\text{override}) = 0\) exactly.}
+
+\textbf{Proof sketch.} In \emph{online\_hybrid}, \texttt{tau\_adaptive}
+is recorded as \texttt{null} at evaluation time (confirmed by
+\texttt{"tau\_adaptive":\ null} in the experimental record). A
+null-valued threshold in the comparison
+\texttt{z\_norm\ \textless{}\ null} evaluates to False in the runtime.
+The fixed gate \(m < \tau_f = 70{,}000\) is present, but a bug (noted in
+\texttt{bug\_fixes}: ``fixed gate uses raw tau positivity'') disables it
+when the adaptive gate is null. Both gates fail silently, producing
+override\_count = 0 for all inputs. In \emph{percentile\_only},
+\(\tau_f = 0\) renders \(m < 0\) false for all non-negative margins.
+Both failure paths reach the same outcome. \(\square\)
+
+\textbf{Corollary.} \emph{online\_hybrid} \(\equiv\)
+\emph{percentile\_only} exactly: both reduce to a no-op override layer
+through structurally different but mutually reinforcing gate failures.
+
+\subsubsection{D. Why This Failure Is
+Structural}\label{d.-why-this-failure-is-structural}
+
+\[\underbrace{\text{Online coupling}}_{\tau_a(t) \propto m_t} \;\times\; \underbrace{\text{Unit mismatch}}_{\tau_a \sim O(10^4),\; z_{\text{norm}} \sim O(1)} \;\Rightarrow\; \underbrace{\text{Gate null or trivial}}_{\text{no discriminative comparison}} \;\Rightarrow\; \underbrace{r = 0, \; D_{\text{KL}} = 0}_{\text{collapse}}\]
+
+This is a property of the coupled online estimation architecture, not of
+the specific data or calibration values.
+
+\textbf{Figure 2} shows the causal chain side by side: the collapse path
+(left, red) and the restoration path (right, green).
+
+\begin{figure}
+\centering
+\includegraphics[width=0.72\linewidth,height=\textheight,keepaspectratio,alt={Figure 2. Causal mechanism of control collapse (left) and restoration by frozen-threshold decoupling (right).}]{docs/fig_revamp/fig2.png}
+\caption{Figure 2. Causal mechanism of control collapse (left) and
+restoration by frozen-threshold decoupling (right).}
+\end{figure}
+
+Left: online percentile estimation produces a null \$ au\_a\$ at
+evaluation; the gate fails silently and \(D_{   ext{KL}} = 0\). Right:
+freezing \$ au\_a\^{}\{ ext\{frozen\}\}\$ at calibration provides a
+stable reference; gates activate and \(D_{   ext{KL}} > 10\).
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{V. INTERVENTION AND SCOPE OF
+RESTORATION}\label{v.-intervention-and-scope-of-restoration}
+
+\subsubsection{A. Principle}\label{a.-principle}
+
+Freezing \(\tau_a\) at calibration eliminates the feedback loop. The
+threshold becomes a scalar constant computed once (from the UNSW
+calibration split: \(\tau_a^{\text{frozen}} = 81{,}921.39\)) and applied
+unchanged at inference. As established in Section III.B, this placement
+at \(\mu_{\text{cal}} + 0.754\sigma_{\text{cal}}\) defines a fixed
+quantile operator over the calibration distribution --- a deterministic
+constraint rather than a running estimate.
+
+\textbf{Figure 4 (right panel)} shows the decoupled threshold sitting
+fixed at 81,921 while the evaluation batch margins move freely above and
+below it, enabling violation detection. The left panel shows the coupled
+case: \(\tau_{\text{adaptive}}\) chases the distribution, and the gap
+between threshold and mean margin collapses.
+
+\begin{figure}
+\centering
+\includegraphics[width=0.72\linewidth,height=\textheight,keepaspectratio,alt={Figure 4. Threshold and class-4 margin evolution across evaluation batches for coupled (online\_hybrid) and decoupled (frozen\_z\_hybrid) operation.}]{docs/fig_revamp/fig4.png}
+\caption{Figure 4. Threshold and class-4 margin evolution across
+evaluation batches for coupled (\emph{online\_hybrid}) and decoupled
+(\emph{frozen\_z\_hybrid}) operation.}
+\end{figure}
+
+In the coupled case, the adaptive threshold tracks the mean margin. In
+the decoupled case, \$ au\_a\^{}\{ ext\{frozen\}\} = 81\{,\}921\$
+remains fixed, allowing genuine margin-threshold crossings.
+
+\subsubsection{B. Controllability Restored:
+Results}\label{b.-controllability-restored-results}
+
+\textbf{Figure 5} shows per-batch override counts across both methods
+and datasets. The left panel (\emph{online\_hybrid}) is uniformly zero.
+The right (\emph{frozen\_z\_hybrid}) shows consistent non-zero
+activation across all batches, totaling 2,491 overrides on UNSW and
+8,430 on NSL.
+
+\begin{figure}
+\centering
+\includegraphics[width=0.72\linewidth,height=\textheight,keepaspectratio,alt={Figure 5. Per-batch override activation counts for online\_hybrid and frozen\_z\_hybrid on UNSW and NSL.}]{docs/fig_revamp/fig5.png}
+\caption{Figure 5. Per-batch override activation counts for
+\emph{online\_hybrid} and \emph{frozen\_z\_hybrid} on UNSW and NSL.}
+\end{figure}
+
+\emph{online\_hybrid} produces zero overrides in every batch on both
+datasets, while \emph{frozen\_z\_hybrid} exhibits stable non-zero
+activation.
+
+\textbf{Figure 3 (right panels)} shows the distributional consequence:
+the post-override class-4 margin distribution is rightward-shifted in
+the active configuration (\(D_{\text{KL}} = 10.218\) on UNSW,
+\(D_{\text{KL}} = 22.922\) on NSL).
+
+\begin{figure}
+\centering
+\includegraphics[width=0.84\linewidth,height=\textheight,keepaspectratio,alt={Figure 3. Class-4 logit margin distributions (pre vs.~post override) for collapsed and active regimes on UNSW and NSL.}]{docs/fig_revamp/fig3.png}
+\caption{Figure 3. Class-4 logit margin distributions (pre vs.~post
+override) for collapsed and active regimes on UNSW and NSL.}
+\end{figure}
+
+For \emph{online\_hybrid}, pre and post distributions are identical
+(\(D_{ ext{KL}} = 0\)). For \emph{frozen\_z\_hybrid}, post distributions
+shift substantially (\(D_{ ext{KL}} = 10.218\) on UNSW, 22.922 on NSL).
+
+\subsubsection{\texorpdfstring{C. frozen\_z\_hybrid \(\equiv\)
+fixed\_tau\_only: A Transparency
+Note}{C. frozen\_z\_hybrid \textbackslash equiv fixed\_tau\_only: A Transparency Note}}\label{c.-frozen_z_hybrid-equiv-fixed_tau_only-a-transparency-note}
+
+Under current calibration, \emph{frozen\_z\_hybrid} produces identical
+override decisions to \emph{fixed\_tau\_only} for every sample in both
+datasets. The z-score gate
+(\(z_{\text{norm}} < \tau_a^{\text{frozen}}\)) and the fixed gate
+(\(m < \tau_f\)) select the same overrides --- the lower-percentile gate
+(56th) subsumes the higher-percentile gate (77th) in all observed cases,
+collapsing the OR condition to a single effective criterion.
+
+This means normalization provides architectural robustness --- if
+\(\sigma_{\text{cal}}\) changes substantially, the relative threshold
+placement is preserved --- but does not add discriminative signal at
+present. Recalibrating \(\tau_a^{\text{frozen}}\) to a percentile
+distinct from \(\tau_f\) would expose independent z-score gate behavior.
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{VI. EXPERIMENTAL PROTOCOL}\label{vi.-experimental-protocol}
+
+\subsubsection{A. Datasets}\label{a.-datasets}
+
+\textbf{UNSW-NB15} {[}19{]}: Contemporary network intrusion detection
+dataset. The base model is trained on the UNSW-NB15 training partition;
+evaluation on the test partition is the \textbf{in-distribution}
+protocol (26,302 samples).
+
+\textbf{NSL-KDD} {[}20{]}: Curated version of KDD Cup 1999 with
+corrected statistical biases. Feature distribution differs substantially
+from UNSW-NB15. Evaluating the UNSW-trained checkpoint on NSL-KDD is the
+\textbf{cross-distribution} protocol (22,278 samples). No fine-tuning or
+adaptation is performed.
+
+\subsubsection{B. Bootstrap Validation}\label{b.-bootstrap-validation}
+
+Statistical confidence intervals are computed by non-parametric
+bootstrap: - Resamples: 1,000 (with replacement) - Confidence level:
+95\% - Strategy: resample prediction-level outcomes (override decisions
+and class assignments)
+
+Exact bootstrap CIs are available for override\_rate (sample-level
+metric). Macro-F1, class4\_precision, and class4\_recall require
+sample-level prediction vectors; current data export provides
+histogram-level approximations only, so those CIs are marked
+\texttt{approx\_from\_histogram} in the experimental record and are not
+reported here.
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{VII. RESULTS}\label{vii.-results}
+
+\subsubsection{A. Performance
+Comparison}\label{a.-performance-comparison}
+
+\textbf{Table 1: Classification performance across configurations}
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1667}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1667}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1667}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1667}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1667}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1667}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Dataset
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Configuration
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Macro-F1
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Class-4 precision
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Class-4 recall
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Class-4 prediction ratio
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+UNSW & \texttt{fixed\_tau\_only} & \textbf{0.3411} & \textbf{0.0563} &
+\textbf{0.9706} & 0.1115 \\
+UNSW & \texttt{percentile\_only} & 0.2626 & 0.0313 & 1.0000 & 0.2062 \\
+UNSW & \texttt{online\_hybrid} & 0.2626 & 0.0313 & 1.0000 & 0.2062 \\
+UNSW & \texttt{frozen\_z\_hybrid} & \textbf{0.3411} & \textbf{0.0563} &
+\textbf{0.9706} & 0.1115 \\
+NSL & \texttt{fixed\_tau\_only} & \textbf{0.0226} & \textbf{0.00108} &
+\textbf{0.0263} & 0.0416 \\
+NSL & \texttt{percentile\_only} & 0.0220 & 0.000321 & 0.0789 & 0.4200 \\
+NSL & \texttt{online\_hybrid} & 0.0220 & 0.000321 & 0.0789 & 0.4200 \\
+NSL & \texttt{frozen\_z\_hybrid} & \textbf{0.0226} & \textbf{0.00108} &
+\textbf{0.0263} & 0.0416 \\
+\end{longtable}
+}
+
+\emph{Note: Macro-F1 values are deterministic aggregates without
+bootstrap CIs (see Section VI.B). The metric identity between}
+online\_hybrid \emph{and} percentile\_only \emph{across all columns
+confirms control collapse at the performance level.}
+
+\subsubsection{B. Override Actuation and Confidence
+Intervals}\label{b.-override-actuation-and-confidence-intervals}
+
+\textbf{Table 2: Control activation with bootstrap confidence intervals}
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1667}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1667}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1667}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1667}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1667}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1667}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Dataset
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Configuration
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Override count
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Override rate
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+95\% CI
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+\(\sigma_{\text{override}}\)
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+UNSW & \texttt{fixed\_tau\_only} & 2,491 & 0.0947 & --- & --- \\
+UNSW & \texttt{percentile\_only} & 0 & 0.0000 & --- & --- \\
+UNSW & \texttt{online\_hybrid} & \textbf{0} & \textbf{0.0000} &
+\textbf{{[}0.000, 0.000{]}} & \textbf{0.00000} \\
+UNSW & \texttt{frozen\_z\_hybrid} & 2,491 & \textbf{0.0947} &
+\textbf{{[}0.091, 0.098{]}} & \textbf{0.00182} \\
+NSL & \texttt{fixed\_tau\_only} & 8,430 & 0.3784 & --- & --- \\
+NSL & \texttt{percentile\_only} & 0 & 0.0000 & --- & --- \\
+NSL & \texttt{online\_hybrid} & \textbf{0} & \textbf{0.0000} &
+\textbf{{[}0.000, 0.000{]}} & \textbf{0.00000} \\
+NSL & \texttt{frozen\_z\_hybrid} & 8,430 & \textbf{0.3784} &
+\textbf{{[}0.372, 0.385{]}} & \textbf{0.00314} \\
+\end{longtable}
+}
+
+\emph{Bootstrap CIs from 1,000 resamples with replacement, 95\%
+confidence level. fixed\_tau\_only and percentile\_only CIs are omitted
+as they are structurally identical to frozen\_z\_hybrid and
+online\_hybrid respectively.}
+
+\textbf{Figure 6} plots the override rate CIs for all four evaluated
+configurations.
+
+\begin{figure}
+\centering
+\includegraphics[width=0.78\linewidth,height=\textheight,keepaspectratio,alt={Figure 6. Bootstrap confidence intervals for override rate (95\%, n=1,000) across collapsed and active configurations.}]{docs/fig_revamp/fig6.png}
+\caption{Figure 6. Bootstrap confidence intervals for override rate
+(95\%, n=1,000) across collapsed and active configurations.}
+\end{figure}
+
+Collapsed configurations map to a point mass at zero (zero width, zero
+variance). Active configurations have strictly non-overlapping non-zero
+intervals.
+
+\subsubsection{C. Statistical
+Interpretation}\label{c.-statistical-interpretation}
+
+\textbf{Non-overlapping CIs establish significant separation:}
+
+\begin{itemize}
+\tightlist
+\item
+  UNSW: \emph{frozen\_z\_hybrid} CI = {[}0.09125, 0.09836{]}
+  vs.~\emph{online\_hybrid} CI = {[}0.000, 0.000{]}. Gap: 0.09125
+  between the lower bound of active and the upper bound of collapsed.
+\item
+  NSL: \emph{frozen\_z\_hybrid} CI = {[}0.37230, 0.38459{]}
+  vs.~\emph{online\_hybrid} CI = {[}0.000, 0.000{]}. Gap: 0.37230.
+\end{itemize}
+
+Both separations are statistically significant at 95\% confidence.
+
+\textbf{Degenerate variance is a structural result, not a data
+artifact.} The bootstrap standard deviation for \emph{online\_hybrid}
+override\_rate is \(\sigma_{\text{override}} = 0.00000\) on both
+datasets. Zero variance under 1,000 bootstrap resamples means no
+resampling of the evaluation data can produce non-zero actuation. This
+directly implies the failure is a property of the control architecture
+and threshold state --- not of any particular subset of the test data.
+Combined with \(D_{\text{KL}} = 0.0\), the collapse is established at
+both the distributional and sample levels.
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{VIII. DISCUSSION}\label{viii.-discussion}
+
+\subsubsection{A. Controllability and Classification
+Trade-off}\label{a.-controllability-and-classification-trade-off}
+
+On UNSW, active control raises macro\_f1 from 0.2626 to 0.3411 (+0.0785)
+by suppressing high-volume, low-precision class-4 predictions. Class-4
+precision increases from 0.0313 to 0.0563 at a cost: recall drops from
+1.000 to 0.9706. The mechanism targets samples below the 56th
+calibration percentile of margin (the fixed gate), suppressing the
+lowest-confidence class-4 predictions. The KL divergence of 10.218
+establishes that the intervention is substantial --- not a borderline
+perturbation.
+
+\subsubsection{B. Cross-Distribution
+Results}\label{b.-cross-distribution-results}
+
+NSL macro\_f1 \textless{} 0.023 across all configurations is not a HELIX
+failure --- it reflects representation collapse under distribution
+shift. The model was trained on UNSW; it does not encode NSL class
+structure in its logit space, and no post-hoc control layer can fix
+that.
+
+What the NSL results do show is a miscalibration problem. The 37.84\%
+override rate on NSL (95\% CI: {[}37.23\%, 38.46\%{]}) means the
+UNSW-calibrated threshold fires on more than a third of the NSL test
+set. NSL class-4 margins are systematically lower under the UNSW model
+--- the model is uncertain, and the uncertainty is genuine, not a
+control artifact. The high KL divergence (22.922) reflects a
+large-volume intervention, not a targeted one.
+
+\subsubsection{C. What the Degenerate Variance Tells
+Us}\label{c.-what-the-degenerate-variance-tells-us}
+
+The \(\sigma_{\text{override}} = 0.00000\) result for
+\emph{online\_hybrid} is more informative than a point estimate. It
+establishes \textbf{sample-order invariance}: collapse holds regardless
+of which subset of the evaluation data is examined. This rules out
+explanations based on aggregation, imbalanced batches, or sampling
+noise. Collapse is a function of the architecture and threshold state,
+not of the data.
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsubsection{D. Control-theoretic
+interpretation}\label{d.-control-theoretic-interpretation}
+
+HELIX maps onto discrete-time control system semantics:
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.3333}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.3333}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.3333}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Control concept
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+HELIX equivalent
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Value
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+State signal & Logit margin \(m_t\) & \textasciitilde67,137 ± 19,617
+(calibration) \\
+Control boundary & Override threshold \(\tau\) & \(\tau_f\) = 70,000;
+\(\tau_a^{\text{frozen}}\) = 81,921 \\
+Actuation & Override decision & 0\% (collapsed) vs.~9.5\%--37.8\%
+(active) \\
+Controller & Dual-gate evaluator & O(1) per sample \\
+Plant & Base classifier \(f\) & helix\_full\_unsw\_nb15\_best.pt \\
+\end{longtable}
+}
+
+Under \emph{online\_hybrid}, the controller redefines the boundary to
+contain all observed states --- equivalent to a setpoint that chases the
+process variable --- producing zero actuation authority. Under
+\emph{frozen\_z\_hybrid}, the boundary is set externally at calibration
+and held fixed, so the margin can genuinely cross it.
+
+The KL divergence of 10.218 (UNSW) and 22.922 (NSL) under active
+configurations quantifies the resulting actuation effect on the
+prediction distribution. These are not marginal adjustments.
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{IX. OPERATIONAL COMPATIBILITY AND DEPLOYMENT
+CONSTRAINTS}\label{ix.-operational-compatibility-and-deployment-constraints}
+
+Collapse resolution is not the same as deployment approval. We define
+the \textbf{bounded control regime} as:
+
+\[0 < \text{override\_rate} \leq 0.02\]
+
+This captures non-zero actuation authority while bounding intervention
+intensity to an operationally safe envelope.
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.3333}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.3333}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.3333}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+HELIX state
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Control property
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Deployment outcome
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+\texttt{collapsed} & Inactive (override\_rate = 0) & PASS --- safe but
+inactive \\
+\texttt{restored} & Controllable (override\_rate \textgreater{} 0) &
+FAIL under runbook constraints \\
+\end{longtable}
+}
+
+The restored configurations (UNSW: 9.47\%, NSL: 37.84\%) exceed this
+envelope. Restoration demonstrates that the control layer \emph{can}
+act; it does not guarantee that it acts within operationally acceptable
+bounds. That requires recalibration targeting the bounded regime, which
+is outside the scope of the present paper.
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{X. LIMITATIONS}\label{x.-limitations}
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\item
+  \textbf{No true class signal recovery.} HELIX overrides argmax
+  predictions but cannot improve underlying logit quality. Under
+  representation collapse, the next-best class is equally unreliable.
+\item
+  \textbf{Cross-distribution miscalibration.} The 37.84\% NSL override
+  rate is operationally pathological. Thresholds calibrated on UNSW do
+  not produce bounded control on NSL.
+\item
+  \textbf{Class-4 scope only.} Override logic targets class 4
+  exclusively. Multi-class extension requires per-class thresholds or a
+  generalized margin criterion.
+\item
+  \textbf{frozen\_z\_hybrid \(\equiv\) fixed\_tau\_only under current
+  calibration.} The z-score normalization channel provides no additional
+  discriminative signal. Any benefit is fully attributable to the
+  fixed-threshold gate. This is disclosed without mitigation.
+\item
+  \textbf{Macro-F1 bootstrap CIs unavailable.} Reported macro-F1 values
+  are deterministic aggregates and should not be treated as
+  statistically validated estimates.
+\item
+  \textbf{Single model, single training run.} Cross-model generalization
+  of the collapse mechanism is established by Proposition 1
+  (architectural argument), not empirical replication across models.
+\end{enumerate}
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{XI. CONCLUSION}\label{xi.-conclusion}
+
+We formally defined control collapse via a dual criterion
+(override\_rate \textless{} \(\varepsilon\), \(D_{\text{KL}} = 0\)) and
+proved that \emph{online\_hybrid} satisfies both necessary and
+sufficient conditions exactly on UNSW-NB15 (override\_rate = 0.0, KL =
+0.0) and NSL-KDD (override\_rate = 0.0, KL = 0.0). The mechanism is
+adaptive threshold coupling combined with null-value propagation through
+the gate evaluation path. Freezing the threshold at calibration breaks
+both failure modes simultaneously.
+
+Bootstrap validation (1,000 resamples, 95\% CI) confirms that the
+decoupled \emph{frozen\_z\_hybrid} configuration restores non-zero
+actuation with non-overlapping CIs relative to the collapsed regime:
+UNSW {[}0.091, 0.098{]} vs.~{[}0.000, 0.000{]}; NSL {[}0.372, 0.385{]}
+vs.~{[}0.000, 0.000{]}. Zero-width variance under collapse confirms the
+failure is deterministic and sample-order invariant.
+
+One practical consequence extends beyond the HELIX system: \textbf{any
+post-hoc control layer that re-estimates its violation threshold from
+the live test stream is at structural risk of collapse under unit
+mismatch.} Controllability --- a necessary prerequisite for correctness
+--- cannot coexist with self-referential threshold estimation. In this
+setting, freezing the threshold is a design requirement rather than a
+heuristic workaround. Conformal prediction frameworks have known this
+for decades, which is why they mandate held-out calibration. The lesson
+from this failure mode is that the mandate deserves to be treated as a
+hard architectural constraint, not an optional best practice.
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{REFERENCES}\label{references}
+
+{[}1{]} P. Bartlett and M. Wegkamp, ``Classification with a reject
+option using a hinge loss,'' \emph{J. Machine Learning Research},
+2008.\\
+{[}2{]} G. Fumera and F. Roli, ``A theoretical and experimental analysis
+of linear combiners for multiple classifier systems,'' \emph{IEEE
+TPAMI}, 2005.\\
+{[}3{]} B. Zadrozny and C. Elkan, ``Transforming classifier scores into
+accurate multiclass probability estimates,'' \emph{KDD}, 2002.\\
+{[}4{]} L. Torresani and K.-C. Lee, ``Large margin component analysis,''
+\emph{NeurIPS}, 2007.\\
+{[}5{]} C. Guo, G. Pleiss, Y. Sun, and K. Q. Weinberger, ``On
+calibration of modern neural networks,'' \emph{ICML}, 2017.\\
+{[}6{]} Y. Geifman and R. El-Yaniv, ``Selective classification for deep
+neural networks,'' \emph{NeurIPS}, 2017.\\
+{[}7{]} P. L. Bartlett and M. H. Wegkamp, ``Classification with a reject
+option,'' \emph{J. Machine Learning Research}, 2008.\\
+{[}8{]} A. Kumar, S. Liang, and T. Ma, ``Verified uncertainty
+calibration,'' \emph{NeurIPS}, 2019.\\
+{[}9{]} D. Hendrycks and K. Gimpel, ``A baseline for detecting
+misclassified and out-of-distribution examples in neural networks,''
+\emph{ICLR}, 2017.\\
+{[}10{]} K. Lee, K. Lee, H. Lee, and J. Shin, ``A simple unified
+framework for detecting out-of-distribution samples and adversarial
+attacks,'' \emph{NeurIPS}, 2018.\\
+{[}11{]} V. Vovk, A. Gammerman, and G. Shafer, \emph{Algorithmic
+Learning in a Random World.} Springer, 2005.\\
+{[}12{]} A. N. Angelopoulos and S. Bates, ``A gentle introduction to
+conformal prediction and distribution-free uncertainty quantification,''
+\emph{arXiv:2107.07511}, 2022.\\
+{[}13{]} Y. Geifman and R. El-Yaniv, ``Selectivenet: A deep neural
+network with an integrated reject option,'' \emph{ICML}, 2019.\\
+{[}14{]} J. Platt, ``Probabilistic outputs for support vector
+machines,'' \emph{Advances in Large Margin Classifiers}, 1999.\\
+{[}15{]} B. Zadrozny and C. Elkan, ``Obtaining calibrated probability
+estimates from decision trees and naive Bayesian classifiers,''
+\emph{ICML}, 2001.\\
+{[}16{]} S. Liang, Y. Li, and R. Srikant, ``Enhancing the reliability of
+OOD image detection in neural networks,'' \emph{ICLR}, 2018.\\
+{[}17{]} J. Gama et al., ``A survey on concept drift adaptation,''
+\emph{ACM Comput. Surv.}, 2014.\\
+{[}18{]} M. Baena-García et al., ``Early drift detection method,''
+\emph{ECML-PKDD Workshop}, 2006.\\
+{[}19{]} N. Moustafa and J. Slay, ``UNSW-NB15: A comprehensive dataset
+for network intrusion detection systems,'' \emph{IEEE MilCIS}, 2015.\\
+{[}20{]} M. Tavallaee et al., ``A detailed analysis of the KDD CUP 99
+data set,'' \emph{IEEE CISDA}, 2009.
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\end{document}

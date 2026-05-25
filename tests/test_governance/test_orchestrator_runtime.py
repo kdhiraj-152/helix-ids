@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from helix_ids.governance.entrypoint import governed_entrypoint
+from helix_ids.governance.entrypoint import _resolve_policy_from_env, governed_entrypoint
 from helix_ids.governance.orchestrator import GateOrchestrator
 
 
@@ -77,6 +77,68 @@ def test_entrypoint_decorator_executes_stage_payloads(monkeypatch, tmp_path):
     assert "preload" in stages
     assert "posteval" in stages
     assert all(event["status"] == "PASS" for event in events)
+
+
+def test_entrypoint_smoke_policy_relaxes_ci_lower_bound(monkeypatch, tmp_path):
+    event_log = tmp_path / "events.jsonl"
+    monkeypatch.setenv("HELIX_GATE_EVENTS", str(event_log))
+    monkeypatch.setenv("HELIX_GOV_STAGE_SEQUENCE", "preload,posteval")
+    monkeypatch.setenv("HELIX_GOV_POLICY_PROFILE", "smoke")
+
+    @governed_entrypoint(entrypoint_id="tests.governed.smoke")
+    def dummy_main():
+        return {
+            "governance_stages": {
+                "posteval": {
+                    "posteval_elapsed_seconds": 2,
+                    "macro_f1_ci_width": 0.01,
+                    "macro_f1_ci_lower": 0.20,
+                    "abs_macro_f1_drift": 0.01,
+                    "abs_macro_f1_zscore": 3.0,
+                }
+            }
+        }
+
+    dummy_main()
+
+    lines = event_log.read_text(encoding="utf-8").strip().splitlines()
+    events = [json.loads(line) for line in lines]
+    assert any(event["stage"] == "posteval" for event in events)
+    assert all(event["status"] == "PASS" for event in events)
+
+
+def test_smoke_policy_relaxes_drift_zscore(monkeypatch):
+    monkeypatch.setenv("HELIX_GOV_POLICY_PROFILE", "smoke")
+    policy = _resolve_policy_from_env()
+    assert policy.drift.max_abs_z_score == pytest.approx(1_000_000.0)
+
+
+def test_entrypoint_smoke_profile_relaxes_run_registry_strictness(monkeypatch, tmp_path):
+    event_log = tmp_path / "events.jsonl"
+    registry_log = tmp_path / "run_registry.jsonl"
+    monkeypatch.setenv("HELIX_GATE_EVENTS", str(event_log))
+    monkeypatch.setenv("HELIX_RUN_REGISTRY", str(registry_log))
+    monkeypatch.setenv("HELIX_GOV_STAGE_SEQUENCE", "preload")
+    monkeypatch.setenv("HELIX_GOV_POLICY_PROFILE", "smoke")
+
+    @governed_entrypoint(entrypoint_id="tests.governed.smoke.registry")
+    def dummy_main():
+        return {
+            "governance_run_record": {
+                "dataset_id": "helix_full_decoupled",
+                "macro_f1": 0.2,
+                "seed": 42,
+                # fingerprint intentionally omitted to exercise smoke non-strict path
+                "lineage": {},
+            }
+        }
+
+    dummy_main()
+
+    assert registry_log.exists()
+    records = [json.loads(line) for line in registry_log.read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert records
+    assert records[-1]["state"] == "accepted"
 
 
 def test_stage_schema_rejects_nonfinite_metric(tmp_path):

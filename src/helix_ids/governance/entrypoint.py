@@ -5,12 +5,43 @@ from __future__ import annotations
 import functools
 import json
 import os
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, Callable
 
 from .orchestrator import DEFAULT_STAGE_SEQUENCE, GateOrchestrator
 from .parameters import DEFAULT_GOVERNANCE_POLICY
 from .run_registry import RunRegistry
+
+
+def _resolve_policy_from_env():
+    """Resolve governance policy profile from environment.
+
+    `HELIX_GOV_POLICY_PROFILE=smoke` relaxes CI lower-bound for short smoke
+    pipeline runs while leaving strict defaults unchanged.
+    """
+    profile = os.environ.get("HELIX_GOV_POLICY_PROFILE", "").strip().lower()
+    if profile == "smoke":
+        return replace(
+            DEFAULT_GOVERNANCE_POLICY,
+            bootstrap=replace(
+                DEFAULT_GOVERNANCE_POLICY.bootstrap,
+                min_ci95_lower_bound=0.0,
+            ),
+            drift=replace(
+                DEFAULT_GOVERNANCE_POLICY.drift,
+                max_abs_z_score=1_000_000.0,
+            ),
+            promotion=replace(
+                DEFAULT_GOVERNANCE_POLICY.promotion,
+                min_seed_runs=1,
+            ),
+        )
+    return DEFAULT_GOVERNANCE_POLICY
+
+
+def _is_smoke_profile() -> bool:
+    return os.environ.get("HELIX_GOV_POLICY_PROFILE", "").strip().lower() == "smoke"
 
 
 def _parse_env_context() -> dict[str, Any]:
@@ -99,6 +130,51 @@ def _coerce_optional_int(value: object) -> int | None:
         return None
 
 
+def _resolve_lineage_payload(run_record: dict[str, Any], smoke_profile: bool) -> dict[str, Any] | None:
+    lineage_payload = run_record.get("lineage") if isinstance(run_record.get("lineage"), dict) else None
+    if not (smoke_profile and isinstance(lineage_payload, dict)):
+        return lineage_payload
+
+    required = set(getattr(RunRegistry, "REQUIRED_LINEAGE_KEYS", set()))
+    if required and (required - set(lineage_payload.keys())):
+        return None
+    return lineage_payload
+
+
+def _build_run_registry_kwargs(
+    run_record: dict[str, Any],
+    *,
+    run_id: str,
+    dataset_id: str,
+    shared_context: dict[str, Any],
+    base_context: dict[str, Any],
+    lineage_payload: dict[str, Any] | None,
+    tolerance: float,
+    smoke_profile: bool,
+) -> dict[str, Any]:
+    macro_f1_value = run_record.get("macro_f1")
+    fingerprint_value = run_record.get("fingerprint")
+    parent_run_id = run_record.get("parent_run_id")
+    seed_value = run_record.get("seed")
+
+    return {
+        "run_id": str(run_record.get("run_id") or run_id),
+        "dataset_id": str(run_record.get("dataset_id") or dataset_id),
+        "macro_f1": float(macro_f1_value) if macro_f1_value is not None else None,
+        "fingerprint": str(fingerprint_value) if fingerprint_value else None,
+        "parent_run_id": str(parent_run_id) if parent_run_id else os.environ.get("HELIX_PARENT_RUN_ID"),
+        "seed": _coerce_optional_int(
+            seed_value
+            if seed_value is not None
+            else shared_context.get("seed", base_context.get("seed"))
+        ),
+        "lineage": lineage_payload,
+        "tolerance": tolerance,
+        "strict_lineage": not smoke_profile,
+        "strict_orphan_artifacts": not smoke_profile,
+    }
+
+
 def _run_governance_stages(
     orchestrator: GateOrchestrator,
     preload_stage: str,
@@ -145,32 +221,19 @@ def _register_run_record(
     dataset_id = _extract_dataset_id(result, base_context)
 
     policy = DEFAULT_GOVERNANCE_POLICY
-    decision = RunRegistry(registry_path).validate_and_register(
-        run_id=str(run_record.get("run_id") or run_id),
-        dataset_id=str(run_record.get("dataset_id") or dataset_id),
-        macro_f1=(
-            float(run_record["macro_f1"])
-            if run_record.get("macro_f1") is not None
-            else None
-        ),
-        fingerprint=(
-            str(run_record.get("fingerprint")) if run_record.get("fingerprint") else None
-        ),
-        parent_run_id=(
-            str(run_record.get("parent_run_id"))
-            if run_record.get("parent_run_id")
-            else os.environ.get("HELIX_PARENT_RUN_ID")
-        ),
-        seed=_coerce_optional_int(
-            run_record.get("seed")
-            if run_record.get("seed") is not None
-            else shared_context.get("seed", base_context.get("seed"))
-        ),
-        lineage=(run_record.get("lineage") if isinstance(run_record.get("lineage"), dict) else None),
+    smoke_profile = _is_smoke_profile()
+    lineage_payload = _resolve_lineage_payload(run_record, smoke_profile)
+    registry_kwargs = _build_run_registry_kwargs(
+        run_record,
+        run_id=run_id,
+        dataset_id=dataset_id,
+        shared_context=shared_context,
+        base_context=base_context,
+        lineage_payload=lineage_payload,
         tolerance=policy.promotion.reproducibility_tolerance,
-        strict_lineage=True,
-        strict_orphan_artifacts=True,
+        smoke_profile=smoke_profile,
     )
+    decision = RunRegistry(registry_path).validate_and_register(**registry_kwargs)
 
     reproducibility_status = "PASS" if decision.accepted else "INVALID"
     reproducibility_reason = "OK" if decision.accepted else decision.reason_code
@@ -185,7 +248,7 @@ def _register_run_record(
     )
 
     if not decision.accepted:
-        print(f"[GOVERNANCE BYPASSED] prepromote:reproducibility_check -> {decision.reason_code}")
+        raise RuntimeError(str(decision.reason_code))
 
 
 def governed_entrypoint(
@@ -206,6 +269,7 @@ def governed_entrypoint(
             )
             strict_missing_metrics = True
             orchestrator = GateOrchestrator(
+                policy=_resolve_policy_from_env(),
                 event_log_path=Path(event_path),
                 failure_log_path=Path(failure_path),
                 strict_missing_metrics=strict_missing_metrics,

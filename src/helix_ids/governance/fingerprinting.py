@@ -43,12 +43,14 @@ def build_schema_hash_from_frame(df: pd.DataFrame, label_vocabulary: list[str]) 
             "name": col,
             "dtype": str(df[col].dtype),
             "nullable": bool(df[col].isnull().any()),
+            "position": idx,
         }
-        for col in df.columns
+        for idx, col in enumerate(df.columns)
     ]
     payload = {
-        "features": sorted(features, key=lambda item: item["name"]),
-        "label_vocabulary": sorted(label_vocabulary),
+        "features": features,
+        "feature_order": list(df.columns),
+        "label_vocabulary": list(label_vocabulary),
     }
     return canonical_json_hash(payload)
 

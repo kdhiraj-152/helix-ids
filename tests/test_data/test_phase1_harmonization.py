@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 import tempfile
+import torch
 
 from src.helix_ids.data.feature_harmonization import (
     COMMON_FEATURES,
@@ -19,17 +20,30 @@ from src.helix_ids.data.feature_harmonization import (
     create_nslkdd_mapping,
     create_unsw_mapping,
     create_cicids_mapping,
+    FEATURE_ORDER,
+    SchemaDriftError,
+    enforce_feature_order,
+    compute_schema_hash,
+    load_artifact,
     normalize_column_name,
+    validate_mapping,
+    _derive_connection_state,
 )
-from src.helix_ids.data.multi_dataset_loader import MultiDatasetLoader
+from src.helix_ids.data.multi_dataset_loader import MultiDatasetLoader, UNSW_DISCRETE_PROBE_F1_MIN
+from src.helix_ids.contracts import CONTRACT_VERSION
+from src.helix_ids.contracts import SCHEMA_VERSION
 
 
 class TestFeatureHarmonization:
     """Test feature harmonization module."""
+
+    @staticmethod
+    def _snapshot_path() -> Path:
+        return Path(__file__).resolve().parents[1] / "fixtures" / "cicids_snapshot.csv"
     
     def test_common_features_count(self):
         """Verify invariant feature set size."""
-        assert len(COMMON_FEATURES) == 19
+        assert len(COMMON_FEATURES) == 17
         assert isinstance(COMMON_FEATURES, list)
     
     def test_attack_taxonomy_7class(self):
@@ -45,6 +59,12 @@ class TestFeatureHarmonization:
         assert len(mapping.common_features) == len(COMMON_FEATURES)
         for key in ["duration", "src_bytes", "dst_bytes", "protocol", "state"]:
             assert key in mapping.feature_mapping
+
+        payload = mapping.to_dict()
+        validate_mapping(payload)
+        assert payload["protocol"] == "v1"
+        assert payload["version"]
+        assert "mapping" in payload
     
     def test_unsw_mapping(self):
         """Test UNSW-NB15 feature mapping."""
@@ -60,8 +80,8 @@ class TestFeatureHarmonization:
         for key in ["duration", "src_bytes", "dst_bytes", "protocol", "syn_count", "rst_count"]:
             assert key in mapping.feature_mapping
     
-    def test_harmonize_handles_cicids_messy_columns(self):
-        """Harmonization should work when CICIDS columns have spaces/case issues."""
+    def test_harmonize_rejects_cicids_messy_columns(self):
+        """Corrupted CICIDS inputs must fail at the boundary."""
         df = pd.DataFrame(
             {
                 "  Flow Duration ": [1000, 2000],
@@ -85,12 +105,172 @@ class TestFeatureHarmonization:
             }
         )
         mapping = create_cicids_mapping()
-        harmonized = harmonize_features(df, mapping, label_col="label")
+        with pytest.raises(AssertionError, match="NaN/inf detected in input"):
+            harmonize_features(df, mapping, label_col="label")
 
-        assert "label" in harmonized.columns
-        assert len(harmonized.columns) == len(COMMON_FEATURES) + 1
-        assert np.isfinite(harmonized[COMMON_FEATURES].replace({np.nan: 0.0}).values).all()
-        assert harmonized["label"].iloc[0].strip().lower() == "benign"
+
+    def test_cicids_nan_inf_rejection(self):
+        """Explicit corrupt CICIDS sample should be rejected with invalid column context."""
+        df = pd.DataFrame(
+            {
+                "Flow Duration": [1000.0, 2000.0],
+                "TotLen Fwd Pkts": [100.0, np.inf],
+                "TotLen Bwd Pkts": [50.0, np.nan],
+                "Protocol": [6, 17],
+                "SYN Flag Cnt": [6.0, 1.0],
+                "RST Flag Cnt": [0.0, 1.0],
+                "ACK Flag Cnt": [5.0, 1.0],
+                "Tot Fwd Pkts": [10.0, 15.0],
+                "Dst Port": [80, 443],
+                "Flow IAT Mean": [100.0, 300.0],
+                "Label": ["BENIGN", "DDoS"],
+            }
+        )
+        mapping = create_cicids_mapping()
+        with pytest.raises(AssertionError) as excinfo:
+            harmonize_features(df, mapping, label_col="label")
+        assert "invalid_cols" in str(excinfo.value)
+
+    def test_real_cicids_snapshot_contract(self):
+        """Real CICIDS snapshot should harmonize to the frozen feature order and carry lineage attrs."""
+        df = pd.read_csv(self._snapshot_path())
+        loader = MultiDatasetLoader()
+
+        harmonized = loader.harmonize_cicids(df)
+        assert harmonized.shape[1] == len(FEATURE_ORDER) + 1
+        assert list(harmonized.columns[:-1]) == FEATURE_ORDER
+        assert np.isfinite(harmonized[FEATURE_ORDER].to_numpy()).all()
+        assert harmonized.attrs["source"] == "CICIDS"
+        assert harmonized.attrs["contract_version"] == CONTRACT_VERSION
+        assert harmonized.attrs["feature_order"] == FEATURE_ORDER
+        assert isinstance(harmonized.attrs["schema_hash"], str)
+
+    def test_schema_diff_logger_reports_order_mismatch(self):
+        """Feature order permutation should fail with explicit drift metadata."""
+        frame = pd.DataFrame({col: [1.0] for col in FEATURE_ORDER})
+        permuted = frame.loc[:, list(reversed(FEATURE_ORDER))]
+
+        with pytest.raises(SchemaDriftError) as excinfo:
+            enforce_feature_order(permuted, FEATURE_ORDER, context="snapshot")
+
+        error = excinfo.value
+        assert error.missing == []
+        assert error.extra == []
+        assert error.order_mismatch is True
+        assert "order_mismatch=True" in str(error)
+
+    def test_lenient_mode_sanitizes_corrupted_input(self, monkeypatch):
+        """Lenient mode should sanitize numeric corruption and keep the output finite."""
+        monkeypatch.setenv("HELIX_DEBUG_LENIENT", "1")
+        df = pd.read_csv(self._snapshot_path()).head(2).copy()
+        df.loc[df.index[0], "TotLen Fwd Pkts"] = np.inf
+        df.loc[df.index[1], "TotLen Bwd Pkts"] = np.nan
+
+        harmonized = harmonize_features(df, create_cicids_mapping(), label_col="attack_type", mode="lenient")
+        assert np.isfinite(harmonized[FEATURE_ORDER].to_numpy()).all()
+        assert harmonized.attrs["pipeline_mode"] == "lenient"
+
+    def test_mutation_guard_detects_missing_sanitization(self, monkeypatch):
+        """If sanitization is removed, corrupted input must still fail under lenient mode."""
+        monkeypatch.setenv("HELIX_DEBUG_LENIENT", "1")
+        df = pd.read_csv(self._snapshot_path()).head(2).copy()
+        df.loc[df.index[0], "TotLen Fwd Pkts"] = np.inf
+
+        from src.helix_ids.data import feature_harmonization as fh
+
+        original = fh.sanitize_numeric
+        original_validate = fh.validate_no_nan_inf
+        try:
+            fh.sanitize_numeric = lambda frame: frame  # type: ignore[assignment]
+            fh.validate_no_nan_inf = lambda frame: None  # type: ignore[assignment]
+            harmonized = harmonize_features(df, create_cicids_mapping(), label_col="attack_type", mode="lenient")
+            assert np.isfinite(harmonized[FEATURE_ORDER].to_numpy()).all()
+        finally:
+            fh.sanitize_numeric = original
+            fh.validate_no_nan_inf = original_validate
+
+    def test_model_load_rejects_schema_drift(self, tmp_path: Path):
+        valid_df = pd.read_csv(self._snapshot_path()).head(2)
+        harmonized = harmonize_features(valid_df, create_cicids_mapping(), label_col="attack_type", mode="strict")
+        features = harmonized[FEATURE_ORDER].astype(np.float32)
+
+        artifact_path = tmp_path / "artifact.pt"
+        torch.save(
+            {
+                "model": {"w": torch.zeros((2, 2))},
+                "schema_version": SCHEMA_VERSION,
+                "schema_hash": compute_schema_hash(features),
+                "feature_order": FEATURE_ORDER,
+                "input_dim": len(FEATURE_ORDER),
+                "binary_output_dim": 2,
+                "family_output_dim": 7,
+                "contract_version": CONTRACT_VERSION,
+            },
+            artifact_path,
+        )
+
+        drifted = features.copy()
+        drifted["extra_col"] = 1.0
+        with pytest.raises(SchemaDriftError):
+            load_artifact(artifact_path, drifted)
+
+    def test_column_permutation_rejected(self, tmp_path: Path):
+        valid_df = pd.read_csv(self._snapshot_path()).head(2)
+        harmonized = harmonize_features(valid_df, create_cicids_mapping(), label_col="attack_type", mode="strict")
+        features = harmonized[FEATURE_ORDER].astype(np.float32)
+
+        artifact_path = tmp_path / "artifact.pt"
+        torch.save(
+            {
+                "model": {"w": torch.zeros((2, 2))},
+                "schema_version": SCHEMA_VERSION,
+                "schema_hash": compute_schema_hash(features),
+                "feature_order": FEATURE_ORDER,
+                "input_dim": len(FEATURE_ORDER),
+                "binary_output_dim": 2,
+                "family_output_dim": 7,
+                "contract_version": CONTRACT_VERSION,
+            },
+            artifact_path,
+        )
+
+        permuted = features.sample(frac=1, axis=1, random_state=42)
+        with pytest.raises(SchemaDriftError):
+            load_artifact(artifact_path, permuted)
+
+    def test_partial_artifact_load_rejected(self, tmp_path: Path):
+        valid_df = pd.read_csv(self._snapshot_path()).head(1)
+        harmonized = harmonize_features(valid_df, create_cicids_mapping(), label_col="attack_type", mode="strict")
+        features = harmonized[FEATURE_ORDER].astype(np.float32)
+
+        artifact_path = tmp_path / "artifact_incomplete.pt"
+        torch.save({"model": {"w": torch.zeros((1, 1))}}, artifact_path)
+
+        with pytest.raises(AssertionError, match="Missing required artifact key"):
+            load_artifact(artifact_path, features)
+
+    def test_artifact_version_lock(self, tmp_path: Path):
+        valid_df = pd.read_csv(self._snapshot_path()).head(1)
+        harmonized = harmonize_features(valid_df, create_cicids_mapping(), label_col="attack_type", mode="strict")
+        features = harmonized[FEATURE_ORDER].astype(np.float32)
+
+        artifact_path = tmp_path / "artifact_wrong_version.pt"
+        torch.save(
+            {
+                "model": {"w": torch.zeros((1, 1))},
+                "schema_version": SCHEMA_VERSION,
+                "schema_hash": compute_schema_hash(features),
+                "feature_order": FEATURE_ORDER,
+                "input_dim": len(FEATURE_ORDER),
+                "binary_output_dim": 2,
+                "family_output_dim": 7,
+                "contract_version": "0.0",
+            },
+            artifact_path,
+        )
+
+        with pytest.raises(AssertionError, match="Artifact contract version mismatch"):
+            load_artifact(artifact_path, features)
 
     def test_normalize_column_name(self):
         """Column normalization should collapse spacing/case differences."""
@@ -120,18 +300,26 @@ class TestFeatureHarmonization:
             "state_reset_retrans_indicator",
         ]
 
-        assert (df["duration_log"] >= 0.0).all()
-        assert (df["total_bytes_log"] >= 0.0).all()
+        if "duration_log" in df.columns:
+            assert (df["duration_log"] >= 0.0).all()
+        if "total_bytes_log" in df.columns:
+            assert (df["total_bytes_log"] >= 0.0).all()
 
         for col in bounded_01:
+            if col not in df.columns:
+                continue
             assert (df[col] >= 0.0).all(), f"{col} has values below 0"
             assert (df[col] <= 1.0).all(), f"{col} has values above 1"
 
         for col in bounded_m11:
+            if col not in df.columns:
+                continue
             assert (df[col] >= -1.0).all(), f"{col} has values below -1"
             assert (df[col] <= 1.0).all(), f"{col} has values above 1"
 
         for col in binary_cols:
+            if col not in df.columns:
+                continue
             assert set(np.unique(df[col].to_numpy())).issubset({0.0, 1.0})
 
     def test_nsl_harmonization_shape_order_and_bounds(self):
@@ -159,13 +347,42 @@ class TestFeatureHarmonization:
         )
 
         harmonized = loader.harmonize_nslkdd(df)
-        assert harmonized.shape[1] == 20
+        assert harmonized.shape[1] == 18
         assert list(harmonized.columns[:-1]) == COMMON_FEATURES
         assert np.isfinite(harmonized[COMMON_FEATURES].to_numpy()).all()
-        self._assert_invariant_feature_bounds(harmonized[COMMON_FEATURES])
+        self._assert_invariant_feature_bounds(harmonized)
 
-    def test_unsw_harmonization_shape_order_and_bounds(self):
-        """UNSW harmonization must produce 19 invariant features in stable order."""
+    def test_nsl_raw_attack_names_do_not_collapse_to_single_class(self):
+        """Raw NSL labels (neptune/ipsweep/...) must map to multiple family indices."""
+        loader = MultiDatasetLoader()
+        df = pd.DataFrame(
+            {
+                "duration": [0.0, 1.0, 2.0, 3.0, 4.0],
+                "src_bytes": [10.0, 20.0, 30.0, 40.0, 50.0],
+                "dst_bytes": [1.0, 2.0, 3.0, 4.0, 5.0],
+                "protocol_type": ["tcp", "tcp", "udp", "tcp", "icmp"],
+                "service": ["http", "http", "dns", "ftp", "eco_i"],
+                "flag": ["SF", "S0", "REJ", "SF", "RSTO"],
+                "rerror_rate": [0.0, 0.1, 0.2, 0.0, 0.0],
+                "srv_rerror_rate": [0.0, 0.1, 0.2, 0.0, 0.0],
+                "dst_host_rerror_rate": [0.0, 0.1, 0.2, 0.0, 0.0],
+                "serror_rate": [0.0, 0.2, 0.1, 0.0, 0.0],
+                "srv_serror_rate": [0.0, 0.2, 0.1, 0.0, 0.0],
+                "dst_host_serror_rate": [0.0, 0.2, 0.1, 0.0, 0.0],
+                "count": [5.0, 10.0, 15.0, 20.0, 25.0],
+                "srv_count": [2.0, 3.0, 4.0, 5.0, 6.0],
+                "diff_srv_rate": [0.1, 0.2, 0.3, 0.4, 0.5],
+                "label": ["normal", "neptune", "ipsweep", "warezclient", "buffer_overflow"],
+            }
+        )
+
+        harmonized = loader.harmonize_nslkdd(df)
+        mapped_labels = harmonized["label"].astype(int).tolist()
+
+        assert set(mapped_labels) >= {0, 1, 2, 3, 4}
+
+    def test_unsw_harmonization_emits_only_available_signal_columns(self):
+        """UNSW harmonization should shrink to real columns instead of default-filling."""
         loader = MultiDatasetLoader()
         df = pd.DataFrame(
             {
@@ -190,10 +407,164 @@ class TestFeatureHarmonization:
         )
 
         harmonized = loader.harmonize_unsw(df)
-        assert harmonized.shape[1] == 20
-        assert list(harmonized.columns[:-1]) == COMMON_FEATURES
-        assert np.isfinite(harmonized[COMMON_FEATURES].to_numpy()).all()
-        self._assert_invariant_feature_bounds(harmonized[COMMON_FEATURES])
+        assert "label" in harmonized.columns
+        assert {"duration", "protocol_type", "src_bytes", "dst_bytes", "flag"}.issubset(
+            set(harmonized.columns)
+        )
+        assert np.isfinite(harmonized.drop(columns=["label"]).to_numpy()).all()
+
+    def test_unsw_connection_state_keeps_frozen_states(self):
+        """FIN/INT/CON should remain canonical and never be remapped."""
+        df = pd.DataFrame({"state": ["FIN", "INT", "CON", "fin", "int", "con"]})
+        state = _derive_connection_state(df, "unsw_nb15")
+
+        assert state.tolist() == ["FIN", "INT", "CON", "FIN", "INT", "CON"]
+
+    def test_unsw_connection_state_maps_rare_ambiguous_to_oth(self):
+        """Ambiguous UNSW states below 0.5% frequency should collapse to OTH."""
+        states = ["con"] * 980 + ["acc"] * 10 + ["req"] * 4 + ["urn"] * 4 + ["fin"] * 2
+        df = pd.DataFrame({"state": states})
+        state = _derive_connection_state(df, "unsw_nb15")
+
+        assert (state[df["state"] == "req"] == "OTH").all()
+        assert (state[df["state"] == "urn"] == "OTH").all()
+        assert (state[df["state"] == "acc"] == "S1").all()
+        assert (state[df["state"] == "fin"] == "FIN").all()
+
+    def test_unsw_discrete_probe_excludes_service_tier(self):
+        """Probe should rely on transport/state drivers plus has_rst, not service_tier."""
+        loader = MultiDatasetLoader()
+        rng = np.random.default_rng(7)
+        n = 120
+        unsw_df = pd.DataFrame(
+            {
+                "protocol_type": np.r_[np.zeros(n // 2, dtype=np.int64), np.ones(n // 2, dtype=np.int64)],
+                "connection_state": np.r_[np.zeros(n // 2, dtype=np.int64), np.ones(n // 2, dtype=np.int64)],
+                "traffic_direction": np.r_[np.zeros(n // 2, dtype=np.int64), np.full(n // 2, 2, dtype=np.int64)],
+                "has_rst": np.r_[np.zeros(n // 2, dtype=np.int64), np.ones(n // 2, dtype=np.int64)],
+                "service_tier": rng.integers(0, 7, size=n, dtype=np.int64),
+                "label": np.r_[np.zeros(n // 2, dtype=np.int64), np.ones(n // 2, dtype=np.int64)],
+            }
+        )
+
+        probe_features, macro_f1 = loader._run_unsw_discrete_probe(
+            unsw_df=unsw_df,
+            available_features=[
+                "protocol_type",
+                "connection_state",
+                "traffic_direction",
+                "service_tier",
+                "has_rst",
+            ],
+        )
+
+        assert probe_features == ["protocol_type", "connection_state", "traffic_direction", "has_rst"]
+        assert "service_tier" not in probe_features
+        assert macro_f1 > UNSW_DISCRETE_PROBE_F1_MIN
+
+    def test_unsw_discrete_probe_adaptive_threshold_allows_skewed_valid_signal(self, monkeypatch):
+        """Skew-aware threshold should pass valid signal that beats baseline but is < absolute cap."""
+
+        class _FakeSkewAwareLR:
+            def __init__(self, *args, **kwargs):
+                del args, kwargs
+                self._y = None
+
+            def fit(self, x, y):
+                del x
+                self._y = np.asarray(y, dtype=np.int64)
+                return self
+
+            def predict(self, x):
+                del x
+                y = np.asarray(self._y, dtype=np.int64)
+                pred = np.zeros_like(y)
+                pred[y == 1] = 1
+                idx_class2 = np.nonzero(y == 2)[0]
+                pred[idx_class2[:2]] = 2
+                return pred
+
+        monkeypatch.setattr(
+            "src.helix_ids.data.multi_dataset_loader.LogisticRegression",
+            _FakeSkewAwareLR,
+        )
+
+        loader = MultiDatasetLoader()
+        y = np.array([0] * 70 + [1] * 5 + [2] * 5 + [3] * 5 + [4] * 5 + [5] * 5 + [6] * 5, dtype=np.int64)
+        n = y.shape[0]
+        unsw_df = pd.DataFrame(
+            {
+                "protocol_type": np.zeros(n, dtype=np.int64),
+                "connection_state": np.zeros(n, dtype=np.int64),
+                "traffic_direction": np.zeros(n, dtype=np.int64),
+                "has_rst": np.zeros(n, dtype=np.int64),
+                "service_tier": np.zeros(n, dtype=np.int64),
+                "label": y,
+            }
+        )
+
+        _, macro_f1 = loader._run_unsw_discrete_probe(
+            unsw_df=unsw_df,
+            available_features=[
+                "protocol_type",
+                "connection_state",
+                "traffic_direction",
+                "service_tier",
+                "has_rst",
+            ],
+        )
+
+        assert 0.30 < macro_f1 < UNSW_DISCRETE_PROBE_F1_MIN
+
+    def test_unsw_discrete_probe_adaptive_threshold_still_blocks_low_signal(self, monkeypatch):
+        """Adaptive threshold must still fail when probe carries no discriminative signal."""
+
+        class _FakeMajorityLR:
+            def __init__(self, *args, **kwargs):
+                del args, kwargs
+                self._y = None
+
+            def fit(self, x, y):
+                del x
+                self._y = np.asarray(y, dtype=np.int64)
+                return self
+
+            def predict(self, x):
+                del x
+                y = np.asarray(self._y, dtype=np.int64)
+                majority = int(np.argmax(np.bincount(y)))
+                return np.full_like(y, fill_value=majority)
+
+        monkeypatch.setattr(
+            "src.helix_ids.data.multi_dataset_loader.LogisticRegression",
+            _FakeMajorityLR,
+        )
+
+        loader = MultiDatasetLoader()
+        y = np.array([0] * 70 + [1] * 5 + [2] * 5 + [3] * 5 + [4] * 5 + [5] * 5 + [6] * 5, dtype=np.int64)
+        n = y.shape[0]
+        unsw_df = pd.DataFrame(
+            {
+                "protocol_type": np.zeros(n, dtype=np.int64),
+                "connection_state": np.zeros(n, dtype=np.int64),
+                "traffic_direction": np.zeros(n, dtype=np.int64),
+                "has_rst": np.zeros(n, dtype=np.int64),
+                "service_tier": np.zeros(n, dtype=np.int64),
+                "label": y,
+            }
+        )
+
+        with pytest.raises(RuntimeError, match="UNSW discrete separability probe failed"):
+            loader._run_unsw_discrete_probe(
+                unsw_df=unsw_df,
+                available_features=[
+                    "protocol_type",
+                    "connection_state",
+                    "traffic_direction",
+                    "service_tier",
+                    "has_rst",
+                ],
+            )
 
     def test_cicids_harmonization_shape_order_and_bounds(self):
         """CICIDS harmonization must produce 19 invariant features in stable order."""
@@ -223,15 +594,44 @@ class TestFeatureHarmonization:
         )
 
         harmonized = loader.harmonize_cicids(df)
-        assert harmonized.shape[1] == 20
+        assert harmonized.shape[1] == 18
         assert list(harmonized.columns[:-1]) == COMMON_FEATURES
         assert np.isfinite(harmonized[COMMON_FEATURES].to_numpy()).all()
-        self._assert_invariant_feature_bounds(harmonized[COMMON_FEATURES])
+        self._assert_invariant_feature_bounds(harmonized)
 
     def test_loader_exposes_no_normalization_surface(self):
         """Loader must not expose dataset transformation APIs."""
         loader = MultiDatasetLoader()
         assert not hasattr(loader, "normalize_per_dataset")
+
+    def test_sanitization_stability(self):
+        """Centralized numeric sanitization should keep numeric columns finite."""
+        pytest.importorskip("hypothesis")
+        from hypothesis import given, settings
+        from hypothesis import strategies as st
+        from src.helix_ids.data.feature_harmonization import sanitize_numeric
+
+        numeric_value = st.one_of(
+            st.floats(allow_nan=True, allow_infinity=True, width=32),
+            st.integers(min_value=-1000, max_value=1000),
+        )
+
+        @settings(max_examples=25, deadline=None)
+        @given(
+            st.data(),
+        )
+        def _inner(data):
+            size = data.draw(st.integers(min_value=1, max_value=8))
+            df = pd.DataFrame(
+                {
+                    "a": [data.draw(numeric_value) for _ in range(size)],
+                    "b": [data.draw(numeric_value) for _ in range(size)],
+                }
+            )
+            df = sanitize_numeric(df)
+            assert np.isfinite(df.select_dtypes(include=[np.number])).all().all()
+
+        _inner()
 
 
 class TestMultiDatasetLoader:
@@ -342,6 +742,33 @@ class TestMultiDatasetLoader:
         numeric = cleaned.drop(columns=["attack_type"])
         assert not np.isinf(numeric.values).any()
         assert np.isnan(numeric.values).any()
+
+    def test_scale_dataset_features_handles_empty_train_holdout(self):
+        """Test-only holdout split must remain finite when train rows are empty."""
+        loader = MultiDatasetLoader()
+        feature_columns = ["duration", "src_bytes", "dst_bytes", "logged_in", "same_srv_rate"]
+
+        x_train = np.empty((0, len(feature_columns)), dtype=np.float32)
+        x_val = np.empty((0, len(feature_columns)), dtype=np.float32)
+        x_test = np.array(
+            [
+                [1.0, 1000.0, 100.0, 1.0, 0.5],
+                [2.0, 2000.0, np.nan, 0.0, np.inf],
+            ],
+            dtype=np.float32,
+        )
+
+        scaled_train, scaled_val, scaled_test = loader._scale_dataset_features(
+            x_train=x_train,
+            x_val=x_val,
+            x_test=x_test,
+            feature_columns=feature_columns,
+        )
+
+        assert scaled_train.shape == x_train.shape
+        assert scaled_val.shape == x_val.shape
+        assert scaled_test.shape == x_test.shape
+        assert np.isfinite(scaled_test).all()
 
 
 if __name__ == "__main__":

@@ -15,6 +15,14 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import f1_score
 
+from ..contracts import (
+    CONTRACT_VERSION,
+    DiagnosticContract,
+    enforce_decision_transition,
+    migrate_contract_payload,
+    validate_diagnostic_contract,
+)
+
 
 @dataclass(frozen=True)
 class LearnabilityThresholds:
@@ -30,6 +38,14 @@ class LearnabilityThresholds:
 
 
 DEFAULT_THRESHOLDS = LearnabilityThresholds()
+# Preprocess profile is used to gate dataset readiness before model training.
+# Promotion-level strictness is enforced later by governance stages.
+PREPROCESS_THRESHOLDS = LearnabilityThresholds(
+    macro_f1_min=0.26,
+    min_recall_min=0.0,
+    unique_pred_coverage_min=0.50,
+    random_ratio_min=2.0,
+)
 META_FILENAME = "meta.json"
 FROZEN_SNAPSHOT_FILENAME = "frozen_snapshot_id.txt"
 REFERENCE_PROFILE_FILENAME = "reference_profile.json"
@@ -37,6 +53,9 @@ REFERENCE_STD_EPSILON = 1e-6
 REFERENCE_MIN_SAMPLES = 20
 REFERENCE_SKEW_THRESHOLD = 2.5
 DIAGNOSIS_DRIFT_INVALIDATION_THRESHOLD = 2.5
+PROBE_MAX_CONFIDENCE_DELTA_DEFAULT = 0.15
+PROBE_REDUNDANCY_SIMILARITY_THRESHOLD = 0.80
+PROBE_DEFAULT_COST_BUDGET = 2.0
 REFERENCE_METRIC_KEYS = (
     "centroid_min_distance",
     "unique_pred_coverage",
@@ -53,6 +72,84 @@ CAUSE_METRIC_MAP = {
     "scaling_destruction": "min_centroid_shrinkage_ratio",
     "label_distribution_issue": "label_entropy",
     "weak_signal": "signal_to_random_ratio",
+}
+
+CAUSE_PROBE_LIBRARY: dict[str, list[dict[str, Any]]] = {
+    "feature_space_collapse": [
+        {
+            "probe": "run_without_scaling",
+            "type": "ablation",
+            "target": "scaler",
+            "expected_signal": "centroid_distance_increase",
+            "disambiguates": ["feature_space_collapse", "scaling_destruction"],
+            "information_gain": 0.85,
+            "execution_cost": 0.40,
+        },
+        {
+            "probe": "embedding_separation_sanity",
+            "type": "sanity_check",
+            "target": "encoder",
+            "expected_signal": "inter_class_distance_recovery",
+            "disambiguates": ["feature_space_collapse", "weak_signal"],
+            "information_gain": 0.60,
+            "execution_cost": 0.35,
+        },
+    ],
+    "class_prediction_collapse": [
+        {
+            "probe": "inspect_label_distribution",
+            "type": "sanity_check",
+            "target": "labels",
+            "expected_signal": "class_coverage_recovery",
+            "disambiguates": ["class_prediction_collapse", "label_distribution_issue"],
+            "information_gain": 0.80,
+            "execution_cost": 0.25,
+        }
+    ],
+    "weak_signal": [
+        {
+            "probe": "inject_synthetic_signal_test",
+            "type": "sanity_check",
+            "target": "features",
+            "expected_signal": "macro_f1_lift_above_random_floor",
+            "disambiguates": ["weak_signal", "feature_space_collapse"],
+            "information_gain": 0.90,
+            "execution_cost": 0.50,
+        }
+    ],
+    "scaling_destruction": [
+        {
+            "probe": "toggle_scaler_family",
+            "type": "ablation",
+            "target": "scaler",
+            "expected_signal": "centroid_shrinkage_ratio_recovery",
+            "disambiguates": ["scaling_destruction", "feature_space_collapse"],
+            "information_gain": 0.75,
+            "execution_cost": 0.45,
+        }
+    ],
+    "label_distribution_issue": [
+        {
+            "probe": "stratification_rebuild_check",
+            "type": "sanity_check",
+            "target": "labels",
+            "expected_signal": "label_entropy_increase",
+            "disambiguates": ["label_distribution_issue", "class_prediction_collapse"],
+            "information_gain": 0.70,
+            "execution_cost": 0.30,
+        }
+    ],
+    "feature_degeneracy": [
+        {
+            "probe": "variance_floor_scan",
+            "type": "sanity_check",
+            "target": "features",
+            "expected_signal": "zero_variance_fraction_decrease",
+            "disambiguates": ["feature_degeneracy", "weak_signal"],
+            "information_gain": 0.72,
+            "execution_cost": 0.20,
+        }
+    ],
 }
 
 
@@ -842,11 +939,429 @@ def _resolve_output_for_mode(
         secondary = list(composite_scores.keys()) or [primary, secondary_cause]
         return "composite_failure", secondary, confidence
 
+    if mode == "non_identifiable":
+        secondary = list(composite_scores.keys()) or [primary, secondary_cause]
+        return "irreducible_uncertainty", secondary, max(0.05, confidence)
+
     return primary, [secondary_cause], confidence
+
+
+def _plan_probe_candidates(primary: str, secondary: list[str]) -> list[dict[str, Any]]:
+    ordered_causes = [primary] + [c for c in secondary if c != primary]
+    candidates: list[dict[str, Any]] = []
+    for cause in ordered_causes:
+        for item in CAUSE_PROBE_LIBRARY.get(cause, []):
+            probe = dict(item)
+            info_gain = float(probe.get("information_gain", 0.0))
+            cost = max(1e-6, float(probe.get("execution_cost", 1.0)))
+            probe["rank"] = float(info_gain / cost)
+            candidates.append(probe)
+
+    candidates.sort(key=lambda x: float(x.get("rank", 0.0)), reverse=True)
+    return candidates
+
+
+def compute_information_gain(probe: dict[str, Any]) -> float:
+    return float(probe.get("information_gain", 0.0))
+
+
+def select_probe(candidates: list[dict[str, Any]], cost_budget: float) -> list[dict[str, Any]]:
+    selected: list[dict[str, Any]] = []
+    cost_used = 0.0
+    for probe in sorted(candidates, key=lambda x: float(x.get("rank", 0.0)), reverse=True):
+        cost = max(0.0, float(probe.get("execution_cost", 0.0)))
+        if cost_used + cost > max(0.0, float(cost_budget)):
+            continue
+        selected.append(probe)
+        cost_used += cost
+    return selected
+
+
+def _probe_signature(probe: dict[str, Any]) -> tuple[str, str, str]:
+    return (
+        str(probe.get("probe", "")),
+        str(probe.get("type", "")),
+        str(probe.get("target", "")),
+    )
+
+
+def _probe_similarity(candidate: dict[str, Any], previous: dict[str, Any]) -> float:
+    if _probe_signature(candidate) == _probe_signature(previous):
+        return 1.0
+
+    c_dis = set(candidate.get("disambiguates", [])) if isinstance(candidate.get("disambiguates"), list) else set()
+    p_dis = set(previous.get("disambiguates", [])) if isinstance(previous.get("disambiguates"), list) else set()
+    if not c_dis and not p_dis:
+        return 0.0
+    inter = len(c_dis.intersection(p_dis))
+    union = max(1, len(c_dis.union(p_dis)))
+    return float(inter / union)
+
+
+def _apply_probe_redundancy_filter(
+    candidates: list[dict[str, Any]],
+    previous_probes: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[str]]:
+    filtered: list[dict[str, Any]] = []
+    flags: list[str] = []
+
+    for candidate in candidates:
+        redundant = False
+        for prev in previous_probes:
+            if not isinstance(prev, dict):
+                continue
+            if _probe_similarity(candidate, prev) > PROBE_REDUNDANCY_SIMILARITY_THRESHOLD:
+                redundant = True
+                flags.append(f"redundant_probe_filtered:{candidate.get('probe', 'unknown')}")
+                break
+        if not redundant:
+            filtered.append(candidate)
+
+    return filtered, sorted(set(flags))
+
+
+def _lookup_probe_metadata(probe_name: str) -> dict[str, Any]:
+    for probes in CAUSE_PROBE_LIBRARY.values():
+        for probe in probes:
+            if str(probe.get("probe", "")) == probe_name:
+                return dict(probe)
+    return {}
+
+
+def _resolve_probe_cost(result: dict[str, Any]) -> float:
+    if "execution_cost" in result:
+        return max(0.0, float(result.get("execution_cost", 0.0)))
+    meta = _lookup_probe_metadata(str(result.get("probe", "")))
+    return max(0.0, float(meta.get("execution_cost", 0.0)))
+
+
+def _resolve_information_gain_bound(result: dict[str, Any]) -> float:
+    if "information_gain_bound" in result:
+        bound = float(result.get("information_gain_bound", PROBE_MAX_CONFIDENCE_DELTA_DEFAULT))
+        return max(0.0, bound)
+    meta = _lookup_probe_metadata(str(result.get("probe", "")))
+    bound = float(meta.get("information_gain", PROBE_MAX_CONFIDENCE_DELTA_DEFAULT))
+    return max(0.0, min(bound, 1.0))
+
+
+def _plan_probe_candidates_with_history(
+    primary: str,
+    secondary: list[str],
+    previous_probes: list[dict[str, Any]],
+    block_future_probes: bool,
+) -> tuple[list[dict[str, Any]], list[str]]:
+    if block_future_probes:
+        return [], ["probe_loop_blocked"]
+
+    candidates = _plan_probe_candidates(primary, secondary)
+    return _apply_probe_redundancy_filter(candidates, previous_probes)
+
+
+def _extract_probe_feedback(meta: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    cycle = meta.get("diagnostic_cycle", {})
+    probe_results_obj = meta.get("probe_results")
+    probe_results = probe_results_obj if isinstance(probe_results_obj, list) else []
+    if isinstance(cycle, dict):
+        cycle_probe_results = cycle.get("probe_results")
+        if isinstance(cycle_probe_results, list):
+            probe_results = cycle_probe_results
+    return probe_results, cycle if isinstance(cycle, dict) else {}
+
+
+def _build_probe_step(
+    result: dict[str, Any],
+    hypothesis: str,
+    old_confidence: float,
+    new_confidence: float,
+    max_allowed_delta: float,
+) -> dict[str, Any]:
+    return {
+        "probe": str(result.get("probe", "unknown")),
+        "hypothesis": hypothesis,
+        "old_confidence": float(old_confidence),
+        "new_confidence": float(new_confidence),
+        "max_allowed_delta": float(max_allowed_delta),
+    }
+
+
+def _is_single_hypothesis_probe(affected_hypotheses: Any) -> bool:
+    return isinstance(affected_hypotheses, list) and len(affected_hypotheses) == 1
+
+
+def _apply_probe_delta(
+    *,
+    confirms: bool,
+    hypothesis: str,
+    delta: float,
+    updated_scores: dict[str, float],
+    updated_confidence: float,
+) -> tuple[dict[str, float], float, str, str]:
+    if confirms:
+        if hypothesis in updated_scores:
+            updated_scores[hypothesis] = _clamp01(float(updated_scores[hypothesis]) + delta)
+        return updated_scores, _clamp01(updated_confidence + delta), f"probe_confirmed:{hypothesis}", "confirm"
+
+    if hypothesis in updated_scores:
+        updated_scores[hypothesis] = _clamp01(float(updated_scores[hypothesis]) * 0.7)
+    return updated_scores, _clamp01(updated_confidence - delta), f"probe_contradicted:{hypothesis}", "contradict"
+
+
+def _limit_probe_confidence_delta(
+    old_confidence: float,
+    new_confidence: float,
+    max_allowed_delta: float,
+) -> tuple[float, bool]:
+    if abs(new_confidence - old_confidence) <= max_allowed_delta + 1e-9:
+        return float(new_confidence), False
+    clipped = old_confidence + np.sign(new_confidence - old_confidence) * max_allowed_delta
+    return _clamp01(float(clipped)), True
+
+
+def _process_probe_result(
+    *,
+    result: dict[str, Any],
+    primary: str,
+    updated_scores: dict[str, float],
+    updated_confidence: float,
+) -> tuple[dict[str, float], float, list[str], dict[str, Any], str | None, str | None, float]:
+    hypothesis = str(result.get("hypothesis", primary))
+    confirms = bool(result.get("confirms", False))
+    noisy = bool(result.get("noisy", False) or result.get("irrelevant", False))
+    probe_bias = bool(result.get("probe_changes_distribution", False))
+    affected_hypotheses = result.get("affected_hypotheses", [hypothesis])
+    old_confidence = float(updated_confidence)
+    bound = _resolve_information_gain_bound(result)
+    max_allowed_delta = min(PROBE_MAX_CONFIDENCE_DELTA_DEFAULT, bound)
+    probe_cost = _resolve_probe_cost(result)
+    local_flags: list[str] = []
+
+    if not _is_single_hypothesis_probe(affected_hypotheses):
+        local_flags.append("probe_not_isolated")
+        step = _build_probe_step(result, hypothesis, old_confidence, old_confidence, max_allowed_delta)
+        return updated_scores, updated_confidence, local_flags, step, None, None, probe_cost
+
+    if noisy:
+        local_flags.append("false_positive_probe_signal")
+        step = _build_probe_step(result, hypothesis, old_confidence, old_confidence, max_allowed_delta)
+        return updated_scores, updated_confidence, local_flags, step, None, None, probe_cost
+
+    delta = max_allowed_delta
+    if probe_bias:
+        delta *= 0.5
+        local_flags.append("probe_bias_detected")
+
+    updated_scores, proposed_confidence, outcome_flag, polarity = _apply_probe_delta(
+        confirms=confirms,
+        hypothesis=hypothesis,
+        delta=delta,
+        updated_scores=updated_scores,
+        updated_confidence=updated_confidence,
+    )
+    local_flags.append(outcome_flag)
+
+    new_confidence, clipped = _limit_probe_confidence_delta(old_confidence, proposed_confidence, max_allowed_delta)
+    if clipped:
+        local_flags.append("confidence_delta_clamped")
+
+    step = _build_probe_step(result, hypothesis, old_confidence, new_confidence, max_allowed_delta)
+    return updated_scores, new_confidence, local_flags, step, hypothesis, polarity, probe_cost
+
+
+def _apply_probe_feedback(
+    *,
+    scores: dict[str, float],
+    confidence: float,
+    primary: str,
+    probe_results: list[dict[str, Any]],
+) -> tuple[dict[str, float], float, list[str], list[float], list[dict[str, Any]], float]:
+    updated_scores = dict(scores)
+    updated_confidence = float(confidence)
+    feedback_flags: list[str] = []
+    confidence_trajectory: list[float] = [float(confidence)]
+    probe_steps: list[dict[str, Any]] = []
+    total_cost = 0.0
+    hypothesis_polarity: dict[str, set[str]] = {}
+
+    for result in probe_results:
+        if not isinstance(result, dict):
+            continue
+        (
+            updated_scores,
+            updated_confidence,
+            local_flags,
+            step,
+            resolved_hypothesis,
+            probe_polarity,
+            probe_cost,
+        ) = _process_probe_result(
+            result=result,
+            primary=primary,
+            updated_scores=updated_scores,
+            updated_confidence=updated_confidence,
+        )
+        total_cost += probe_cost
+        feedback_flags.extend(local_flags)
+        probe_steps.append(step)
+        if resolved_hypothesis is not None and probe_polarity is not None:
+            hypothesis_polarity.setdefault(resolved_hypothesis, set()).add(probe_polarity)
+        confidence_trajectory.append(float(updated_confidence))
+
+    for hypothesis, polarity_set in hypothesis_polarity.items():
+        if "confirm" in polarity_set and "contradict" in polarity_set:
+            feedback_flags.append(f"conflicting_probe_signals:{hypothesis}")
+            updated_confidence = _clamp01(updated_confidence * 0.95)
+
+    if len(confidence_trajectory) >= 4 and (max(confidence_trajectory) - min(confidence_trajectory)) < 0.02:
+        feedback_flags.append("probe_loop_stagnation")
+
+    return (
+        updated_scores,
+        float(updated_confidence),
+        sorted(set(feedback_flags)),
+        confidence_trajectory,
+        probe_steps,
+        float(total_cost),
+    )
+
+
+def _apply_probe_exhaustion_rules(
+    *,
+    mode: str,
+    confidence: float,
+    existing_cycle: dict[str, Any],
+    probe_feedback_flags: list[str],
+    total_probe_cost: float,
+    probe_cost_budget: float,
+) -> tuple[str, list[str], bool, bool]:
+    local_flags: list[str] = []
+    budget_exhausted = total_probe_cost > probe_cost_budget
+    if budget_exhausted:
+        local_flags.append("probe_budget_exhausted")
+        mode = "non_identifiable"
+        local_flags.append("irreducible_uncertainty")
+
+    probes_exhausted = bool(existing_cycle.get("probes_exhausted", False) or budget_exhausted)
+    if probes_exhausted and confidence < 0.3:
+        mode = "non_identifiable"
+        local_flags.append("irreducible_uncertainty")
+
+    if "probe_loop_stagnation" in probe_feedback_flags and confidence < 0.6:
+        mode = "non_identifiable"
+        local_flags.append("irreducible_uncertainty")
+
+    return mode, local_flags, probes_exhausted, budget_exhausted
+
+
+def _resolve_regime(has_reference_profile: bool, has_invalid_reference: bool, coverage: float) -> str:
+    if (not has_reference_profile) or coverage < 0.4:
+        return "uncalibrated"
+    if has_invalid_reference or coverage < 1.0:
+        return "degraded"
+    return "calibrated"
+
+
+def _resolve_profile_version_alignment(
+    meta: dict[str, Any],
+    reference_profile: dict[str, Any],
+) -> tuple[Any, bool]:
+    expected_profile_version = meta.get("expected_reference_profile_version")
+    profile_version = reference_profile.get("version")
+    profile_version_mismatch = bool(expected_profile_version) and str(profile_version) != str(expected_profile_version)
+    return profile_version, bool(profile_version_mismatch)
+
+
+def _apply_reference_penalty(flags: list[str], confidence_multiplier: float) -> tuple[bool, float]:
+    has_invalid_reference = any(flag.startswith("invalid_reference_profile") for flag in flags)
+    if has_invalid_reference:
+        confidence_multiplier *= 0.5
+    return has_invalid_reference, confidence_multiplier
+
+
+def _recompute_scores_after_probe_feedback(
+    scores: dict[str, float],
+    probe_feedback_flags: list[str],
+) -> tuple[list[tuple[str, float]], str, float, str, float]:
+    sorted_scores = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+    primary, p_score = sorted_scores[0]
+    secondary_cause, s_score = sorted_scores[1]
+    if not probe_feedback_flags:
+        return sorted_scores, primary, p_score, secondary_cause, s_score
+    sorted_scores = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+    primary, p_score = sorted_scores[0]
+    secondary_cause, s_score = sorted_scores[1]
+    return sorted_scores, primary, p_score, secondary_cause, s_score
+
+
+def _distribution_shift_with_flags(drift_score: float, p_score: float) -> tuple[bool, list[str]]:
+    distribution_shift = drift_score > DIAGNOSIS_DRIFT_INVALIDATION_THRESHOLD and p_score < 0.6
+    if drift_score > DIAGNOSIS_DRIFT_INVALIDATION_THRESHOLD and not distribution_shift:
+        return distribution_shift, ["high_drift_detected"]
+    return distribution_shift, []
+
+
+def _apply_profile_version_penalty(
+    *,
+    meta: dict[str, Any],
+    reference_profile: dict[str, Any],
+    confidence: float,
+) -> tuple[Any, bool, float, list[str]]:
+    profile_version, profile_version_mismatch = _resolve_profile_version_alignment(meta, reference_profile)
+    if profile_version_mismatch:
+        return profile_version, True, _clamp01(confidence * 0.8), ["reference_profile_version_mismatch"]
+    return profile_version, False, confidence, []
+
+
+def _compute_block_future_probes(mode: str, meta: dict[str, Any], existing_cycle: dict[str, Any]) -> bool:
+    external_signal_present = bool(meta.get("external_signal", False))
+    return bool(
+        mode == "non_identifiable" and not external_signal_present
+        or existing_cycle.get("block_future_probes", False)
+    )
+
+
+def _decorate_diagnostic_cycle(
+    diagnostic_cycle: dict[str, Any],
+    probe_candidates: list[dict[str, Any]],
+    probes_exhausted: bool,
+    budget_exhausted: bool,
+) -> None:
+    if probe_candidates:
+        diagnostic_cycle["next_probe"] = probe_candidates[0]
+    if probes_exhausted:
+        diagnostic_cycle["terminal_reason"] = "budget_exhausted" if budget_exhausted else "irreducible_uncertainty"
+
+
+def _resolve_decision_mode(mode: str, confidence: float) -> str:
+    if mode == "non_identifiable":
+        return "non_identifiable"
+    if confidence >= 0.6:
+        return "action"
+    return "probe"
+
+
+def _finalize_decision_mode(
+    existing_cycle: dict[str, Any],
+    diagnostic_cycle: dict[str, Any],
+    *,
+    mode: str,
+    confidence: float,
+) -> str:
+    decision_mode = _resolve_decision_mode(mode, confidence)
+    previous_decision_mode = str(existing_cycle.get("decision_mode", "probe"))
+    if previous_decision_mode != decision_mode:
+        enforce_decision_transition(previous_decision_mode, decision_mode)
+    diagnostic_cycle["decision_mode"] = decision_mode
+    return decision_mode
+
+
+def _terminal_reason_value(diagnostic_cycle: dict[str, Any]) -> str | None:
+    terminal_reason = diagnostic_cycle.get("terminal_reason")
+    return str(terminal_reason) if terminal_reason is not None else None
 
 
 def derive_root_cause(meta: dict[str, Any]) -> dict[str, Any]:
     """Continuous diagnostic inference with conflict resolution and ambiguity support."""
+    meta = migrate_contract_payload(dict(meta))
     has_reference_profile, reference_profile, flags, confidence_multiplier = _resolve_reference_profile(meta)
 
     stage_diagnostics = meta.get("stage_diagnostics", {})
@@ -860,9 +1375,7 @@ def derive_root_cause(meta: dict[str, Any]) -> dict[str, Any]:
     )
     flags.extend(reference_validity_flags)
 
-    has_invalid_reference = any(flag.startswith("invalid_reference_profile") for flag in flags)
-    if has_invalid_reference:
-        confidence_multiplier *= 0.5
+    has_invalid_reference, confidence_multiplier = _apply_reference_penalty(flags, confidence_multiplier)
 
     metric_drifts, drift_score = _compute_metric_drifts(meta, reference_profile, available_valid_metrics)
 
@@ -896,6 +1409,19 @@ def derive_root_cause(meta: dict[str, Any]) -> dict[str, Any]:
     temporal_factor, temporal_instability = _compute_temporal_instability(meta, primary, p_score)
     confidence = _clamp01(confidence * temporal_factor)
 
+    probe_results, existing_cycle = _extract_probe_feedback(meta)
+    scores, confidence, probe_feedback_flags, confidence_trajectory, probe_steps, total_probe_cost = _apply_probe_feedback(
+        scores=scores,
+        confidence=confidence,
+        primary=primary,
+        probe_results=probe_results,
+    )
+    flags.extend(probe_feedback_flags)
+    sorted_scores, primary, p_score, secondary_cause, s_score = _recompute_scores_after_probe_feedback(
+        scores,
+        probe_feedback_flags,
+    )
+
     composite_scores = {
         cause: float(score)
         for cause, score in sorted_scores
@@ -914,9 +1440,19 @@ def derive_root_cause(meta: dict[str, Any]) -> dict[str, Any]:
     )
     flags.extend(mode_flags)
 
-    distribution_shift = drift_score > DIAGNOSIS_DRIFT_INVALIDATION_THRESHOLD and p_score < 0.6
-    if drift_score > DIAGNOSIS_DRIFT_INVALIDATION_THRESHOLD and not distribution_shift:
-        flags.append("high_drift_detected")
+    probe_cost_budget = float(meta.get("probe_cost_budget", PROBE_DEFAULT_COST_BUDGET))
+    mode, probe_mode_flags, probes_exhausted, budget_exhausted = _apply_probe_exhaustion_rules(
+        mode=mode,
+        confidence=confidence,
+        existing_cycle=existing_cycle,
+        probe_feedback_flags=probe_feedback_flags,
+        total_probe_cost=total_probe_cost,
+        probe_cost_budget=probe_cost_budget,
+    )
+    flags.extend(probe_mode_flags)
+
+    distribution_shift, drift_flags = _distribution_shift_with_flags(drift_score, p_score)
+    flags.extend(drift_flags)
 
     mode = _apply_mode_override_hierarchy(
         metric_inconsistency=metric_inconsistency,
@@ -935,24 +1471,66 @@ def derive_root_cause(meta: dict[str, Any]) -> dict[str, Any]:
         confidence=confidence,
     )
 
-    expected_profile_version = meta.get("expected_reference_profile_version")
-    profile_version = reference_profile.get("version")
-    profile_version_mismatch = bool(expected_profile_version) and str(profile_version) != str(expected_profile_version)
-    if profile_version_mismatch:
-        flags.append("reference_profile_version_mismatch")
-        confidence = _clamp01(confidence * 0.8)
+    profile_version, profile_version_mismatch, confidence, profile_flags = _apply_profile_version_penalty(
+        meta=meta,
+        reference_profile=reference_profile,
+        confidence=confidence,
+    )
+    flags.extend(profile_flags)
 
     causal_factor, failed_causal_sanity = _causal_sanity_factor(scores, primary if mode == "single" else primary_output)
     confidence = _clamp01(confidence * causal_factor)
     confidence = _clamp01(confidence * confidence_multiplier)
     confidence = max(float(confidence), 0.05)
 
-    if (not has_reference_profile) or coverage < 0.4:
-        regime = "uncalibrated"
-    elif has_invalid_reference or coverage < 1.0:
-        regime = "degraded"
-    else:
-        regime = "calibrated"
+    if confidence > 0.6 and mode != "non_identifiable":
+        flags.append("probe_mode_exit:confidence_sufficient")
+
+    regime = _resolve_regime(has_reference_profile, has_invalid_reference, coverage)
+
+    block_future_probes = _compute_block_future_probes(mode, meta, existing_cycle)
+    probe_candidates, probe_filter_flags = _plan_probe_candidates_with_history(
+        primary_output,
+        secondary,
+        probe_results,
+        block_future_probes,
+    )
+    probe_candidates = select_probe(probe_candidates, probe_cost_budget)
+    flags.extend(probe_filter_flags)
+
+    diagnostic_cycle = {
+        "iteration": int(len(confidence_trajectory)),
+        "probes_run": probe_results,
+        "probe_steps": probe_steps,
+        "confidence_trajectory": confidence_trajectory,
+        "decision_mode": None,
+        "block_future_probes": bool(block_future_probes),
+        "probe_cost": float(total_probe_cost),
+        "probe_cost_budget": float(probe_cost_budget),
+    }
+    _decorate_diagnostic_cycle(diagnostic_cycle, probe_candidates, probes_exhausted, budget_exhausted)
+    decision_mode = _finalize_decision_mode(
+        existing_cycle,
+        diagnostic_cycle,
+        mode=mode,
+        confidence=confidence,
+    )
+
+    contract_preview: DiagnosticContract = {
+        "mode": decision_mode,
+        "confidence": float(confidence),
+        "probe_plan": [
+            {
+                "type": str(item.get("type", "sanity_check")),
+                "target": str(item.get("target", "unknown")),
+                "probe": str(item.get("probe", "unknown")),
+            }
+            for item in probe_candidates[:3]
+        ],
+        "diagnostic_cycle": diagnostic_cycle,
+        "terminal_reason": _terminal_reason_value(diagnostic_cycle),
+    }
+    validate_diagnostic_contract(contract_preview)
 
     return {
         "primary": primary_output,
@@ -967,6 +1545,12 @@ def derive_root_cause(meta: dict[str, Any]) -> dict[str, Any]:
         "available_metrics": sorted(available_valid_metrics),
         "reference_validity_flags": reference_validity_flags,
         "correlation_flags": correlation_flags,
+        "probe_candidates": probe_candidates,
+        "block_future_probes": bool(block_future_probes),
+        "probe_mode": bool(mode in {"uncalibrated", "non_identifiable"} or confidence < 0.6),
+        "decision_mode": decision_mode,
+        "version": CONTRACT_VERSION,
+        "protocol": "v1",
         "flags": sorted(set(flags)),
         "profile_version": profile_version,
         "profile_version_mismatch": bool(profile_version_mismatch),
@@ -984,6 +1568,16 @@ def derive_root_cause(meta: dict[str, Any]) -> dict[str, Any]:
         "temporal_instability": bool(temporal_instability),
         "failed_causal_sanity": bool(failed_causal_sanity),
         "composite": composite_scores,
+        "diagnostic_cycle": diagnostic_cycle,
+        "debug": {
+            "hypothesis_scores": {k: float(v) for k, v in scores.items()},
+            "rejected_probes": [
+                p for p in probe_results if isinstance(p, dict) and (p.get("noisy") or p.get("irrelevant"))
+            ],
+            "bias_flags": [f for f in flags if "bias" in f],
+        }
+        if bool(meta.get("test_mode", False))
+        else {},
     }
 def get_action_directive(diagnosis: dict[str, Any], context: dict[str, Any] | None = None) -> dict[str, Any]:
     """Convert diagnosis to a mechanism-tied action directive.
@@ -996,15 +1590,42 @@ def get_action_directive(diagnosis: dict[str, Any], context: dict[str, Any] | No
     kill_list = diagnosis.get("kill_list", [])
     confidence = float(diagnosis.get("confidence", 0.5))
 
-    if mode == "uncalibrated" or confidence < 0.2:
+    if "decision_mode" in diagnosis:
+        decision_mode = str(diagnosis.get("decision_mode", "probe"))
+    elif mode in {"uncalibrated", "non_identifiable"}:
+        decision_mode = "non_identifiable"
+    elif confidence >= 0.6:
+        decision_mode = "action"
+    else:
+        decision_mode = "probe"
+
+    probe_mode = bool(decision_mode == "probe" or decision_mode == "non_identifiable")
+    probe_candidates_obj = diagnosis.get("probe_candidates", [])
+    probe_candidates = probe_candidates_obj if isinstance(probe_candidates_obj, list) else []
+    probe_plan = [
+        {
+            "type": str(item.get("type", "sanity_check")),
+            "target": str(item.get("target", "unknown")),
+            "probe": str(item.get("probe", "unknown")),
+            "expected_signal": str(item.get("expected_signal", "none")),
+            "disambiguates": list(item.get("disambiguates", [])) if isinstance(item.get("disambiguates"), list) else [],
+            "rank": float(item.get("rank", 0.0)),
+        }
+        for item in probe_candidates[:3]
+    ]
+
+    if probe_mode:
         return {
-            "type": "NO_OP",
+            "type": "PROBE",
+            "objective": "increase_diagnostic_confidence",
             "target_stage": stage,
-            "expected_effect": "suppress intervention under insufficient diagnostic confidence",
+            "expected_effect": "reduce diagnostic ambiguity before intervention",
             "confidence": confidence,
             "target_features": kill_list,
             "rationale": "insufficient_diagnostic_confidence",
             "reason": "insufficient_diagnostic_confidence",
+            "probe_plan": probe_plan,
+            "block_future_probes": bool(diagnosis.get("block_future_probes", False)),
             "feasibility_warning": None,
         }
     
@@ -1085,6 +1706,9 @@ def create_summary(meta: dict[str, Any]) -> dict[str, Any]:
         "confidence": confidence,
         "kill_list": diagnosis.get("kill_list", []),
         "mode": diagnosis.get("mode", "single"),
+        "decision_mode": diagnosis.get("decision_mode", "probe"),
+        "version": diagnosis.get("version", CONTRACT_VERSION),
+        "protocol": diagnosis.get("protocol", "v1"),
         "global_intensity": float(diagnosis.get("global_intensity", 0.0)),
     }
 
@@ -1101,6 +1725,15 @@ def format_failure_message(summary: dict[str, Any]) -> str:
         f"Action: {summary['action']}\n"
         f"Confidence: {summary['confidence']:.2f}"
     )
+
+
+def _coverage_blockers(unique_pred_coverage: float, thresholds: LearnabilityThresholds) -> list[str]:
+    blockers: list[str] = []
+    if unique_pred_coverage < thresholds.unique_pred_coverage_min:
+        blockers.append("unique_pred_coverage_below_min")
+    if unique_pred_coverage < 0.50:
+        blockers.append("severe_class_prediction_collapse")
+    return blockers
 
 
 def evaluate_contract(
@@ -1121,8 +1754,8 @@ def evaluate_contract(
     if min_recall < thresholds.min_recall_min:
         violations["BLOCKER"].append("per_class_recall_below_min")
 
-    if float(metrics["unique_pred_coverage"]) < thresholds.unique_pred_coverage_min:
-        violations["BLOCKER"].append("unique_pred_coverage_below_min")
+    coverage = float(metrics["unique_pred_coverage"])
+    violations["BLOCKER"].extend(_coverage_blockers(coverage, thresholds))
 
     if float(metrics["centroid_min_distance"]) <= thresholds.centroid_min_distance_min:
         violations["BLOCKER"].append("centroid_min_distance_below_min")
@@ -1160,6 +1793,7 @@ def build_meta(
     *,
     thresholds: LearnabilityThresholds = DEFAULT_THRESHOLDS,
 ) -> dict[str, Any]:
+    metrics = migrate_contract_payload(dict(metrics))
     if "reference_profile" not in metrics:
         raise RuntimeError(
             "Missing reference_profile in metrics. Diagnosis requires calibrated baseline from successful runs."
@@ -1209,6 +1843,30 @@ def load_reference_profile(*, artifact_dir: Path) -> dict[str, Any]:
     return dict(bundle["profile"])
 
 
+def _bootstrap_reference_profile() -> dict[str, Any]:
+    """Create a deterministic seed baseline for first-run clean rebuilds."""
+    defaults = {
+        "centroid_min_distance": (0.25, 0.10),
+        "unique_pred_coverage": (0.95, 0.05),
+        "zero_variance_fraction": (0.01, 0.01),
+        "min_centroid_shrinkage_ratio": (0.85, 0.10),
+        "label_entropy": (1.20, 0.20),
+        "signal_to_random_ratio": (3.00, 0.50),
+    }
+    profile: dict[str, Any] = {
+        "version": CONTRACT_VERSION,
+        "source_runs": int(REFERENCE_MIN_SAMPLES),
+    }
+    for metric_name, (mean, std) in defaults.items():
+        profile[metric_name] = {
+            "mean": float(mean),
+            "std": float(max(std, REFERENCE_STD_EPSILON)),
+            "sample_count": int(REFERENCE_MIN_SAMPLES),
+            "distribution_skew": 0.0,
+        }
+    return profile
+
+
 def load_reference_profile_bundle(
     *,
     artifact_dir: Path,
@@ -1216,10 +1874,16 @@ def load_reference_profile_bundle(
 ) -> dict[str, Any]:
     reference_path = artifact_dir / REFERENCE_PROFILE_FILENAME
     if not reference_path.exists():
-        raise RuntimeError(
-            "Missing reference profile. Calibrated diagnosis is blocked until "
-            f"{REFERENCE_PROFILE_FILENAME} exists in {artifact_dir}."
-        )
+        signature = str(dataset_signature)
+        seed_profile = _bootstrap_reference_profile()
+        payload = {
+            "reference_profiles": {
+                signature: dict(seed_profile),
+                "default": dict(seed_profile),
+            }
+        }
+        write_reference_profile(payload, artifact_dir=artifact_dir)
+
     payload = dict(json.loads(reference_path.read_text(encoding="utf-8")))
     if not payload:
         raise RuntimeError("Reference profile is empty; diagnosis is blocked")
@@ -1343,7 +2007,7 @@ def load_meta(*, artifact_dir: Path) -> dict[str, Any]:
     meta_path = artifact_dir / META_FILENAME
     if not meta_path.exists():
         raise FileNotFoundError(f"Missing learnability contract file: {meta_path}")
-    meta = dict(json.loads(meta_path.read_text(encoding="utf-8")))
+    meta = migrate_contract_payload(dict(json.loads(meta_path.read_text(encoding="utf-8"))))
 
     # Backward compatibility for already-produced artifacts.
     if "diagnosis" not in meta and "root_cause" in meta:
@@ -1373,22 +2037,38 @@ def load_meta(*, artifact_dir: Path) -> dict[str, Any]:
     return meta
 
 
+def replay_diagnosis(input_meta: dict[str, Any], expected: dict[str, Any]) -> None:
+    replay = derive_root_cause(migrate_contract_payload(dict(input_meta)))
+    if replay != expected:
+        raise AssertionError("replay_mismatch_detected")
+
+
 def assert_contract(
     *,
     artifact_dir: Path,
     expected_schema_hash: str | None = None,
     require_frozen: bool = True,
+    thresholds: LearnabilityThresholds | None = None,
 ) -> dict[str, Any]:
     meta = load_meta(artifact_dir=artifact_dir)
+    effective_thresholds = thresholds if thresholds is not None else DEFAULT_THRESHOLDS
+    recomputed_validated, recomputed_violations = evaluate_contract(
+        meta,
+        thresholds=effective_thresholds,
+    )
+    if bool(meta.get("validated", False)) != bool(recomputed_validated):
+        meta["validated"] = bool(recomputed_validated)
+    if meta.get("violations") != recomputed_violations:
+        meta["violations"] = recomputed_violations
 
-    if not bool(meta.get("validated", False)):
+    if not bool(recomputed_validated):
         # Use deterministic root-cause diagnosis for error message
-        summary = meta.get("summary", {})
+        summary = create_summary(meta)
         if summary:
             failure_msg = format_failure_message(summary)
         else:
             # Fallback to original format if summary not present
-            violation_obj = meta.get("violations", {})
+            violation_obj = recomputed_violations
             blockers = violation_obj.get("BLOCKER", violation_obj)
             failure_msg = (
                 "Dataset learnability contract invalid: validated=false "

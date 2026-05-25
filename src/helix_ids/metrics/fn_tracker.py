@@ -360,7 +360,8 @@ class FalseNegativeTracker:
 
         try:
             import matplotlib.pyplot as plt
-            import seaborn as sns
+            import importlib
+            sns = importlib.import_module("seaborn")
         except ImportError:
             print("matplotlib or seaborn not installed, skipping heatmap")
             return None

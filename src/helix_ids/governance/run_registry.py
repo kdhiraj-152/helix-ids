@@ -426,6 +426,7 @@ class RunRegistry:
         dataset_id: str,
         current_macro_f1: float,
         baseline_window_runs: int,
+        phase_regime: str | None = None,
     ) -> tuple[float, float]:
         """Return absolute drift and z-score using accepted runs as baseline."""
         records = [
@@ -433,6 +434,13 @@ class RunRegistry:
             for record in self._iter_records()
             if record.get("dataset_id") == dataset_id and record.get("state") == "accepted"
         ]
+        if phase_regime:
+            records = [
+                record
+                for record in records
+                if isinstance(record.get("lineage"), dict)
+                and str(record["lineage"].get("phase_regime", "")).strip() == str(phase_regime)
+            ]
         if not records:
             return 0.0, 0.0
 

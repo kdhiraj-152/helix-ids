@@ -19,7 +19,7 @@ class TrainingConfig:
     """Training hyperparameters for HelixIDS-Full."""
 
     # ===== Model Architecture =====
-    input_dim: int = 18  # invariant cross-dataset behavior features
+    input_dim: int = 17  # audited invariant flow features
     hidden_dims: tuple = field(default_factory=lambda: (256, 192, 128, 64))
     dropout_rates: tuple = field(default_factory=lambda: (0.3, 0.3, 0.25, 0.2))
     use_batch_norm: bool = True
@@ -36,7 +36,7 @@ class TrainingConfig:
     epochs: int = 150
 
     # ===== Warmup & Schedule =====
-    warmup_epochs: int = 5  # Linear warmup
+    warmup_epochs: int = 2  # Linear warmup
     warmup_init_lr: float = 1e-5
     lr_decay_factor: float = 0.1
     lr_decay_steps: tuple = field(default_factory=lambda: (50, 100, 140))  # Decay at these epochs
@@ -51,6 +51,13 @@ class TrainingConfig:
 
     # ===== Class Weighting =====
     use_class_weights: bool = True  # Use inverse frequency weighting
+    class_balance_strategy: str = "weighted_ce"
+    focal_gamma: float = 0.0
+    label_smoothing: float = 0.1
+    enable_logit_adjustment: bool = True
+    logit_temp: float = 1.5
+    min_class_prob_eps: float = 0.0
+    collapse_warmup_ratio: float = 0.12
 
     # ===== Device =====
     device: str = "mps"  # M4 MacBook MPS acceleration
@@ -151,6 +158,13 @@ def save_training_config(config: TrainingConfig, save_path: Path) -> None:
         "loss": {
             "lambda_binary": config.lambda_binary,
             "lambda_family": config.lambda_family,
+            "class_balance_strategy": config.class_balance_strategy,
+            "focal_gamma": config.focal_gamma,
+            "label_smoothing": config.label_smoothing,
+            "enable_logit_adjustment": config.enable_logit_adjustment,
+            "logit_temp": config.logit_temp,
+            "min_class_prob_eps": config.min_class_prob_eps,
+            "collapse_warmup_ratio": config.collapse_warmup_ratio,
         },
         "training": {
             "batch_size": config.batch_size,

@@ -32,9 +32,10 @@ jobs:
       - name: Grep guard against forbidden tokens
         run: |
           set -e
-          NG_PATTERNS="contract_version|allow_partial|missing_features|extra_features|fallback|compat|inferred_input_dim|inferred_classes"
-          if git grep -InE "$NG_PATTERNS"; then
-            echo "❌ Forbidden patterns found in repository:" && git grep -InE "$NG_PATTERNS"
+          NG_PATTERNS="warnings\.warn\(|contract_version|allow_partial|missing_features|extra_features|fallback|compat|inferred_input_dim|inferred_classes|reindex|intersection|pad|truncate|align|repair|recover"
+          MATCHES="$(git grep -InE "$NG_PATTERNS" -- . | grep -v 'tests/fixtures/' || true)"
+          if [ -n "$MATCHES" ]; then
+            echo "❌ Forbidden patterns found in repository:" && printf '%s\n' "$MATCHES"
             exit 1
           else
             echo "✅ No forbidden patterns found"

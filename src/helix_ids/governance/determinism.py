@@ -56,8 +56,15 @@ def set_global_determinism(seed: int) -> DeterminismState:
     )
 
 
-def seed_worker(_: int) -> None:
+def seed_worker(worker_id: int) -> None:
     """Seed DataLoader worker processes deterministically."""
-    worker_seed = torch.initial_seed() % 2**32
+    worker_seed = (torch.initial_seed() + (int(worker_id) + 1) * 1009) % 2**32
     np.random.seed(worker_seed)
     random.seed(worker_seed)
+
+
+def reseed_dataloader_generator(generator: torch.Generator | None, *, seed: int, epoch: int) -> None:
+    """Deterministically reseed an existing DataLoader generator for a specific epoch."""
+    if generator is None:
+        return
+    generator.manual_seed(int(seed) + int(epoch) * 1009)

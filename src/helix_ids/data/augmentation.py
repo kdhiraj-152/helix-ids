@@ -2,29 +2,18 @@
 Attack-Aware Data Augmentation for Minority Class Suppression
 
 This module implements specialized augmentation strategies to address the critical
-minority class suppression problem identified in our research:
-
-Research Findings:
-- R2L: F1 = 0.000 baseline → 0.294 with SMOTE-ENN (+29.4%)
-- U2R: F1 = 0.000 baseline → 0.161 with ADASYN+Mixup (+16.1%)
-- U2R is only 0.89% of test data (200/22,544 samples)
-
-Strategies:
-1. SMOTE-ENN for R2L: Target 10% of dataset, with ENN cleanup for noisy samples
-2. ADASYN + Mixup for U2R: Adaptive sampling + mixup diversity (alpha=0.4)
-3. Light SMOTE for Probe: Target 15% of dataset
-4. Class-balanced batch sampling: Ensures minimum samples per class in each batch
-
-Reference: proposed_solutions.py MinorityClassAugmenter (lines 350-440)
+minority class suppression problem identified in our research.
 """
 
 # pyright: reportMissingImports=false, reportUnknownVariableType=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportUnknownLambdaType=false, reportPossiblyUnboundVariable=false, reportConstantRedefinition=false, reportAssignmentType=false, reportOptionalMemberAccess=false
 
-import warnings
+import logging
 from dataclasses import dataclass, field
 from typing import Optional, Union, cast
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 # Try to import imblearn, fall back to custom implementation
 try:
@@ -35,10 +24,8 @@ try:
     IMBLEARN_AVAILABLE = True
 except ImportError:
     IMBLEARN_AVAILABLE = False
-    warnings.warn(
-        "imbalanced-learn not available. Using custom implementations. "
-        "Install with: pip install imbalanced-learn",
-        stacklevel=2,
+    logger.warning(
+        "imbalanced-learn not available. Using custom implementations. Install with: pip install imbalanced-learn"
     )
 
 try:
@@ -147,15 +134,11 @@ class AttackAwareAugmentation:
             return X, y
 
         if n_current < 2:
-            warnings.warn(
-                f"Class {target_class} has < 2 samples. Cannot apply SMOTE.", stacklevel=2
-            )
-            return X, y
+            raise ValueError(f"Class {target_class} has < 2 samples. Cannot apply SMOTE.")
 
         if IMBLEARN_AVAILABLE:
             return self._smote_enn_imblearn(X, y, target_class, n_target, k_neighbors)
-        else:
-            return self._smote_enn_custom(X, y, target_class, n_target, k_neighbors)
+        return self._smote_enn_custom(X, y, target_class, n_target, k_neighbors)
 
     def _smote_enn_imblearn(
         self, X: np.ndarray, y: np.ndarray, target_class: int, n_target: int, k_neighbors: int
@@ -182,10 +165,7 @@ class AttackAwareAugmentation:
             x_res, y_res = cast(tuple[np.ndarray, np.ndarray], smote_enn.fit_resample(X, y))
             return x_res, y_res
         except Exception as e:
-            warnings.warn(
-                f"SMOTE-ENN failed: {e}. Falling back to custom implementation.", stacklevel=2
-            )
-            return self._smote_enn_custom(X, y, target_class, n_target, k_neighbors)
+            raise RuntimeError(f"SMOTE-ENN failed: {e}") from e
 
     def _smote_enn_custom(
         self, X: np.ndarray, y: np.ndarray, target_class: int, n_target: int, k_neighbors: int
@@ -343,11 +323,7 @@ class AttackAwareAugmentation:
             return X, y
 
         if n_current < 2:
-            warnings.warn(
-                f"Class {target_class} has < 2 samples. Using noise augmentation only.",
-                stacklevel=2,
-            )
-            return self._augment_with_noise(X, y, target_class, n_target, noise_std)
+            raise ValueError(f"Class {target_class} has < 2 samples. Cannot apply ADASYN+Mixup.")
 
         # Step 1: ADASYN
         x_adasyn, y_adasyn = self._apply_adasyn(X, y, target_class, n_target)
@@ -382,7 +358,7 @@ class AttackAwareAugmentation:
                 )
                 return cast(tuple[np.ndarray, np.ndarray], adasyn.fit_resample(X, y))
             except Exception as e:
-                warnings.warn(f"ADASYN failed: {e}. Using custom implementation.", stacklevel=2)
+                raise RuntimeError(f"ADASYN failed: {e}") from e
 
         return self._adasyn_custom(X, y, target_class, n_target)
 
@@ -572,10 +548,7 @@ class AttackAwareAugmentation:
             return X, y
 
         if n_current < 2:
-            warnings.warn(
-                f"Class {target_class} has < 2 samples. Cannot apply SMOTE.", stacklevel=2
-            )
-            return X, y
+            raise ValueError(f"Class {target_class} has < 2 samples. Cannot apply SMOTE.")
 
         if IMBLEARN_AVAILABLE:
             try:
@@ -590,7 +563,7 @@ class AttackAwareAugmentation:
                 )
                 return cast(tuple[np.ndarray, np.ndarray], smote.fit_resample(X, y))
             except Exception as e:
-                warnings.warn(f"SMOTE failed: {e}. Using custom implementation.", stacklevel=2)
+                raise RuntimeError(f"SMOTE failed: {e}") from e
 
         # Custom light SMOTE
         minority_mask = y == target_class

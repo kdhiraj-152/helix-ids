@@ -10,6 +10,7 @@ and prepares them for loading.
 import shutil
 import sys
 from pathlib import Path
+from typing import Any, cast
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -17,6 +18,34 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 DATA_DIR = PROJECT_ROOT / "data"
 ARCHIVE2_DIR = DATA_DIR / "archive-2"
+
+
+def strict_process_cicids() -> None:
+    """Run strict CICIDS harmonization using local dataset paths."""
+    from src.helix_ids.data.feature_harmonization import FEATURE_ORDER
+    from src.helix_ids.data.learnability_contract import compute_schema_hash
+    from src.helix_ids.data.multi_dataset_loader import MultiDatasetLoader
+
+    loader = MultiDatasetLoader(project_root=PROJECT_ROOT)
+    raw = loader.load_cicids()
+    if raw is None:
+        raise RuntimeError("CICIDS dataset not found in known local paths")
+
+    harmonized = loader.harmonize_cicids(raw)
+    out_dir = DATA_DIR / "processed"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / "cicids2018_cleaned.csv"
+    harmonized.to_csv(out_path, index=False)
+
+    schema_hash = compute_schema_hash(
+        feature_columns=list(FEATURE_ORDER),
+        transformations=["split_then_nan_to_num"],
+    )
+    print("CICIDS_PROCESS_DONE")
+    print(f"rows={len(harmonized)}")
+    print(f"output={out_path}")
+    print(f"schema_hash={schema_hash}")
+    print(f"feature_order={','.join(FEATURE_ORDER)}")
 
 
 def organize_cicids_archive(archive_path: str | Path) -> None:
@@ -81,7 +110,16 @@ def verify_cicids_data() -> None:
     loader = UnifiedDataLoader()
     try:
         # Load with cicids-2018 config
-        x_samples, _, class_names = loader.load("cicids-2018", split="train", fit=True)
+        load_result = cast(
+            tuple[Any, Any, list[str]],
+            loader.load(
+                "cicids-2018",
+                split="train",
+                fit=True,
+                return_class_names=True,
+            ),
+        )
+        x_samples, _, class_names = load_result
         print(f"SUCCESS: Loaded {len(x_samples)} sample rows from CICIDS-2018")
         print(f"Feature count: {x_samples.shape[1]}")
         print(f"Classes: {class_names}")
@@ -94,6 +132,10 @@ def verify_cicids_data() -> None:
 
 def main():
     """Main entry point."""
+    if len(sys.argv) == 1:
+        strict_process_cicids()
+        return
+
     print("CICIDS-2018 Dataset Processing Script")
     print("=" * 50)
     print("Note: Due to the large size (2GB), CICIDS-2018 must be downloaded manually.")
@@ -104,6 +146,7 @@ def main():
 
     if len(sys.argv) != 2:
         print("\nUsage: python process_cicids.py <path_to_extracted_archive>")
+        print("   or: python process_cicids.py   # strict local processing mode")
         print("\nExample:")
         print("  python scripts/process_cicids.py ~/Downloads/CICIDS2018")
         print("\nThis will:")

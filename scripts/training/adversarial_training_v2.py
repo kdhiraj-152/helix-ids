@@ -211,7 +211,17 @@ def main():
     # Save
     model_dir = PROJECT_ROOT / "models" / "v2_fixed" / "adversarial"
     model_dir.mkdir(parents=True, exist_ok=True)
-    torch.save(model.state_dict(), model_dir / "model_adversarial.pt")
+    # Save canonical checkpoint including runtime contract and sidecars
+    from helix_ids.contracts.schema_contract import runtime_contract_payload
+    import json
+
+    model_path = model_dir / "model_adversarial.pt"
+    payload = {"model_state_dict": model.state_dict()}
+    payload.update(runtime_contract_payload())
+    torch.save(payload, model_path)
+    (model_path.with_suffix(model_path.suffix + ".contract.json")).write_text(json.dumps(runtime_contract_payload(), indent=2), encoding="utf-8")
+    (model_path.with_suffix(model_path.suffix + ".feature_order.json")).write_text(json.dumps(runtime_contract_payload()["feature_order"], indent=2), encoding="utf-8")
+    (model_path.with_suffix(model_path.suffix + ".schema_hash.txt")).write_text(str(runtime_contract_payload()["schema_hash"]) + "\n", encoding="utf-8")
 
     results = {
         "nsl_kdd_robustness": nsl_robustness,

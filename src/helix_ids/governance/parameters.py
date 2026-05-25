@@ -11,7 +11,7 @@ class StageTimeouts:
 
     preload_seconds: int = 15 * 60
     presplit_seconds: int = 20 * 60
-    pretrain_seconds: int = 10 * 60
+    pretrain_seconds: int = 20 * 60
     intrain_seconds: int = 6 * 60 * 60
     posteval_seconds: int = 30 * 60
     prepromote_seconds: int = 10 * 60

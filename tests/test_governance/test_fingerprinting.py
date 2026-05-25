@@ -32,6 +32,16 @@ def test_schema_hash_changes_on_label_vocab_change():
     assert hash_a != hash_b
 
 
+def test_schema_hash_changes_on_column_order_change():
+    frame_a = pd.DataFrame({"duration": [1.0, 2.0], "src_bytes": [10, 11]})
+    frame_b = pd.DataFrame({"src_bytes": [10, 11], "duration": [1.0, 2.0]})
+
+    hash_a = build_schema_hash_from_frame(frame_a, ["Normal", "DoS"])
+    hash_b = build_schema_hash_from_frame(frame_b, ["Normal", "DoS"])
+
+    assert hash_a != hash_b
+
+
 def test_run_fingerprint_changes_with_commit_sha():
     base_args = {
         "dataset_hashes": {"nsl": "abc", "unsw": "def"},

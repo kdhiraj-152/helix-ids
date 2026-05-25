@@ -406,7 +406,7 @@ class TestUnifiedDataLoader:
         try:
             from src.helix_ids.data.unified_loader import UnifiedDataLoader
             loader = UnifiedDataLoader(data_dir=str(project_root / "data"))
-            X, y = loader.load("nsl-kdd")
+            X, y, _ = loader.load("nsl-kdd")
             
             assert X is not None
             assert y is not None
@@ -422,7 +422,7 @@ class TestUnifiedDataLoader:
         try:
             from src.helix_ids.data.unified_loader import UnifiedDataLoader
             loader = UnifiedDataLoader(data_dir=str(project_root / "data"))
-            X, y = loader.load("unsw-nb15")
+            X, y, _ = loader.load("unsw-nb15")
             
             assert X is not None
             assert y is not None

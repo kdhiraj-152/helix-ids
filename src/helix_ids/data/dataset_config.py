@@ -236,7 +236,11 @@ NSL_KDD_CONFIG = DatasetConfig(
     feature_count=41,
     categorical_columns=["protocol_type", "service", "flag"],
     drop_columns=["difficulty"],
-    paths=[DATA_DIR / "nsl_kdd_5class", DATA_DIR / "nsl_kdd"],
+    paths=[
+        DATA_DIR / "nsl_kdd" / "raw",
+        DATA_DIR / "nsl_kdd_5class",
+        DATA_DIR / "nsl_kdd",
+    ],
     file_pattern=CSV_PATTERN,
     reference="Tavallaee et al. (2009)",
 )
@@ -259,7 +263,7 @@ UNSW_NB15_CONFIG = DatasetConfig(
     feature_count=47,
     categorical_columns=["proto", "service", "state"],
     drop_columns=["id", "label"],
-    paths=[DATA_DIR / "unsw_nb15", ARCHIVE_DIR],
+    paths=[DATA_DIR / "unsw_nb15" / "raw", DATA_DIR / "unsw_nb15", ARCHIVE_DIR],
     file_pattern=CSV_PATTERN,
     reference="Moustafa & Slay (2015)",
 )
@@ -285,7 +289,7 @@ CICIDS_2017_CONFIG = DatasetConfig(
     ],
     label_column="Label",
     feature_count=78,
-    paths=[ARCHIVE2_DIR],
+    paths=[DATA_DIR / "cicids2018" / "raw", ARCHIVE2_DIR],
     file_pattern=CSV_PATTERN,
     reference="Sharafaldin et al. (2018)",
 )
@@ -309,7 +313,7 @@ CICIDS_2018_CONFIG = DatasetConfig(
     ],
     label_column="Label",
     feature_count=79,
-    paths=[ARCHIVE2_DIR],
+    paths=[DATA_DIR / "cicids2018" / "raw", ARCHIVE2_DIR],
     file_pattern=CSV_PATTERN,
     reference="CSE-CIC-IDS2018",
 )

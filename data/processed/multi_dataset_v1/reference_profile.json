@@ -1,0 +1,84 @@
+{
+  "reference_profiles": {
+    "default": {
+      "centroid_min_distance": {
+        "distribution_skew": 0.0,
+        "mean": 0.25,
+        "sample_count": 20,
+        "std": 0.1
+      },
+      "label_entropy": {
+        "distribution_skew": 0.0,
+        "mean": 1.2,
+        "sample_count": 20,
+        "std": 0.2
+      },
+      "min_centroid_shrinkage_ratio": {
+        "distribution_skew": 0.0,
+        "mean": 0.85,
+        "sample_count": 20,
+        "std": 0.1
+      },
+      "signal_to_random_ratio": {
+        "distribution_skew": 0.0,
+        "mean": 3.0,
+        "sample_count": 20,
+        "std": 0.5
+      },
+      "source_runs": 20,
+      "unique_pred_coverage": {
+        "distribution_skew": 0.0,
+        "mean": 0.95,
+        "sample_count": 20,
+        "std": 0.05
+      },
+      "version": "2.1",
+      "zero_variance_fraction": {
+        "distribution_skew": 0.0,
+        "mean": 0.01,
+        "sample_count": 20,
+        "std": 0.01
+      }
+    },
+    "unsw": {
+      "centroid_min_distance": {
+        "distribution_skew": 0.0,
+        "mean": 0.25,
+        "sample_count": 20,
+        "std": 0.1
+      },
+      "label_entropy": {
+        "distribution_skew": 0.0,
+        "mean": 1.2,
+        "sample_count": 20,
+        "std": 0.2
+      },
+      "min_centroid_shrinkage_ratio": {
+        "distribution_skew": 0.0,
+        "mean": 0.85,
+        "sample_count": 20,
+        "std": 0.1
+      },
+      "signal_to_random_ratio": {
+        "distribution_skew": 0.0,
+        "mean": 3.0,
+        "sample_count": 20,
+        "std": 0.5
+      },
+      "source_runs": 20,
+      "unique_pred_coverage": {
+        "distribution_skew": 0.0,
+        "mean": 0.95,
+        "sample_count": 20,
+        "std": 0.05
+      },
+      "version": "2.1",
+      "zero_variance_fraction": {
+        "distribution_skew": 0.0,
+        "mean": 0.01,
+        "sample_count": 20,
+        "std": 0.01
+      }
+    }
+  }
+}

@@ -23,6 +23,10 @@ DEFAULT_STAGE_SEQUENCE = (
     "prepromote",
 )
 
+OPTIONAL_STAGE_METRICS: dict[str, set[str]] = {
+    "posteval": {"dataset_identity_balanced_accuracy"},
+}
+
 
 @dataclass(frozen=True)
 class GateDecision:
@@ -105,8 +109,7 @@ class GateOrchestrator:
             self._emit(decision)
             decisions.append(decision)
             if status != "PASS":
-                print(f"[GOVERNANCE BYPASSED] {stage}:{gate_name} -> {decision.reason_code}")
-                return decisions
+                raise RuntimeError(str(decision.reason_code))
 
         return decisions
 
@@ -122,9 +125,12 @@ class GateOrchestrator:
         expected = self._expected_stage_metric_keys(stage)
         if not expected:
             return
+        optional_metrics = OPTIONAL_STAGE_METRICS.get(stage, set())
 
         for metric_key in expected:
             if metric_key not in context:
+                if metric_key in optional_metrics:
+                    continue
                 if self.strict_missing_metrics:
                     self.record_decision(
                         stage=stage,
@@ -292,6 +298,7 @@ class GateOrchestrator:
                 metric_key="dataset_identity_balanced_accuracy",
                 threshold=self.policy.dataset_identity.max_balanced_accuracy,
                 fail_reason_code="E-T0-DATASET-IDENTITY-LEAKAGE",
+                allow_missing=True,
             ),
         )
         self.register_gate(
@@ -370,8 +377,11 @@ class GateOrchestrator:
         metric_key: str,
         *,
         missing_reason_code: str,
+        allow_missing: bool = False,
     ) -> tuple[float | None, str | None, bool]:
         if metric_key not in context:
+            if allow_missing:
+                return None, "SKIP-MISSING-METRIC", True
             if self.strict_missing_metrics:
                 return None, missing_reason_code, False
             return None, "SKIP-MISSING-METRIC", True
@@ -386,12 +396,14 @@ class GateOrchestrator:
         metric_key: str,
         threshold: float,
         fail_reason_code: str,
+        allow_missing: bool = False,
     ) -> GateFn:
         def gate(context: dict[str, Any]) -> tuple[bool, float | None, float | None, str | None]:
             metric, reason_code, allowed = self._maybe_float(
                 context,
                 metric_key,
                 missing_reason_code=f"E-GATE-MISSING-METRIC:{metric_key}",
+                allow_missing=allow_missing,
             )
             if metric is None:
                 return allowed, None, threshold, reason_code
@@ -407,12 +419,14 @@ class GateOrchestrator:
         metric_key: str,
         threshold: float,
         fail_reason_code: str,
+        allow_missing: bool = False,
     ) -> GateFn:
         def gate(context: dict[str, Any]) -> tuple[bool, float | None, float | None, str | None]:
             metric, reason_code, allowed = self._maybe_float(
                 context,
                 metric_key,
                 missing_reason_code=f"E-GATE-MISSING-METRIC:{metric_key}",
+                allow_missing=allow_missing,
             )
             if metric is None:
                 return allowed, None, threshold, reason_code
@@ -428,12 +442,14 @@ class GateOrchestrator:
         metric_key: str,
         threshold: float,
         fail_reason_code: str,
+        allow_missing: bool = False,
     ) -> GateFn:
         def gate(context: dict[str, Any]) -> tuple[bool, float | None, float | None, str | None]:
             metric, reason_code, allowed = self._maybe_float(
                 context,
                 metric_key,
                 missing_reason_code=f"E-GATE-MISSING-METRIC:{metric_key}",
+                allow_missing=allow_missing,
             )
             if metric is None:
                 return allowed, None, threshold, reason_code
