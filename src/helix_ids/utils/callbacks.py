@@ -19,6 +19,8 @@ from typing import Any, Callable, Literal, Optional, Union
 import torch
 import torch.optim as optim
 
+from ..contracts.schema_contract import runtime_contract_payload
+
 # Setup module logger
 logger = logging.getLogger(__name__)
 
@@ -324,7 +326,13 @@ class ModelCheckpoint(Callback):
         save_path.parent.mkdir(parents=True, exist_ok=True)
 
         if self.save_weights_only:
-            torch.save(self.model.state_dict(), save_path)
+            checkpoint = {
+                "epoch": epoch + 1,
+                "model_state_dict": self.model.state_dict(),
+                "metrics": logs,
+                "best_metric": self.best,
+                "monitor": self.monitor,
+            }
         else:
             checkpoint = {
                 "epoch": epoch + 1,
@@ -337,7 +345,18 @@ class ModelCheckpoint(Callback):
             if self.optimizer is not None:
                 checkpoint["optimizer_state_dict"] = self.optimizer.state_dict()
 
-            torch.save(checkpoint, save_path)
+        checkpoint.update(runtime_contract_payload())
+        torch.save(checkpoint, save_path)
+
+        contract_path = save_path.with_suffix(save_path.suffix + ".contract.json")
+        feature_order_path = save_path.with_suffix(save_path.suffix + ".feature_order.json")
+        schema_hash_path = save_path.with_suffix(save_path.suffix + ".schema_hash.txt")
+        contract_path.write_text(json.dumps(runtime_contract_payload(), indent=2), encoding="utf-8")
+        feature_order_path.write_text(
+            json.dumps(runtime_contract_payload()["feature_order"], indent=2),
+            encoding="utf-8",
+        )
+        schema_hash_path.write_text(runtime_contract_payload()["schema_hash"] + "\n", encoding="utf-8")
 
         self.best_filepath = save_path
 

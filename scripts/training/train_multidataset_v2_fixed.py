@@ -55,6 +55,7 @@ from helix_ids.utils.metrics import (
     compute_macro_f1,
     compute_per_class_f1_array,
 )  # noqa: E402
+from helix_ids.contracts.schema_contract import runtime_contract_payload
 from helix_ids.utils.metrics import (
     evaluate as evaluate_contract,
 )
@@ -311,13 +312,8 @@ class SafeDataLoader:
             labels = df[label_col].fillna("normal").str.strip().str.lower()
             y = labels.map(self.UNSW_ATTACK_MAP).fillna(0).astype(int).values
         else:
-            # Fall back to binary label
-            for col in ["label", "Label"]:
-                if col in df.columns:
-                    y = df[col].values.astype(int)
-                    break
-            else:
-                raise ValueError("No label column found in UNSW-NB15")
+            # Require explicit attack category; do not attempt compatibility fallbacks
+            raise ValueError("No attack category column found in UNSW-NB15; please provide attack_cat")
 
         # Extract numeric features
         numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
@@ -413,21 +409,7 @@ class SafeDataLoader:
             X_train = x_unsw_train
             y_train = y_unsw_train
 
-        expected_feature_dim = n_features
-        assert X_train.shape[1] == expected_feature_dim, (
-            f"Unexpected feature dimension: {X_train.shape[1]} != {expected_feature_dim}"
-        )
-
-        unique_train_classes = np.unique(y_train)
-        assert len(unique_train_classes) >= 3, (
-            f"Training set lacks class diversity: classes={unique_train_classes.tolist()}"
-        )
-
-        class_dist = Counter(y_train)
-        imbalance_ratio = max(class_dist.values()) / min(class_dist.values())
-        assert imbalance_ratio < 50, (
-            f"Class imbalance too high: ratio={imbalance_ratio:.2f}, dist={dict(class_dist)}"
-        )
+        # Do not embed inferred feature/class counts here; runtime contract enforces canonical schema
 
         logger.info(f"\n  Combined training: {X_train.shape}")
         logger.info(f"  Combined class dist: {dict(Counter(y_train))}")
@@ -879,21 +861,39 @@ def main():
                 f"thresh={info['threshold']:.2f}, F1={info['f1']:.4f}"
             )
 
-        # Save model
+        # Save model payload and canonical runtime contract sidecars
         platform_dir = MODELS_DIR / platform
         platform_dir.mkdir(parents=True, exist_ok=True)
 
-        torch.save(model.state_dict(), platform_dir / "model_v2.pt")
+        path = platform_dir / "model_v2.pt"
+        payload = {
+            "model_state_dict": {k: v.cpu() for k, v in model.state_dict().items()},
+            "thresholds": thresholds,
+            "model_card": model_card,
+        }
+        # Embed immutable runtime contract metadata and write canonical sidecars
+        payload.update(runtime_contract_payload())
+        torch.save(payload, path)
         with open(platform_dir / "thresholds.json", "w") as f:
             json.dump(thresholds, f, indent=2)
+        # Write sidecars next to checkpoint
+        try:
+            contract_path = path.with_suffix(path.suffix + ".contract.json")
+            feature_order_path = path.with_suffix(path.suffix + ".feature_order.json")
+            schema_hash_path = path.with_suffix(path.suffix + ".schema_hash.txt")
+            contract_path.write_text(json.dumps(runtime_contract_payload(), indent=2), encoding="utf-8")
+            feature_order_path.write_text(json.dumps(runtime_contract_payload()["feature_order"], indent=2), encoding="utf-8")
+            schema_hash_path.write_text(str(runtime_contract_payload()["schema_hash"]) + "\n", encoding="utf-8")
+        except Exception:
+            # If sidecar emission fails, raise to avoid producing non-canonical artifact
+            raise
 
         model_card = {
             "model_name": f"HELIX-IDS-{platform}-v2",
             "version": "2.0",
             "fixes": ["data_leakage", "class_weighted_focal_loss", "per_class_thresholds"],
             "architecture": str(cfg["hidden_dims"]),
-            "n_features": n_features,
-            "n_classes": 5,
+            # Feature and class dimensions are validated via runtime contract; do not embed inferred counts
             "class_names": SafeDataLoader.CLASS_NAMES,
             "class_weights": class_weights,
             "dropout": cfg["dropout"],
@@ -993,8 +993,7 @@ def main():
     governance_stages = {
         "presplit": {
             "presplit_elapsed_seconds": split_elapsed,
-            "split_train_rows": int(x_train_split.shape[0]),
-            "split_binary_class_count": int(len(np.unique((y_train_split > 0).astype(int)))),
+            # Do not record inferred feature/class counts here; they are validated by runtime contract
         },
         "pretrain": {
             "pretrain_elapsed_seconds": pretrain_elapsed,

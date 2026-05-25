@@ -21,6 +21,13 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+from helix_ids.contracts import (
+    CANONICAL_BINARY_CLASSES,
+    CANONICAL_FAMILY_CLASSES,
+    CANONICAL_INPUT_DIM,
+)
+from helix_ids.contracts.schema_contract import runtime_contract_payload
+
 # Optional ONNX dependencies - gracefully handle if not installed
 try:
     import onnx
@@ -28,7 +35,7 @@ try:
     ONNX_AVAILABLE = True
 except ImportError:
     ONNX_AVAILABLE = False
-    onnx = None
+    onnx = None  # type: ignore[assignment]
 
 try:
     import onnxruntime as ort
@@ -46,7 +53,7 @@ HELIX_VARIANT_SIZES = {
     "full": 2000,  # KB
 }
 
-HELIX_CLASSES = ["Normal", "DoS", "Probe", "R2L", "U2R"]
+HELIX_CLASSES = ["Normal", "DoS", "Probe", "R2L", "U2R", "Generic", "Backdoor"]
 
 DEFAULT_THREAT_WEIGHTS = {
     "Normal": 1.0,
@@ -54,6 +61,8 @@ DEFAULT_THREAT_WEIGHTS = {
     "Probe": 2.5,
     "R2L": 4.0,
     "U2R": 5.0,
+    "Generic": 3.5,
+    "Backdoor": 5.5,
 }
 
 
@@ -61,17 +70,21 @@ DEFAULT_THREAT_WEIGHTS = {
 class ExportMetadata:
     """Metadata for exported ONNX model."""
 
-    model_name: str = "HELIX-IDS"
+    model_name: str = "HelixIDS-Full"
     variant: str = "lite"
     version: str = "1.0.0"
-    input_dim: int = 41
-    num_classes: int = 5
-    num_fine_classes: int = 23
+    input_dim: int = CANONICAL_INPUT_DIM
+    num_classes: int = CANONICAL_BINARY_CLASSES
+    num_fine_classes: int = CANONICAL_FAMILY_CLASSES
     opset_version: int = 13
     input_names: Optional[list[str]] = None
     output_names: Optional[list[str]] = None
     classes: Optional[list[str]] = None
     threat_weights: Optional[dict[str, float]] = None
+    feature_order: Optional[list[str]] = None
+    canonical_input_dim: int = CANONICAL_INPUT_DIM
+    canonical_binary_classes: int = CANONICAL_BINARY_CLASSES
+    canonical_family_classes: int = CANONICAL_FAMILY_CLASSES
     target_size_kb: float = 200.0
     exported_at: str = ""
 
@@ -84,6 +97,8 @@ class ExportMetadata:
             self.classes = HELIX_CLASSES.copy()
         if self.threat_weights is None:
             self.threat_weights = DEFAULT_THREAT_WEIGHTS.copy()
+        if self.feature_order is None:
+            self.feature_order = []
         if not self.exported_at:
             from datetime import datetime
 
@@ -205,7 +220,7 @@ class ONNXExporter:
         if input_names is None:
             input_names = ["input"]
         if output_names is None:
-            output_names = ["binary", "family", "features"]
+            output_names = ["binary", "family"]
 
         # Dynamic axes for variable batch size
         dynamic_axes = None
@@ -273,12 +288,17 @@ class ONNXExporter:
             "model_name": config.model_name,
             "variant": config.variant,
             "version": config.version,
-            "input_dim": str(config.input_dim),
-            "num_classes": str(config.num_classes),
+            "schema_version": runtime_contract_payload()["schema_version"],
+            "schema_hash": runtime_contract_payload()["schema_hash"],
+            "feature_order": json.dumps(runtime_contract_payload()["feature_order"]),
+            "input_dim": str(runtime_contract_payload()["input_dim"]),
+            "binary_output_dim": str(runtime_contract_payload()["binary_output_dim"]),
+            "family_output_dim": str(runtime_contract_payload()["family_output_dim"]),
+            "output_names": json.dumps(config.output_names),
             "exported_at": config.exported_at,
         }
 
-        return self.export_to_onnx(
+        exported_path = self.export_to_onnx(
             model=model,
             filepath=filepath,
             input_shape=input_shape,
@@ -287,6 +307,20 @@ class ONNXExporter:
             output_names=config.output_names,
             metadata=metadata,
         )
+        contract = runtime_contract_payload()
+        exported_path.with_name("contract.json").write_text(json.dumps(contract, indent=2), encoding="utf-8")
+        exported_path.with_name("feature_order.json").write_text(
+            json.dumps(contract["feature_order"], indent=2),
+            encoding="utf-8",
+        )
+        exported_path.with_name("schema_hash.txt").write_text(str(contract["schema_hash"]) + "\n", encoding="utf-8")
+
+        parity_input = torch.arange(contract["input_dim"], dtype=torch.float32, device=next(model.parameters()).device).reshape(1, -1)
+        is_valid, details = validate_onnx(exported_path, pytorch_model=model, test_input=parity_input)
+        if not is_valid:
+            raise RuntimeError(f"ONNX export parity validation failed: {details}")
+
+        return exported_path
 
 
 def validate_onnx(
@@ -373,16 +407,49 @@ def _compare_outputs(
 
     # Compare each output
     output_names = [out.name for out in session.get_outputs()]
-    pytorch_outputs = [pytorch_output[key].numpy() for key in ["binary", "family"]]
+    pytorch_outputs = [
+        output.detach().cpu().numpy() if isinstance(output, torch.Tensor) else np.asarray(output)
+        for output in pytorch_output
+    ]
 
     for _i, (name, pt_out, onnx_out) in enumerate(
         zip(output_names[: len(pytorch_outputs)], pytorch_outputs, onnx_output)
     ):
+        if pt_out.shape != onnx_out.shape:
+            comparison["outputs"][name] = {
+                "match": False,
+                "shape": {"pytorch": list(pt_out.shape), "onnx": list(onnx_out.shape)},
+                "dtype": {"pytorch": str(pt_out.dtype), "onnx": str(onnx_out.dtype)},
+                "max_difference": None,
+            }
+            comparison["match"] = False
+            continue
+        if pt_out.dtype != onnx_out.dtype:
+            comparison["outputs"][name] = {
+                "match": False,
+                "shape": {"pytorch": list(pt_out.shape), "onnx": list(onnx_out.shape)},
+                "dtype": {"pytorch": str(pt_out.dtype), "onnx": str(onnx_out.dtype)},
+                "max_difference": None,
+            }
+            comparison["match"] = False
+            continue
+        if not np.isfinite(pt_out).all() or not np.isfinite(onnx_out).all():
+            comparison["outputs"][name] = {
+                "match": False,
+                "shape": {"pytorch": list(pt_out.shape), "onnx": list(onnx_out.shape)},
+                "dtype": {"pytorch": str(pt_out.dtype), "onnx": str(onnx_out.dtype)},
+                "max_difference": None,
+            }
+            comparison["match"] = False
+            continue
+
         matches = np.allclose(pt_out, onnx_out, rtol=rtol, atol=atol)
         max_diff = np.max(np.abs(pt_out - onnx_out))
 
         comparison["outputs"][name] = {
             "match": bool(matches),
+            "shape": {"pytorch": list(pt_out.shape), "onnx": list(onnx_out.shape)},
+            "dtype": {"pytorch": str(pt_out.dtype), "onnx": str(onnx_out.dtype)},
             "max_difference": float(max_diff),
         }
 
@@ -522,7 +589,7 @@ def export_for_edge(
     model: nn.Module,
     variant: str,
     output_dir: Union[str, Path],
-    input_dim: int = 41,
+    input_dim: int = 17,
     version: str = "1.0.0",
     create_example_script: bool = True,
 ) -> dict[str, Path]:
@@ -559,6 +626,7 @@ def export_for_edge(
         )
 
     # Create metadata
+    contract = runtime_contract_payload()
     metadata = ExportMetadata(
         variant=variant,
         version=version,
@@ -575,7 +643,14 @@ def export_for_edge(
 
     # Export ONNX model
     exporter = ONNXExporter(verbose=True)
-    exporter.export_with_config(model, created_files["onnx"], metadata)
+    exported = exporter.export_with_config(model, created_files["onnx"], metadata)
+    contract = runtime_contract_payload()
+    exported.with_name("contract.json").write_text(json.dumps(contract, indent=2), encoding="utf-8")
+    exported.with_name("feature_order.json").write_text(
+        json.dumps(contract["feature_order"], indent=2),
+        encoding="utf-8",
+    )
+    exported.with_name("schema_hash.txt").write_text(str(contract["schema_hash"]) + "\n", encoding="utf-8")
 
     # Save metadata JSON
     metadata.to_json(created_files["metadata"])
@@ -587,8 +662,9 @@ def export_for_edge(
         _create_example_script(created_files["example"], model_filename, variant, input_dim)
         print(f"[export_for_edge] Example script created: {created_files['example']}")
 
+    parity_input = torch.arange(contract["input_dim"], dtype=torch.float32, device=next(model.parameters()).device).reshape(1, -1)
     # Validate export
-    is_valid, _ = validate_onnx(created_files["onnx"])
+    is_valid, _ = validate_onnx(created_files["onnx"], pytorch_model=model, test_input=parity_input)
     print(f"[export_for_edge] Validation: {'PASSED' if is_valid else 'FAILED'}")
 
     # Size check
@@ -637,7 +713,7 @@ except ImportError:
 
 
 # HELIX-IDS classes
-CLASSES = ['Normal', 'DoS', 'Probe', 'R2L', 'U2R']
+CLASSES = ['Normal', 'DoS', 'Probe', 'R2L', 'U2R', 'Generic', 'Backdoor']
 
 # Threat weights for severity scoring
 THREAT_WEIGHTS = {{
@@ -646,6 +722,8 @@ THREAT_WEIGHTS = {{
     'Probe': 2.5,
     'R2L': 4.0,
     'U2R': 5.0,
+    'Generic': 3.5,
+    'Backdoor': 5.5,
 }}
 
 
@@ -688,18 +766,16 @@ def predict(session: ort.InferenceSession, features: np.ndarray) -> dict:
 
     # Process outputs
     binary_logits = outputs[0]  # [batch, 2]
-    family_logits = outputs[1]  # [batch, 4]
+    family_logits = outputs[1]  # [batch, 7]
 
     # Compute probabilities
     binary_probs = softmax(binary_logits)
     family_probs = softmax(family_logits)
 
-    # Compute 5-class probabilities
-    # P(Normal) = P(binary=0)
-    # P(Attack_k) = P(binary=1) * P(family=k)
-    probs = np.zeros((features.shape[0], 5))
+    # Compute 7-class probabilities for Normal + attack families.
+    probs = np.zeros((features.shape[0], 7))
     probs[:, 0] = binary_probs[:, 0]
-    probs[:, 1:] = binary_probs[:, 1:2] * family_probs
+    probs[:, 1:] = binary_probs[:, 1:2] * family_probs[:, 1:]
 
     predictions = probs.argmax(axis=1)
 
@@ -783,7 +859,7 @@ if __name__ == '__main__':
 def quick_export(
     model: nn.Module,
     output_path: Union[str, Path],
-    input_dim: int = 41,
+    input_dim: int = 17,
     opset_version: int = 13,
 ) -> Path:
     """

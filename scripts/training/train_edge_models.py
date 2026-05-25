@@ -22,6 +22,7 @@ import torch.nn as nn
 import torch.optim as optim
 from sklearn.metrics import classification_report, f1_score
 from torch.utils.data import DataLoader, TensorDataset
+from helix_ids.contracts.schema_contract import runtime_contract_payload
 
 # Platform configurations
 PLATFORM_CONFIGS = {
@@ -213,8 +214,35 @@ def export_model(model, platform: str, scaler, feature_names, test_f1: float, nu
     export_dir = Path(f"models/{platform}")
     export_dir.mkdir(parents=True, exist_ok=True)
 
-    # Save PyTorch model
-    torch.save(model.state_dict(), export_dir / f"helix_{platform}.pt")
+    # Save PyTorch model payload (state dict + immutable runtime contract)
+    path = export_dir / f"helix_{platform}.pt"
+    payload = {
+        "model_state_dict": model.state_dict(),
+        "metadata": {
+            "platform": platform,
+            "description": PLATFORM_CONFIGS[platform]["description"],
+            "architecture": f"MLP {PLATFORM_CONFIGS[platform]['hidden_dims']}",
+            "input_features": 32,
+            "parameters": num_params,
+            "test_f1": float(test_f1),
+            "feature_engineering": "Phase 1b (32 engineered features)",
+        },
+        "feature_names": feature_names,
+    }
+    # Embed immutable runtime contract metadata and write canonical sidecars
+    payload.update(runtime_contract_payload())
+    torch.save(payload, path)
+    # Write sidecars next to checkpoint
+    try:
+        contract_path = path.with_suffix(path.suffix + ".contract.json")
+        feature_order_path = path.with_suffix(path.suffix + ".feature_order.json")
+        schema_hash_path = path.with_suffix(path.suffix + ".schema_hash.txt")
+        contract_path.write_text(json.dumps(runtime_contract_payload(), indent=2), encoding="utf-8")
+        feature_order_path.write_text(json.dumps(runtime_contract_payload()["feature_order"], indent=2), encoding="utf-8")
+        schema_hash_path.write_text(str(runtime_contract_payload()["schema_hash"]) + "\n", encoding="utf-8")
+    except Exception:
+        # If sidecar emission fails, raise to avoid producing non-canonical artifact
+        raise
 
     # Save scaler
     with open(export_dir / "scaler.pkl", "wb") as f:

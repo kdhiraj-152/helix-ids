@@ -212,8 +212,18 @@ def main():
 
     best_model_path = output_dir / "helix_full_unsw_cleaned_best.pt"
     final_model_path = output_dir / "helix_full_unsw_cleaned_final.pt"
-    torch.save(model.state_dict(), best_model_path)
-    torch.save(model.state_dict(), final_model_path)
+    # Save canonical checkpoint payload including runtime contract and sidecars
+    from helix_ids.contracts.schema_contract import runtime_contract_payload
+    import json
+
+    for p in [best_model_path, final_model_path]:
+        payload = {"model_state_dict": model.state_dict()}
+        payload.update(runtime_contract_payload())
+        torch.save(payload, p)
+        # sidecars
+        (p.with_suffix(p.suffix + ".contract.json")).write_text(json.dumps(runtime_contract_payload(), indent=2), encoding="utf-8")
+        (p.with_suffix(p.suffix + ".feature_order.json")).write_text(json.dumps(runtime_contract_payload()["feature_order"], indent=2), encoding="utf-8")
+        (p.with_suffix(p.suffix + ".schema_hash.txt")).write_text(str(runtime_contract_payload()["schema_hash"]) + "\n", encoding="utf-8")
     logger.info("Saved model: %s", best_model_path)
 
     summary = {
