@@ -21,6 +21,7 @@ from helix_ids.contracts.schema_contract import (
     assert_runtime_contract,
     runtime_contract_payload,
 )
+from helix_ids.governance import verify_ingress_artifact
 
 
 IMMUTABLE_DIR_MODE = 0o500
@@ -165,6 +166,19 @@ def seal_baseline(
         if not sidecar_path.exists():
             raise RuntimeError(f"Checkpoint sidecar missing during freeze: {sidecar_path}")
         shutil.copy2(sidecar_path, checkpoint_dir / sidecar_path.name)
+
+    verify_ingress_artifact(
+        inputs.model_checkpoint,
+        kind="checkpoint",
+        contract=runtime_contract_payload(),
+        embedded_manifest=torch.load(inputs.model_checkpoint, map_location="cpu", weights_only=True).get("artifact_manifest"),
+        allow_legacy_local_dev=True,
+        sidecars={
+            "contract": checkpoint_contract_path,
+            "feature_order": checkpoint_feature_order_path,
+            "schema_hash": checkpoint_schema_hash_path,
+        },
+    )
 
     checkpoint_obj = torch.load(inputs.model_checkpoint, map_location="cpu", weights_only=True)
     required_metadata = [

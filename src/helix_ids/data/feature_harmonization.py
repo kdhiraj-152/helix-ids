@@ -23,6 +23,7 @@ from ..contracts.schema_contract import (
     validate_feature_order,
 )
 from ..contracts import CONTRACT_VERSION
+from ..governance import verify_artifact_provenance
 
 
 def compute_schema_hash(*args, **kwargs) -> str:
@@ -46,7 +47,11 @@ def compute_schema_hash(*args, **kwargs) -> str:
         obj = args[0]
         if hasattr(obj, "columns"):
             feature_order = list(obj.columns)
-            input_dim = int(getattr(obj, "shape", (None, None))[1])
+            shape = getattr(obj, "shape", None)
+            if isinstance(shape, tuple) and len(shape) > 1 and shape[1] is not None:
+                input_dim = int(shape[1])
+            else:
+                input_dim = len(feature_order)
             return _compute_schema_hash_contract(
                 schema_version=SCHEMA_VERSION,
                 feature_order=feature_order,
@@ -405,7 +410,22 @@ def load_artifact(
     mapping: FeatureMapping | None = None,
     label_col: str = "attack_type",
 ) -> tuple[dict[str, Any], pd.DataFrame]:
-    artifact = torch.load(path, map_location="cpu")
+    artifact_path = Path(path)
+    artifact = torch.load(artifact_path, map_location="cpu", weights_only=True)
+    from helix_ids.governance import verify_ingress_artifact
+
+    verify_ingress_artifact(
+        artifact_path,
+        kind="checkpoint",
+        contract=artifact,
+        embedded_manifest=artifact.get("artifact_manifest"),
+        allow_legacy_local_dev=True,
+        sidecars={
+            "contract": artifact_path.with_suffix(artifact_path.suffix + ".contract.json"),
+            "feature_order": artifact_path.with_suffix(artifact_path.suffix + ".feature_order.json"),
+            "schema_hash": artifact_path.with_suffix(artifact_path.suffix + ".schema_hash.txt"),
+        },
+    )
     _validate_artifact_keys(artifact)
     artifact_contract_version = str(artifact["contract_version"])
     if artifact_contract_version != CONTRACT_VERSION:

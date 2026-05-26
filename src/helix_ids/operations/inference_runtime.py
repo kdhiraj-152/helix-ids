@@ -4,11 +4,12 @@ from collections import deque
 from dataclasses import dataclass
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping, cast
 
 import numpy as np
 import torch
 
+from helix_ids.contracts import CONTRACT_VERSION, FEATURE_ORDER_HASH
 from helix_ids.contracts.schema_contract import (
     CANONICAL_BINARY_CLASSES,
     CANONICAL_FEATURE_ORDER,
@@ -20,6 +21,13 @@ from helix_ids.contracts.schema_contract import (
     runtime_contract_payload,
     validate_feature_order,
 )
+from helix_ids.governance import (
+    embed_manifest_in_onnx_metadata,
+    verify_artifact_provenance,
+    verify_ingress_artifact,
+    write_contract_sidecars,
+)
+from helix_ids.utils.export import build_export_manifest, finalize_export_artifact, verify_export_artifact
 from helix_ids.models.full import HelixFullConfig, create_helix_full
 
 
@@ -53,7 +61,8 @@ class HelixInferenceRuntime:
 
     @staticmethod
     def _contract_metadata() -> dict[str, Any]:
-        return runtime_contract_payload()
+        payload = runtime_contract_payload()
+        return {str(key): value for key, value in payload.items()}
 
     @staticmethod
     def _extract_backbone_linears(state_dict: dict[str, Any]) -> list[tuple[int, torch.Tensor]]:
@@ -126,6 +135,8 @@ class HelixInferenceRuntime:
             "schema_version",
             "feature_order",
             "schema_hash",
+            "contract_version",
+            "feature_order_hash",
             "input_dim",
             "binary_output_dim",
             "family_output_dim",
@@ -150,10 +161,78 @@ class HelixInferenceRuntime:
             context="checkpoint contract",
         )
 
+        if str(payload["contract_version"]) != CONTRACT_VERSION:
+            raise AssertionError(
+                f"Checkpoint contract_version mismatch: expected {CONTRACT_VERSION}, got {payload['contract_version']!r}"
+            )
+        if str(payload["feature_order_hash"]) != FEATURE_ORDER_HASH:
+            raise AssertionError(
+                "Checkpoint feature_order_hash does not match the immutable runtime contract"
+            )
+
         if int(payload["input_dim"]) != input_dim:
             raise AssertionError(
                 f"Checkpoint input_dim mismatch: expected {input_dim}, got {payload['input_dim']!r}"
             )
+
+    @staticmethod
+    def _require_ingress_fields(contract: Mapping[str, Any], *, context: str) -> None:
+        required = ["schema_hash", "feature_order", "contract_version", "feature_order_hash"]
+        missing = [field for field in required if field not in contract]
+        if missing:
+            raise RuntimeError(
+                f"Missing required {context} fields for ingress verification: {', '.join(missing)}"
+            )
+
+    def verify_ingress_artifact(
+        self,
+        artifact_path: Path,
+        *,
+        kind: str,
+        contract: Mapping[str, Any],
+        embedded_manifest: Mapping[str, Any] | None,
+    ) -> None:
+        self._require_ingress_fields(contract, context="contract")
+        sidecars = {
+            "contract": artifact_path.with_suffix(artifact_path.suffix + ".contract.json"),
+            "feature_order": artifact_path.with_suffix(artifact_path.suffix + ".feature_order.json"),
+            "schema_hash": artifact_path.with_suffix(artifact_path.suffix + ".schema_hash.txt"),
+        }
+        deployment_manifest = None
+        candidate_deploy = artifact_path.parent / "deployment.manifest.json"
+        if candidate_deploy.exists():
+            deployment_manifest = candidate_deploy
+        sidecar = verify_ingress_artifact(
+            artifact_path,
+            kind=kind,
+            contract=contract,
+            embedded_manifest=embedded_manifest,
+            allow_legacy_local_dev=True,
+            sidecars=sidecars,
+            deployment_manifest=deployment_manifest,
+        )
+        manifest = sidecar or embedded_manifest
+        if not manifest:
+            # Legacy artifacts may bypass manifest checks only when explicitly allowed
+            # via HELIX_ALLOW_LEGACY_ARTIFACTS.
+            return
+        for field in ("schema_hash", "feature_order_hash", "contract_version"):
+            if str(manifest[field]) != str(contract[field]):
+                raise RuntimeError(
+                    f"Manifest {field} mismatch: manifest={manifest[field]} contract={contract[field]}"
+                )
+        if str(manifest.get("contract_version")) != CONTRACT_VERSION:
+            raise RuntimeError(
+                f"Manifest contract_version mismatch: expected {CONTRACT_VERSION}, got {manifest.get('contract_version')}"
+            )
+        if str(manifest.get("feature_order_hash")) != FEATURE_ORDER_HASH:
+            raise RuntimeError(
+                "Manifest feature_order_hash does not match immutable feature order hash"
+            )
+        for field in ("exporter_version", "git_commit"):
+            value = str(manifest.get(field, ""))
+            if not value or value == "unknown":
+                raise RuntimeError(f"Manifest missing required ingress field: {field}")
 
     @staticmethod
     def _to_2d_float32(features: np.ndarray) -> np.ndarray:
@@ -194,15 +273,10 @@ class HelixInferenceRuntime:
                     f"{context}: output[{index}] max abs diff {diff:.6g} exceeds threshold {max_abs_diff:.6g}"
                 )
 
-    def _write_export_sidecars(self, output_path: Path) -> None:
+    def _write_export_sidecars(self, output_path: Path, manifest: Mapping[str, Any]) -> None:
         contract = self._contract_metadata()
-        output_path = Path(output_path)
-        (output_path.with_suffix(output_path.suffix + ".contract.json")).write_text(json.dumps(contract, indent=2), encoding="utf-8")
-        (output_path.with_suffix(output_path.suffix + ".feature_order.json")).write_text(
-            json.dumps(contract["feature_order"], indent=2),
-            encoding="utf-8",
-        )
-        (output_path.with_suffix(output_path.suffix + ".schema_hash.txt")).write_text(str(contract["schema_hash"]) + "\n", encoding="utf-8")
+        sidecars = write_contract_sidecars(output_path, contract)
+        finalize_export_artifact(output_path, manifest, sidecars=sidecars)
 
     def _validate_torchscript_parity(self, traced: torch.jit.ScriptModule, example: torch.Tensor) -> None:
         with torch.no_grad():
@@ -376,6 +450,12 @@ class HelixInferenceRuntime:
 
         model_cfg = self._infer_model_config(state_dict)
         self._validate_checkpoint_contract(payload, model_cfg)
+        self.verify_ingress_artifact(
+            self.checkpoint_path,
+            kind="checkpoint",
+            contract=payload,
+            embedded_manifest=payload.get("artifact_manifest"),
+        )
 
         self.model = create_helix_full(model_cfg)
         self.model.load_state_dict(state_dict, strict=True)
@@ -544,6 +624,33 @@ class HelixInferenceRuntime:
         denom = sigma if sigma > eps else eps
         return float((tau_fixed - mu) / denom)
 
+    def _adaptive_tau_signal(self, tau_adaptive: float | None) -> float | None:
+        if tau_adaptive is None:
+            return None
+        if not bool(self.config.class_margin_override_use_margin_zscore):
+            return float(tau_adaptive)
+        arr = np.asarray(list(self._class_margin_buffer), dtype=np.float64)
+        if arr.size <= 1:
+            return float(tau_adaptive)
+        mu = float(np.mean(arr))
+        sigma = float(np.std(arr))
+        eps = float(max(1e-12, self.config.class_margin_override_margin_zscore_epsilon))
+        denom = sigma if sigma > eps else eps
+        return float((float(tau_adaptive) - mu) / denom)
+
+    def _resolve_class_margin_switch(
+        self,
+        is_target_top1: torch.Tensor,
+        fixed_cond: torch.Tensor,
+        adaptive_cond: torch.Tensor,
+        tau_adaptive: float | None,
+    ) -> torch.Tensor:
+        if bool(self.config.class_margin_override_hybrid_and):
+            return is_target_top1 & fixed_cond & adaptive_cond
+        if tau_adaptive is not None:
+            return is_target_top1 & adaptive_cond
+        return is_target_top1 & fixed_cond
+
     def _update_margin_buffer(self, *, is_target_top1: torch.Tensor, margin: torch.Tensor) -> None:
         mask = is_target_top1.detach().cpu().numpy().astype(bool)
         if not bool(np.any(mask)):
@@ -620,20 +727,7 @@ class HelixInferenceRuntime:
         tau_fixed_signal = self._fixed_tau_signal()
         margin_signal = self._margin_signal(margin)
 
-        tau_adaptive_signal: float | None = None
-        if tau_adaptive is not None:
-            if bool(self.config.class_margin_override_use_margin_zscore):
-                arr = np.asarray(list(self._class_margin_buffer), dtype=np.float64)
-                if arr.size > 1:
-                    mu = float(np.mean(arr))
-                    sigma = float(np.std(arr))
-                    eps = float(max(1e-12, self.config.class_margin_override_margin_zscore_epsilon))
-                    denom = sigma if sigma > eps else eps
-                    tau_adaptive_signal = float((float(tau_adaptive) - mu) / denom)
-                else:
-                    tau_adaptive_signal = float(tau_adaptive)
-            else:
-                tau_adaptive_signal = float(tau_adaptive)
+        tau_adaptive_signal = self._adaptive_tau_signal(tau_adaptive)
 
         fixed_cond = (
             margin_signal < float(tau_fixed_signal)
@@ -646,14 +740,12 @@ class HelixInferenceRuntime:
             else torch.ones_like(is_target_top1)
         )
 
-        if bool(self.config.class_margin_override_hybrid_and):
-            switch = is_target_top1 & fixed_cond & adaptive_cond
-        else:
-            # Backward-compatible behavior: use adaptive when available, else fixed.
-            if tau_adaptive is not None:
-                switch = is_target_top1 & adaptive_cond
-            else:
-                switch = is_target_top1 & fixed_cond
+        switch = self._resolve_class_margin_switch(
+            is_target_top1,
+            fixed_cond,
+            adaptive_cond,
+            tau_adaptive,
+        )
 
         if bool(switch.any()):
             pred[switch] = top2_idx_only[switch]
@@ -778,8 +870,32 @@ class HelixInferenceRuntime:
         model_cpu = self.model.cpu().eval()
         example = torch.arange(self.model.input_dim, dtype=torch.float32).reshape(1, -1)
         traced = torch.jit.trace(model_cpu, example, strict=False)
-        traced.save(str(output_path))
-        self._write_export_sidecars(output_path)
+        contract = self._contract_metadata()
+        manifest_base = build_export_manifest(
+            contract=contract,
+            model_architecture=self.model.__class__.__name__,
+            export_config={"format": "torchscript"},
+            runtime_version=str(torch.__version__),
+        )
+        # Embed the manifest in the TorchScript extra files using the
+        # canonical torchscript_extra_files_for_manifest format.
+        from helix_ids.governance.provenance import torchscript_extra_files_for_manifest
+
+        torch.jit.save(
+            traced,
+            str(output_path),
+            _extra_files=torchscript_extra_files_for_manifest(manifest_base),
+        )
+        sidecars = write_contract_sidecars(output_path, contract)
+        manifest = finalize_export_artifact(output_path, manifest_base, sidecars=sidecars)
+        from helix_ids.governance.provenance import manifest_without_artifact_sha256
+
+        verify_export_artifact(
+            output_path,
+            kind="torchscript",
+            contract=contract,
+            embedded_manifest=manifest_without_artifact_sha256(manifest),
+        )
         self._validate_torchscript_parity(traced, example)
         self.model.to(self.device)
         return output_path
@@ -789,6 +905,14 @@ class HelixInferenceRuntime:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         self.model.eval()
         dummy = torch.arange(self.model.input_dim, dtype=torch.float32, device=self.device).reshape(1, -1)
+        contract = self._contract_metadata()
+        manifest_base = build_export_manifest(
+            contract=contract,
+            model_architecture=self.model.__class__.__name__,
+            export_config={"format": "onnx", "opset": opset},
+            onnx_opset=opset,
+            runtime_version=str(torch.__version__),
+        )
         torch.onnx.export(
             self.model,
             (dummy,),
@@ -806,12 +930,22 @@ class HelixInferenceRuntime:
         import onnx
 
         model = onnx.load(str(output_path))
-        for key, value in self._contract_metadata().items():
+        for key, value in contract.items():
             meta = model.metadata_props.add()
             meta.key = str(key)
             meta.value = json.dumps(value) if isinstance(value, (list, dict)) else str(value)
+        embed_manifest_in_onnx_metadata(model, manifest_base)
         onnx.save(model, str(output_path))
-        self._write_export_sidecars(output_path)
+        sidecars = write_contract_sidecars(output_path, contract)
+        manifest = finalize_export_artifact(output_path, manifest_base, sidecars=sidecars)
+        from helix_ids.governance.provenance import manifest_without_artifact_sha256
+
+        verify_export_artifact(
+            output_path,
+            kind="onnx",
+            contract=contract,
+            embedded_manifest=manifest_without_artifact_sha256(manifest),
+        )
         self._validate_onnx_parity(output_path, dummy)
         self._validate_onnx_metadata(output_path)
         return output_path
