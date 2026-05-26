@@ -84,3 +84,15 @@ class GovernancePolicy:
 
 
 DEFAULT_GOVERNANCE_POLICY = GovernancePolicy()
+
+
+def allow_legacy_artifacts() -> bool:
+    """Central gate for allowing legacy artifact ingress.
+
+    Read the `HELIX_ALLOW_LEGACY_ARTIFACTS` environment variable. Tests
+    and local-development code should consult this helper instead of
+    reading the env var directly.
+    """
+    import os
+
+    return os.getenv("HELIX_ALLOW_LEGACY_ARTIFACTS", "").strip() == "1"
