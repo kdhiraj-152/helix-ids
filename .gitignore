@@ -32,7 +32,10 @@ htmlcov/
 
 # Project runtime artifacts
 checkpoints/
-models/
+# Only ignore top-level model storage and binary artifacts; keep source packages
+/models/
+**/models/*.pt
+**/models/*.pth
 results/
 outputs/
 artifacts/
