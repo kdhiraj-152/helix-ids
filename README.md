@@ -11,23 +11,30 @@ Formalization mode is active for this repository state:
 - no refactors
 - current runtime pipeline locked
 
-## Clean Project Layout
+## Project Layout
 
-```text
+```
 RP-2/
-├── src/helix_ids/
-├── config/
+├── src/helix_ids/               # Core package
+├── config/                      # Experiment configs
 ├── scripts/
-│   ├── training/
-│   ├── operations/
-│   ├── evaluation/
-│   ├── data/
-│   └── deployment/
-├── tests/
+│   ├── training/                # Training pipelines
+│   ├── operations/              # Serving & deployment
+│   ├── evaluation/              # Benchmark orchestration
+│   ├── data/                    # Data processing
+│   ├── deployment/              # Deployment tooling
+│   └── ci/                      # CI validators
+├── tests/                       # Test suite
 ├── docs/
-│   ├── manuscript/
-│   ├── ARCHITECTURE.md
-│   └── OPERATIONS_DEPLOYMENT_RUNBOOK.md
+│   ├── README.md                # Doc index
+│   ├── architecture/            # System design, models, schemas
+│   ├── development/             # Training methodology, data pipeline
+│   ├── operations/              # Deployment runbooks, checkpoint audit
+│   ├── reports/                 # Audits, reviews, benchmarks
+│   ├── governance/              # ADRs, hash authority, contracts
+│   ├── manuscript/              # Paper drafts
+│   ├── results/                 # Staging validation artifacts
+│   └── archives/                # Historical phase documentation
 ├── README.md
 ├── requirements.txt
 └── pyproject.toml
@@ -39,14 +46,6 @@ RP-2/
 - `docs/figures/override_rate_vs_requests.png`
 - `docs/figures/degraded_state_timeline.png`
 - `docs/figures/batch_vs_single_consistency.png`
-
-The staging artifact captures:
-
-- two windows of 1500 requests each
-- `helix_requests_total`
-- `override_rate`
-- `degraded_state`
-- request latency (client-side ms)
 
 Current recorded outcome in `docs/results/staging_validation.json`:
 
@@ -106,7 +105,6 @@ for _ in range(60):
     except Exception:
         time.sleep(0.5)
 
-# Minimal fixed-sample validation loop (3000 requests total)
 sample = [0.0] * 17
 for _ in range(3000):
     post_predict(sample)
@@ -133,14 +131,12 @@ kill $HELIX_PID)
 
 ## Paper Artifacts
 
-- Manuscript file: `docs/manuscript/IEEE_EdgeIDS_v5_Experiments.docx`
-- Added sections:
-  - `REAL-WORLD DEPLOYMENT VALIDATION`
-  - `CORE CONTRIBUTIONS`
-  - `MINIMAL MODEL CLARIFICATION`
+- Manuscript: `docs/manuscript/HELIX_submission_ready.md`
+- Figures: `docs/fig/` and `docs/fig_revamp/`
 
 ## Notes
 
 - For reproducible paper runs, keep `PYTHONPATH=src` set for all script invocations.
 - Runtime gating logic is implemented through `scripts/operations/serve_rest.py` metrics and `scripts/operations/staging_gate_check.py`.
 - Governed benchmark orchestration lives in `scripts/evaluation/benchmarks.py` and reads manifests from `config/experiments/*.yaml`.
+- Documentation index: `docs/README.md`
