@@ -239,26 +239,6 @@ jobs:
       - name: Create workflow run summary
         run: |
           echo "Creating workflow run summary..."
-          # fetch jobs and artifacts for this run
           curl -s -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs" > /tmp/jobs.json
           curl -s -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" > /tmp/artifacts.json
-          python3 - <<'PY'
-import os, json
-jobs = json.load(open('/tmp/jobs.json')).get('jobs', [])
-artifacts = json.load(open('/tmp/artifacts.json')).get('artifacts', [])
-s = '## Workflow run summary\n\n'
-s += '| Job | Status | Conclusion | Logs |\n| --- | --- | --- | --- |\n'
-for j in jobs:
-    name = j.get('name','').replace('|','\\|')
-    status = j.get('status','')
-    concl = j.get('conclusion') or ''
-    url = j.get('html_url','')
-    s += f'| {name} | {status} | {concl} | [logs]({url}) |\n'
-if artifacts:
-    s += '\n### Artifacts\n'
-    for a in artifacts:
-        s += f"- {a.get('name')} (download: {a.get('archive_download_url')})\n"
-with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as out:
-    out.write(s)
-print('WROTE_SUMMARY')
-PY
+          PYTHONPATH=src python3 scripts/ci/write_workflow_summary.py
