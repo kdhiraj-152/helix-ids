@@ -1,47 +1,79 @@
 # HELIX-IDS
 
-Network intrusion detection. Edge-to-cloud. Governed training and deployment.
+Some years ago I got fed up with intrusion detection systems that either
+(a) worked great on paper but fell apart on real network traffic, or
+(b) were too heavy to run anywhere but a beefy server in a data center.
 
-This repo is in **formalization mode** — no new features, no new scripts, no refactors. The pipeline is locked for paper reproducibility.
+That second one bothered me most. Good network security should not require
+expensive hardware at every network tap. So I built HELIX-IDS — a detection
+system designed from the ground up to run on a Raspberry Pi or even an ESP32
+microcontroller, while still matching (and in some cases beating) what the
+big server-based systems could do.
 
-## Layout
+## What it does
 
-```
-src/helix_ids/          Core package
-config/                 Experiment configs
-scripts/
-  training/             Training pipelines
-  operations/           Serving, gating, deployment
-  evaluation/           Benchmark orchestration
-  data/                 Data processing
-  deployment/           Deployment tooling
-  ci/                   CI validators
-tests/                  Test suite
-docs/
-  architecture/         System design, models, schemas
-  development/          Training methodology
-  operations/           Runbooks, checkpoint audit
-  reports/              Audits, reviews, benchmarks
-  governance/           ADRs, hash authority, contracts
-  manuscript/           Paper drafts
-  results/              Staging validation artifacts
-  archives/             Historical phase docs
-```
+HELIX-IDS ingests network flow features (NSL-KDD, UNSW-NB15, CICIDS-2018
+formats) and classifies traffic into normal operation or one of several attack
+families (DoS, Probe, R2L, U2R, and the specific sub-types in each dataset).
+It uses a neural network architecture with temporal attention, domain
+adaptation (so you can train on one dataset and deploy on another), and a
+hierarchical classifier head that treats rare attack classes differently
+from common ones — because the whole point is catching the thing that
+almost never happens.
 
-## Staging Validation (Current)
+The system runs on three tiers:
 
-Artifacts in `docs/results/` and `docs/figures/`:
+- **Server / cloud**: Training, evaluation, heavy inference
+- **Raspberry Pi (4 and Zero)**: Optimized inference, smaller model variants
+- **ESP32**: Minimal quantized model, does the basics on a microcontroller
+
+## What makes this different
+
+**Edge-first design.** Most NIDS work starts with a server model and then
+tries to shrink it. I started with the question "what can we fit on a Pi?"
+and built up from there. The tradeoffs are explicit — the "Nano" variant for
+ESP32, "Lite" for Pi Zero, and "Full" for server. No hidden assumptions about
+available compute.
+
+**Rare-class awareness.** In network intrusion, the dangerous attacks are the
+ones that almost never show up in training data (R2L, U2R). Standard loss
+functions wash them out. HELIX uses a threat-weighted focal loss that
+amplifies the signal from rare classes without destroying overall accuracy.
+
+**Provenance on every artifact.** Every model checkpoint, every training run,
+every processed dataset gets a SHA-256 hash recorded in a manifest. Not
+because I wanted to, but because I got tired of asking "wait, which model did
+that number come from?" and having no answer. The provenance chain makes
+every result in the paper independently verifiable.
+
+**Safe deployment gates.** The runtime monitors itself — coverage override
+rate, degraded state, request throughput. If the model starts guessing too
+often (override rate climbs), the system flags itself before anyone has to
+page. The staging gate check enforces this before any deployment is accepted.
+
+## Current state
+
+The repo is in formalization mode — the pipeline is locked for paper
+reproducibility. No new features, no new scripts, no refactors. Everything
+here exists to produce the numbers in the manuscript and let anyone else
+reproduce them verbatim.
+
+### Last validated staging results
 
 | Metric | Value |
 |---|---|
-| Window 1 | 1500 requests |
-| Window 2 | 1500 requests |
-| Override rate | 0.0 |
+| Window 1 requests | 1500 |
+| Window 2 requests | 1500 |
+| Coverage override rate | 0.0 |
 | Degraded state | 0 |
 
-## One-Shot Reproduce
+Artifacts live in `docs/results/` and `docs/figures/`.
 
-This does train → deploy → validate in one command:
+## One-shot reproduce
+
+The following bash command trains the model, starts a REST server, fires
+3000 requests at it, collects metrics, and runs the staging gate check.
+If you have the venv set up (`.venv311/`), this is all you need:
 
 ```bash
 source .venv311/bin/activate && \
@@ -114,14 +146,41 @@ python3 scripts/operations/staging_gate_check.py --metrics-endpoint http://127.0
 kill $HELIX_PID)
 ```
 
-## Paper
+## Project layout
+
+```
+src/helix_ids/          Core package
+config/                 Experiment configs
+scripts/
+  training/             Training pipelines
+  operations/           Serving, gating, deployment
+  evaluation/           Benchmark orchestration
+  data/                 Data processing
+  deployment/           Deployment tooling
+  ci/                   CI validators
+tests/                  Test suite
+docs/
+  architecture/         System design, models, schemas
+  development/          Training methodology
+  operations/           Runbooks, checkpoint audit
+  reports/              Audits, reviews, benchmarks
+  governance/           ADRs, hash authority, contracts
+  manuscript/           Paper drafts
+  results/              Staging validation artifacts
+  archives/             Historical phase docs
+```
+
+## Manuscript and figures
 
 - Manuscript: `docs/manuscript/HELIX_submission_ready.md`
 - Figures: `docs/fig/` and `docs/fig_revamp/`
 
-## Notes
+## A few notes if you're poking around
 
-- Set `PYTHONPATH=src` for all script invocations.
-- Gating: `scripts/operations/serve_rest.py` metrics → `scripts/operations/staging_gate_check.py`.
-- Benchmark orchestration: `scripts/evaluation/benchmarks.py` reads `config/experiments/*.yaml`.
-- Doc index at `docs/README.md`.
+- Everything expects `PYTHONPATH=src` — I should probably make this a
+  proper installable package but for the paper pipeline this works.
+- The gating logic lives in two files: `serve_rest.py` emits the metrics,
+  `staging_gate_check.py` reads them and decides pass/fail.
+- Benchmarks are orchestrated from `scripts/evaluation/benchmarks.py` which
+  reads experiment manifests from `config/experiments/*.yaml`.
+- If you're lost, `docs/README.md` has the full doc index.
