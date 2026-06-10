@@ -39,6 +39,8 @@ jobs:
           pip install pytest pytest-cov || true
           # Also install jsonschema into the runner env to satisfy import-time requirements
           python -m pip install jsonschema || true
+          # onnx/onnxruntime needed by test_lifecycle_verifier (collected in default test paths)
+          pip install onnx onnxruntime || true
 
       - name: py_compile
         run: python -m compileall src
