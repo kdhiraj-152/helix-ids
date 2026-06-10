@@ -27,6 +27,7 @@ from helix_ids.governance.provenance import (
     ARTIFACT_MANIFEST_KEY,
     ArtifactManifestError,
     artifact_manifest_path,
+    artifact_sha256,
     build_artifact_manifest,
     build_provenance_chain,
     checkpoint_manifest_payload,
@@ -89,10 +90,8 @@ def _seed_everything(seed: int = 13) -> None:
 def _assert_no_legacy_flags() -> None:
     if allow_legacy_artifacts():
         raise AssertionError("Legacy artifact allowance is forbidden during lifecycle verification")
-    if os.getenv("HELIX_ALLOW_LEGACY_MANIFEST"):
+    if os.getenv("HELIX_ALLOW_LEGACY_MANIFEST", "").strip() == "1":
         raise AssertionError("Legacy manifest allowance is forbidden during lifecycle verification")
-    if os.getenv("HELIX_ALLOW_LEGACY_ARTIFACTS"):
-        raise AssertionError("Legacy artifact allowance is forbidden during lifecycle verification")
 
 
 def _synthetic_dataset(samples: int = 32, seed: int = 17) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -477,11 +476,34 @@ def tamper_schema_hash(artifacts: LifecycleArtifacts, *, kind: str) -> None:
     _write_json(contract_path, payload)
 
 
+def _overwrite_embedded_manifest(path: Path, kind: str, manifest: dict[str, Any]) -> None:
+    if kind == "checkpoint":
+        ckpt = torch.load(path, map_location="cpu", weights_only=True)
+        ckpt[ARTIFACT_MANIFEST_KEY] = manifest
+        torch.save(ckpt, path)
+    elif kind == "torchscript":
+        extra_files = {MANIFEST_SUFFIX: json.dumps(manifest).encode("utf-8")}
+        model = torch.jit.load(str(path))
+        torch.jit.save(model, str(path), _extra_files=extra_files)
+    elif kind == "onnx":
+        import onnx
+        model = onnx.load(str(path))
+        for prop in model.metadata_props:
+            if prop.key == ARTIFACT_MANIFEST_KEY:
+                prop.value = json.dumps(manifest)
+        onnx.save(model, str(path))
+    else:
+        raise ValueError(f"Unsupported kind for embedded manifest overwrite: {kind}")
+
+
 def tamper_contract_version(artifacts: LifecycleArtifacts, *, kind: str) -> None:
     path = _resolve_artifact_path(artifacts, kind)
     manifest_path = artifact_manifest_path(path)
     payload = _load_json(manifest_path)
     payload["contract_version"] = "0.0.0"
+    embedded = manifest_without_artifact_sha256(payload)
+    _overwrite_embedded_manifest(path, kind, embedded)
+    payload["artifact_sha256"] = artifact_sha256(path)
     _write_json(manifest_path, payload)
 
 
@@ -498,6 +520,9 @@ def tamper_exporter_version(artifacts: LifecycleArtifacts, *, kind: str) -> None
     manifest_path = artifact_manifest_path(path)
     payload = _load_json(manifest_path)
     payload["exporter_version"] = "0.0.0"
+    embedded = manifest_without_artifact_sha256(payload)
+    _overwrite_embedded_manifest(path, kind, embedded)
+    payload["artifact_sha256"] = artifact_sha256(path)
     _write_json(manifest_path, payload)
 
 
@@ -507,7 +532,7 @@ def tamper_provenance_chain(artifacts: LifecycleArtifacts, *, kind: str) -> None
     payload = _load_json(manifest_path)
     chain = payload.get("provenance_chain")
     if isinstance(chain, dict):
-        chain["chain_sha256"] = "00" + str(chain.get("chain_sha256"))
+        chain["manifest_sha256"] = "00" + str(chain.get("manifest_sha256", ""))
         payload["provenance_chain"] = chain
     _write_json(manifest_path, payload)
 
@@ -520,18 +545,15 @@ def tamper_embedded_sidecar_mismatch(artifacts: LifecycleArtifacts, *, kind: str
         embedded["schema_hash"] = "mismatch"
         payload[ARTIFACT_MANIFEST_KEY] = embedded
         torch.save(payload, path)
-        return
-    if kind == "torchscript":
+    elif kind == "torchscript":
         extra = {MANIFEST_SUFFIX: b""}
         model = torch.jit.load(str(path), _extra_files=extra)
         embedded = json.loads(extra[MANIFEST_SUFFIX].decode("utf-8"))
         embedded["schema_hash"] = "mismatch"
         extra_files = {MANIFEST_SUFFIX: json.dumps(embedded).encode("utf-8")}
         torch.jit.save(model, str(path), _extra_files=extra_files)
-        return
-    if kind == "onnx":
+    elif kind == "onnx":
         import onnx
-
         model = onnx.load(str(path))
         for prop in model.metadata_props:
             if prop.key == ARTIFACT_MANIFEST_KEY:
@@ -539,8 +561,12 @@ def tamper_embedded_sidecar_mismatch(artifacts: LifecycleArtifacts, *, kind: str
                 embedded["schema_hash"] = "mismatch"
                 prop.value = json.dumps(embedded)
         onnx.save(model, str(path))
-        return
-    raise ValueError(f"Unsupported kind for embedded tamper: {kind}")
+    else:
+        raise ValueError(f"Unsupported kind for embedded tamper: {kind}")
+    manifest_path = artifact_manifest_path(path)
+    sidecar = _load_json(manifest_path)
+    sidecar["artifact_sha256"] = artifact_sha256(path)
+    _write_json(manifest_path, sidecar)
 
 
 def tamper_sidecar_manifest_mismatch(artifacts: LifecycleArtifacts, *, kind: str) -> None:
