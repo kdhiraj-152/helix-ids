@@ -1,9 +1,14 @@
 name: runtime-monitoring-hardening CI
 
 on:
+  push:
   pull_request:
     branches:
       - main
+
+permissions:
+  actions: read
+  contents: read
 
 jobs:
   checks:
@@ -40,7 +45,15 @@ jobs:
 
       - name: Run full pytest
         run: |
-          pytest -q
+          mkdir -p results/junit
+          pytest -q --junitxml=results/junit/checks-report.xml
+
+      - name: Upload checks junit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: checks-junit-report
+          path: results/junit/checks-report.xml
 
       - name: AST contract enforcement
         run: |
@@ -92,7 +105,15 @@ jobs:
 
       - name: Contract lifecycle tests
         run: |
-          pytest -q tests/test_export_contract.py tests/test_runtime_invariants.py tests/test_lifecycle_verifier.py
+          mkdir -p results/junit
+          pytest -q --junitxml=results/junit/contract_lifecycle-report.xml tests/test_export_contract.py tests/test_runtime_invariants.py tests/test_lifecycle_verifier.py
+
+      - name: Upload contract lifecycle junit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: contract-lifecycle-junit-report
+          path: results/junit/contract_lifecycle-report.xml
 
   schema_governance:
     needs: [governance_ast]
@@ -179,7 +200,15 @@ jobs:
 
       - name: Run benchmark formalization + governance tests
         run: |
-          pytest -q tests/test_benchmark_formalization.py tests/test_export_contract.py tests/test_governance/test_fingerprinting.py
+          mkdir -p results/junit
+          pytest -q --junitxml=results/junit/benchmark_enforcement-report.xml tests/test_benchmark_formalization.py tests/test_export_contract.py tests/test_governance/test_fingerprinting.py
+
+      - name: Upload benchmark junit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-junit-report
+          path: results/junit/benchmark_enforcement-report.xml
 
       - name: Execute benchmark dry-run for governed manifests
         run: |
@@ -200,3 +229,36 @@ jobs:
             results/manifests/**
             results/metrics/**
             results/gates/**
+
+  run_summary:
+    needs: [benchmark_enforcement]
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Create workflow run summary
+        run: |
+          echo "Creating workflow run summary..."
+          # fetch jobs and artifacts for this run
+          curl -s -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs" > /tmp/jobs.json
+          curl -s -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" > /tmp/artifacts.json
+          python3 - <<'PY'
+import os, json
+jobs = json.load(open('/tmp/jobs.json')).get('jobs', [])
+artifacts = json.load(open('/tmp/artifacts.json')).get('artifacts', [])
+s = '## Workflow run summary\n\n'
+s += '| Job | Status | Conclusion | Logs |\n| --- | --- | --- | --- |\n'
+for j in jobs:
+    name = j.get('name','').replace('|','\\|')
+    status = j.get('status','')
+    concl = j.get('conclusion') or ''
+    url = j.get('html_url','')
+    s += f'| {name} | {status} | {concl} | [logs]({url}) |\n'
+if artifacts:
+    s += '\n### Artifacts\n'
+    for a in artifacts:
+        s += f"- {a.get('name')} (download: {a.get('archive_download_url')})\n"
+with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as out:
+    out.write(s)
+print('WROTE_SUMMARY')
+PY
