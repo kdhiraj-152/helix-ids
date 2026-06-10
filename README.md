@@ -1,62 +1,47 @@
 # HELIX-IDS
 
-Production-aligned IDS runtime with invariant-based deployment gating and paper-grade staging validation artifacts.
+Network intrusion detection. Edge-to-cloud. Governed training and deployment.
 
-## System Freeze
+This repo is in **formalization mode** — no new features, no new scripts, no refactors. The pipeline is locked for paper reproducibility.
 
-Formalization mode is active for this repository state:
-
-- no new features
-- no new scripts
-- no refactors
-- current runtime pipeline locked
-
-## Project Layout
+## Layout
 
 ```
-RP-2/
-├── src/helix_ids/               # Core package
-├── config/                      # Experiment configs
-├── scripts/
-│   ├── training/                # Training pipelines
-│   ├── operations/              # Serving & deployment
-│   ├── evaluation/              # Benchmark orchestration
-│   ├── data/                    # Data processing
-│   ├── deployment/              # Deployment tooling
-│   └── ci/                      # CI validators
-├── tests/                       # Test suite
-├── docs/
-│   ├── README.md                # Doc index
-│   ├── architecture/            # System design, models, schemas
-│   ├── development/             # Training methodology, data pipeline
-│   ├── operations/              # Deployment runbooks, checkpoint audit
-│   ├── reports/                 # Audits, reviews, benchmarks
-│   ├── governance/              # ADRs, hash authority, contracts
-│   ├── manuscript/              # Paper drafts
-│   ├── results/                 # Staging validation artifacts
-│   └── archives/                # Historical phase documentation
-├── README.md
-├── requirements.txt
-└── pyproject.toml
+src/helix_ids/          Core package
+config/                 Experiment configs
+scripts/
+  training/             Training pipelines
+  operations/           Serving, gating, deployment
+  evaluation/           Benchmark orchestration
+  data/                 Data processing
+  deployment/           Deployment tooling
+  ci/                   CI validators
+tests/                  Test suite
+docs/
+  architecture/         System design, models, schemas
+  development/          Training methodology
+  operations/           Runbooks, checkpoint audit
+  reports/              Audits, reviews, benchmarks
+  governance/           ADRs, hash authority, contracts
+  manuscript/           Paper drafts
+  results/              Staging validation artifacts
+  archives/             Historical phase docs
 ```
 
-## Final Staging Validation Artifacts
+## Staging Validation (Current)
 
-- `docs/results/staging_validation.json`
-- `docs/figures/override_rate_vs_requests.png`
-- `docs/figures/degraded_state_timeline.png`
-- `docs/figures/batch_vs_single_consistency.png`
+Artifacts in `docs/results/` and `docs/figures/`:
 
-Current recorded outcome in `docs/results/staging_validation.json`:
+| Metric | Value |
+|---|---|
+| Window 1 | 1500 requests |
+| Window 2 | 1500 requests |
+| Override rate | 0.0 |
+| Degraded state | 0 |
 
-- window 1: 1500 requests
-- window 2: 1500 requests
-- final override rate: 0.0
-- final degraded state: 0
+## One-Shot Reproduce
 
-## One-Command Reproducibility Path
-
-The command below executes train -> deploy -> validate in one shell command.
+This does train → deploy → validate in one command:
 
 ```bash
 source .venv311/bin/activate && \
@@ -129,14 +114,14 @@ python3 scripts/operations/staging_gate_check.py --metrics-endpoint http://127.0
 kill $HELIX_PID)
 ```
 
-## Paper Artifacts
+## Paper
 
 - Manuscript: `docs/manuscript/HELIX_submission_ready.md`
 - Figures: `docs/fig/` and `docs/fig_revamp/`
 
 ## Notes
 
-- For reproducible paper runs, keep `PYTHONPATH=src` set for all script invocations.
-- Runtime gating logic is implemented through `scripts/operations/serve_rest.py` metrics and `scripts/operations/staging_gate_check.py`.
-- Governed benchmark orchestration lives in `scripts/evaluation/benchmarks.py` and reads manifests from `config/experiments/*.yaml`.
-- Documentation index: `docs/README.md`
+- Set `PYTHONPATH=src` for all script invocations.
+- Gating: `scripts/operations/serve_rest.py` metrics → `scripts/operations/staging_gate_check.py`.
+- Benchmark orchestration: `scripts/evaluation/benchmarks.py` reads `config/experiments/*.yaml`.
+- Doc index at `docs/README.md`.
