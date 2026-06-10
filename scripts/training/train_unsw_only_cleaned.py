@@ -34,14 +34,14 @@ SRC_DIR = PROJECT_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from train_helix_ids_full import HelixFullTrainer, setup_logging
+from train_helix_ids_full import HelixFullTrainer, setup_logging  # noqa: E402
 
-from helix_ids.config.helix_full_config import TrainingConfig
-from helix_ids.data.feature_harmonization import (
+from helix_ids.config.helix_full_config import TrainingConfig  # noqa: E402
+from helix_ids.data.feature_harmonization import (  # noqa: E402
     labels_to_multi_task,
 )
-from helix_ids.data.multi_dataset_loader import MultiDatasetLoader
-from helix_ids.models.full import MultiTaskLoss, create_helix_full
+from helix_ids.data.multi_dataset_loader import MultiDatasetLoader  # noqa: E402
+from helix_ids.models.full import MultiTaskLoss, create_helix_full  # noqa: E402
 
 
 def load_unsw_split(loader: MultiDatasetLoader):

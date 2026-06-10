@@ -14,6 +14,7 @@ SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "governance" / "
 def _run_parser(events_path: Path, *, ci: bool) -> subprocess.CompletedProcess[str]:
     env = dict(os.environ)
     env["CI"] = "true" if ci else "false"
+    env["GITHUB_ACTIONS"] = "true" if ci else "false"
     return subprocess.run(
         [sys.executable, str(SCRIPT_PATH), "--events", str(events_path)],
         check=False,

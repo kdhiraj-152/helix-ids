@@ -39,7 +39,7 @@ class TestRateFeatures:
     def test_bytes_per_sec_calculation(self, raw_network_data):
         """
         Test bytes_per_sec is calculated as (src_bytes + dst_bytes) / duration.
-        
+
         Verifies that throughput rate is correctly computed from byte counts
         and connection duration.
         """
@@ -64,7 +64,7 @@ class TestRateFeatures:
     def test_bytes_per_sec_zero_duration(self):
         """
         Test bytes_per_sec handles zero duration gracefully.
-        
+
         Should not produce infinity or NaN, but instead use a small epsilon.
         """
         df = pd.DataFrame({
@@ -86,7 +86,7 @@ class TestRateFeatures:
     def test_packets_per_sec_calculation(self, raw_network_data):
         """
         Test packets_per_sec calculation from count and duration.
-        
+
         Verifies packet rate computation handles various durations.
         """
         df = raw_network_data.copy()
@@ -106,7 +106,7 @@ class TestRateFeatures:
     def test_rate_features_positive(self, raw_network_data):
         """
         Test that rate features are always non-negative.
-        
+
         Network traffic rates cannot be negative in valid data.
         """
         df = raw_network_data.copy()
@@ -132,7 +132,7 @@ class TestRatioFeatures:
     def test_bytes_ratio_calculation(self, raw_network_data):
         """
         Test bytes_ratio = src_bytes / (src_bytes + dst_bytes).
-        
+
         Measures the proportion of outbound traffic.
         """
         df = raw_network_data.copy()
@@ -153,7 +153,7 @@ class TestRatioFeatures:
     def test_bytes_ratio_bounds(self, raw_network_data):
         """
         Test bytes_ratio is bounded between 0 and 1.
-        
+
         As a proportion, it must be in [0, 1] range.
         """
         df = raw_network_data.copy()
@@ -168,7 +168,7 @@ class TestRatioFeatures:
     def test_bytes_imbalance_calculation(self, raw_network_data):
         """
         Test bytes_imbalance = (src_bytes - dst_bytes) / (src_bytes + dst_bytes).
-        
+
         Measures traffic asymmetry: +1 = all outbound, -1 = all inbound.
         """
         df = raw_network_data.copy()
@@ -201,7 +201,7 @@ class TestRatioFeatures:
     def test_ratio_zero_total_bytes(self):
         """
         Test ratio features handle zero total bytes.
-        
+
         When both src and dst bytes are 0, should produce defined values.
         """
         df = pd.DataFrame({
@@ -231,7 +231,7 @@ class TestLogTransforms:
     def test_log_src_bytes(self, raw_network_data):
         """
         Test log transform of src_bytes: log(1 + src_bytes).
-        
+
         Log transform helps normalize skewed distributions.
         """
         df = raw_network_data.copy()
@@ -293,7 +293,7 @@ class TestLogTransforms:
     def test_log_transform_zero_values(self):
         """
         Test log transform handles zero values correctly.
-        
+
         log(1 + 0) = 0, should not produce -inf.
         """
         df = pd.DataFrame({
@@ -413,7 +413,7 @@ class TestEdgeCases:
     def test_nan_handling(self, edge_case_network_data):
         """
         Test feature engineering handles NaN values.
-        
+
         NaN should be handled gracefully (filled or propagated consistently).
         """
         df = edge_case_network_data.copy()
@@ -435,7 +435,7 @@ class TestEdgeCases:
     def test_very_large_values(self):
         """
         Test feature engineering with very large values.
-        
+
         Should handle values up to 1e15 without overflow.
         """
         df = pd.DataFrame({
@@ -461,7 +461,7 @@ class TestEdgeCases:
     def test_negative_values_handling(self):
         """
         Test feature engineering with negative values.
-        
+
         Network byte counts should never be negative, but we handle gracefully.
         """
         df = pd.DataFrame({
@@ -518,7 +518,7 @@ class TestFeatureEngineeringPipeline:
     def test_feature_engineering_deterministic(self, raw_network_data):
         """
         Test that feature engineering is deterministic.
-        
+
         Same input should always produce same output.
         """
         df1 = raw_network_data.copy()
@@ -575,7 +575,7 @@ class TestFeatureSelection:
     def test_no_target_leakage_features(self, production_feature_names):
         """
         Test that no target-leaking features are included.
-        
+
         Features like 'label', 'attack_type', 'class' should not be present.
         """
         leakage_features = ["label", "attack_type", "class", "attack", "target", "y"]

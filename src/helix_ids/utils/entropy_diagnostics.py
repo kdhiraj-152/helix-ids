@@ -40,11 +40,11 @@ def calculate_entropy_stable(
 ) -> np.ndarray:
     """
     Calculate normalized entropy per sample with numerical stability.
-    
+
     Args:
         probs: (batch_size, num_classes) probability matrix
         eps: Epsilon for numerical stability
-    
+
     Returns:
         (batch_size,) normalized entropy per sample [0, 1]
     """
@@ -72,11 +72,11 @@ def summarize_entropy(
 ) -> EntropySummary:
     """
     Compute comprehensive entropy statistics for a batch.
-    
+
     Args:
         probs: (batch_size, num_classes) probability matrix
         eps: Epsilon for numerical stability
-    
+
     Returns:
         EntropySummary with distributions and policy signals
     """
@@ -118,12 +118,12 @@ def should_trigger_entropy_guard(
 ) -> tuple[bool, Optional[str]]:
     """
     Policy decision: should entropy guard trigger hard-stop?
-    
+
     Args:
         entropy_summary: Computed entropy statistics
         has_missing_classes: Whether actual classes are absent from predictions
         streak_count: How many consecutive epochs with low entropy
-    
+
     Returns:
         (should_trigger, reason_if_true)
     """
@@ -156,12 +156,12 @@ def detect_batch_composition_risk(
 ) -> dict[str, Any]:
     """
     Identify mode-collapse and class-coverage risks.
-    
+
     Args:
         entropy_summary: Computed entropy statistics
         predicted_classes: (batch_size,) predicted class indices
         num_expected_classes: Expected number of classes (e.g., 7 for family)
-    
+
     Returns:
         Risk diagnostics dict
     """

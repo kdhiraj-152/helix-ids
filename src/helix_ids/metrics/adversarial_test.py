@@ -289,6 +289,8 @@ class AdversarialTester:
             else:
                 logits = output
 
+            if logits is None:
+                return metrics  # type: ignore[return-value]
             if logits.dim() == 1:
                 logits = logits.unsqueeze(1)
 
@@ -424,6 +426,7 @@ class AdversarialTester:
                 else:
                     logits = output
 
+                assert logits is not None
                 if logits.dim() == 1:
                     logits = logits.unsqueeze(1)
 

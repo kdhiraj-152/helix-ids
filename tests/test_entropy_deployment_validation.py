@@ -24,7 +24,7 @@ import torch.nn as nn
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-from helix_ids.utils.entropy_diagnostics import (
+from helix_ids.utils.entropy_diagnostics import (  # noqa: E402
     calculate_entropy_stable,
     detect_batch_composition_risk,
     should_trigger_entropy_guard,

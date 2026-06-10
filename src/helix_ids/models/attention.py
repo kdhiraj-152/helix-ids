@@ -253,7 +253,7 @@ class TemporalAttentionModule(nn.Module):
         # Residual connection from input
         output = output + x
 
-        return output
+        return output  # type: ignore[no-any-return]
 
     def get_attention_weights(self) -> Optional[torch.Tensor]:
         """

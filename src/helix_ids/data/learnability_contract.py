@@ -398,7 +398,7 @@ def rank_failure_stages(
     stage_transitions: dict[str, Any],
 ) -> dict[str, Any]:
     """Rank stages by F1 drop to identify primary failure stage.
-    
+
     Returns:
         dict with 'primary_failure_stage', 'name', 'f1_drop', and 'stages_ranked'
     """
@@ -432,7 +432,7 @@ def extract_feature_kill_list(
     epsilon: float = 1e-3,
 ) -> list[str]:
     """Extract top-N features with highest negative mutual_info_delta.
-    
+
     These features are responsible for collapse.
     """
     feature_impacts: dict[int, float] = {}
@@ -1580,7 +1580,7 @@ def derive_root_cause(meta: dict[str, Any]) -> dict[str, Any]:
     }
 def get_action_directive(diagnosis: dict[str, Any], context: dict[str, Any] | None = None) -> dict[str, Any]:
     """Convert diagnosis to a mechanism-tied action directive.
-    
+
     Maps root cause → action type + target stage/features
     """
     primary = diagnosis.get("primary", "unknown")
@@ -1675,7 +1675,7 @@ def get_action_directive(diagnosis: dict[str, Any], context: dict[str, Any] | No
 
 def create_summary(meta: dict[str, Any]) -> dict[str, Any]:
     """Create compressed summary for CI output and error messages.
-    
+
     Extracts:
     - status (PASS/FAIL)
     - primary_issue (root cause)
@@ -1714,7 +1714,7 @@ def create_summary(meta: dict[str, Any]) -> dict[str, Any]:
 
 def format_failure_message(summary: dict[str, Any]) -> str:
     """Format deterministic failure message for training errors.
-    
+
     Replaces vague RuntimeError with actionable diagnosis.
     """
     return (

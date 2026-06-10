@@ -40,7 +40,7 @@ class TestModelLoading:
     def test_load_production_model_architecture(self):
         """
         Test production model can be instantiated with correct architecture.
-        
+
         Architecture: 32→64→32→16→2
         """
         from src.helix_ids.models.helix_ids import create_helix_model
@@ -123,7 +123,7 @@ class TestModelLoading:
     def test_model_parameter_count(self):
         """
         Test model has expected parameter count.
-        
+
         Architecture 32→64→32→16→2 should have approximately 4978 parameters.
         """
         from src.helix_ids.models.helix_ids import create_helix_model

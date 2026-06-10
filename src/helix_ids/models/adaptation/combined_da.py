@@ -104,6 +104,7 @@ class CombinedDomainAdaptation(nn.Module):
         self.domain_criterion = nn.BCEWithLogitsLoss()
 
         # Gradient reversal lambda (for DANN scheduling)
+        self.grl_lambda: torch.Tensor
         self.register_buffer("grl_lambda", torch.tensor(0.0))
 
         # Track training progress
@@ -154,7 +155,7 @@ class CombinedDomainAdaptation(nn.Module):
         domain_logits = torch.cat([source_domain_logits, target_domain_logits], dim=0)
         domain_labels = torch.cat([source_labels, target_labels], dim=0)
 
-        return self.domain_criterion(domain_logits, domain_labels)
+        return self.domain_criterion(domain_logits, domain_labels)  # type: ignore[no-any-return]
 
     def forward(
         self,
@@ -194,7 +195,7 @@ class CombinedDomainAdaptation(nn.Module):
             total_loss = total_loss + self.config.coral_weight * coral
 
         # DANN Loss - adversarial domain confusion (requires domain predictions)
-        if self.config.dann_weight > 0 and source_domain_logits is not None:
+        if self.config.dann_weight > 0 and source_domain_logits is not None and target_domain_logits is not None:
             dann = self.compute_dann_loss(source_domain_logits, target_domain_logits)
             losses["dann_loss"] = dann
             # Apply GRL lambda scaling for DANN

@@ -28,7 +28,7 @@ class GeometricRepresentationFixer:
 
     def __init__(self, *, k_nn: int = 20, density_percentile: float = 95.0):
         """Initialize with k-NN parameters.
-        
+
         Args:
             k_nn: Number of neighbors for density computation (default 20)
             density_percentile: Percentile for outlier density bounds (default 95.0)
@@ -38,18 +38,18 @@ class GeometricRepresentationFixer:
 
     def add_interaction_features(self, df: pd.DataFrame, *, minimal_set: bool = True) -> pd.DataFrame:
         """Add interaction and distributional features per user specification.
-        
+
         Minimal set (Fix 1):
         1. log(src_bytes + 1), log(dst_bytes + 1)
         2. src_bytes / (dst_bytes + 1)
         3. Connection count features (same src/dst/service window)
         4. Service × protocol one-hot cross
         5. Flag entropy per connection window
-        
+
         Args:
             df: Input dataframe with raw features
             minimal_set: If True, use minimal fix set; if False, extended set
-            
+
         Returns:
             DataFrame with new interaction features appended
         """
@@ -166,17 +166,17 @@ class GeometricRepresentationFixer:
         fit: bool = True,
     ) -> tuple[np.ndarray, dict[str, Any]]:
         """Apply selective normalization (Fix 2).
-        
+
         Splits continuous and categorical features:
         - Continuous: StandardScaler (z-score normalization)
         - Categorical/one-hot: Untouched (preserves sparsity & rarity signals)
-        
+
         Args:
             X: Feature matrix (n_samples, n_features)
             feature_names: List of feature names (inferred if None)
             categorical_cols: Set of categorical column names to skip normalization
             fit: If True, fit scaler; if False, use stored stats
-            
+
         Returns:
             (normalized_X, normalization_stats) tuple
         """
@@ -234,16 +234,16 @@ class GeometricRepresentationFixer:
         nn_model: Optional[NearestNeighbors] = None,
     ) -> tuple[np.ndarray, Optional[NearestNeighbors]]:
         """Add local k-NN density as feature (Fix 3).
-        
+
         Separates sparse anomalies from dense normal traffic by appending
         1 / avg_distance_to_k_neighbors as a feature.
-        
+
         Args:
             X: Feature matrix (n_samples, n_features)
             k: Number of neighbors (defaults to self.k_nn)
             fit: If True, fit neighbors model; if False, use provided model
             nn_model: Pre-fitted NearestNeighbors model (used if fit=False)
-            
+
         Returns:
             (X_with_density, nn_model) tuple
         """
@@ -284,15 +284,15 @@ class GeometricRepresentationFixer:
         collision_threshold: float = 0.20,
     ) -> tuple[list[dict[str, Any]], dict[int, list[int]]]:
         """Detect secondary collisions at centroid level (Fix 4).
-        
+
         Identifies class pairs where centroids are too close, indicating
         geometric indistinguishability that must be resolved via merge or
         feature augmentation.
-        
+
         Args:
             centers: Dict mapping class_id -> centroid vector
             collision_threshold: Maximum allowed inter-centroid distance (default 0.20)
-            
+
         Returns:
             (collision_pairs, class_collision_map) tuple
         """
@@ -337,15 +337,15 @@ class GeometricRepresentationFixer:
         top_k: int = 3,
     ) -> dict[int, dict[str, Any]]:
         """Build per-class confusion matrix showing geometric indistinguishability (Fix 5).
-        
+
         For each class, computes which other classes are geometrically nearby (nearest centers).
-        
+
         Args:
             features: Feature matrix (n_samples, n_features)
             labels: Class labels (n_samples,)
             centers: Dict mapping class_id -> centroid vector
             top_k: Number of nearest centers to track per sample
-            
+
         Returns:
             Dict mapping class_id -> {
                 'n_samples': int,
@@ -448,15 +448,15 @@ class GeometricRepresentationFixer:
         target_ratio: float = 0.8,
     ) -> dict[str, Any]:
         """Assess if embedding has sufficient capacity (Fix 6).
-        
+
         If ratio still > 1 after feature fixes, the model may be under-capacity.
-        
+
         Args:
             intra_inter_ratio: Current intra/inter ratio
             embedding_dim: Current embedding dimension
             dropout_rate: Current dropout rate
             target_ratio: Target ratio to aim for (default 0.8)
-            
+
         Returns:
             Dict with capacity assessment and recommendations
         """
@@ -504,9 +504,9 @@ def apply_geometric_fixes(
     collision_threshold: float = 0.20,
 ) -> dict[str, Any]:
     """Apply all geometric representation fixes atomically.
-    
+
     This is the entry point for fixing geometric non-separability.
-    
+
     Args:
         X: Original feature matrix
         labels: Class labels
@@ -515,7 +515,7 @@ def apply_geometric_fixes(
         categorical_cols: Set of categorical column names
         k_nn: Number of neighbors for density computation
         collision_threshold: Threshold for secondary collision detection
-        
+
     Returns:
         Dict containing:
         - X_enhanced: Enhanced feature matrix with all fixes applied

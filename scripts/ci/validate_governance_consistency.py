@@ -106,6 +106,43 @@ _ENFORCEMENT_CLAIM_RE = re.compile(
 )
 
 
+def _resolve_validator_path(referenced: str) -> Path | None:
+    """Try to resolve a claimed validator reference to an existing file."""
+    clean = referenced.rstrip(".")
+    name = clean.replace(".py", "")
+    candidates = [
+        PROJECT_ROOT / clean,
+        PROJECT_ROOT / "scripts" / "ci" / clean,
+        PROJECT_ROOT / "scripts" / "evaluation" / clean,
+        PROJECT_ROOT / "scripts" / "operations" / clean,
+        PROJECT_ROOT / "scripts" / "training" / clean,
+        PROJECT_ROOT / "docs" / "governance" / clean,
+        PROJECT_ROOT / "src" / "helix_ids" / "governance" / f"{name}.py",
+        PROJECT_ROOT / "src" / "helix_ids" / "operations" / f"{name}.py",
+        PROJECT_ROOT / "src" / "helix_ids" / f"{name}.py",
+        PROJECT_ROOT / "src" / f"{name}.py",
+    ]
+    for c in candidates:
+        if c.exists():
+            return c
+    return None
+
+
+def _is_non_file_reference(referenced: str) -> bool:
+    """Heuristic: skip references that look like function names, env vars, or concepts."""
+    clean = referenced.rstrip(".")
+    # env vars: UPPER_CASE or UPPER_CASE_ with trailing underscore
+    if clean.isupper() or clean.endswith("_"):
+        return True
+    # function names: no slash, no extension, starts with underscore
+    if clean.startswith("_"):
+        return True
+    # bare single-word concepts (no slash, no dot extension, no hyphenated path)
+    if "/" not in clean and "." not in clean.replace("_", ".") and not any(clean.endswith(ext) for ext in {".py", ".md", ".yaml", ".json", ".sh"}):
+        return True
+    return False
+
+
 def _check_enforcement_claims_have_validators() -> list[dict[str, Any]]:
     """Every claimed validator in governance docs must exist."""
     checks: list[dict[str, Any]] = []
@@ -117,14 +154,15 @@ def _check_enforcement_claims_have_validators() -> list[dict[str, Any]]:
         content = doc_path.read_text(encoding="utf-8")
         for match in _ENFORCEMENT_CLAIM_RE.finditer(content):
             referenced = match.group(1).strip()
-            # Resolve relative paths (e.g. scripts/ci/validate_schema_registry.py)
-            full = PROJECT_ROOT / referenced if not referenced.startswith("src/") else PROJECT_ROOT / referenced
-            if not full.exists():
-                dangling.append({
-                    "document": doc_path.name,
-                    "claimed_validator": referenced,
-                    "line_approx": content[:match.start()].count("\n") + 1,
-                })
+            if _is_non_file_reference(referenced):
+                continue
+            if _resolve_validator_path(referenced):
+                continue
+            dangling.append({
+                "document": doc_path.name,
+                "claimed_validator": referenced,
+                "line_approx": content[:match.start()].count("\n") + 1,
+            })
 
     if dangling:
         checks.append(_fail(

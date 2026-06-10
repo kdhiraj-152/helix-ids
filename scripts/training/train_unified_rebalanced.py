@@ -32,8 +32,8 @@ project_root = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(project_root))
 sys.path.insert(0, str(project_root / "src"))
 
-from src.helix_ids.data.loader_core import UnifiedDataLoader
-from src.helix_ids.models.adaptation.transfer_learning import (
+from src.helix_ids.data.loader_core import UnifiedDataLoader  # noqa: E402
+from src.helix_ids.models.adaptation.transfer_learning import (  # noqa: E402
     MultiDatasetPretrainer,
     TransferLearningConfig,
 )

@@ -185,7 +185,7 @@ class ClassificationHead(nn.Module):
         """
         if condition is not None:
             features = torch.cat([features, condition], dim=-1)
-        return self.layers(features)
+        return self.layers(features)  # type: ignore[no-any-return]
 
 
 class ConfidenceHead(nn.Module):
@@ -268,7 +268,7 @@ class ConfidenceHead(nn.Module):
             dim=-1,
         )
 
-        return self.layers(combined)
+        return self.layers(combined)  # type: ignore[no-any-return]
 
 
 class HierarchicalClassifier(nn.Module):

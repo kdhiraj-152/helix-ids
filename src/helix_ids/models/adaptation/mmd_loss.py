@@ -222,7 +222,7 @@ class JointMMDLoss(nn.Module):
         else:
             weights = self.layer_weights
 
-        total_loss = 0.0
+        total_loss: torch.Tensor = torch.tensor(0.0)
         for i, (src, tgt) in enumerate(zip(source_features, target_features)):
             total_loss = total_loss + weights[i] * self.mmd(src, tgt)
 
@@ -271,7 +271,7 @@ class ConditionalMMDLoss(nn.Module):
         Returns:
             Conditional MMD loss
         """
-        total_loss = 0.0
+        total_loss: torch.Tensor = torch.tensor(0.0)
         n_classes = 0
 
         for c in range(self.num_classes):

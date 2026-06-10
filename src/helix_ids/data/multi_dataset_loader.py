@@ -1390,7 +1390,7 @@ class MultiDatasetLoader:
             y: Label array (n_samples,)
             max_majority_ratio: Target max ratio for majority class (e.g., 0.90 = 90%)
             random_state: Random seed for reproducibility
-            
+
         Returns:
             (x_balanced, y_balanced): Downsampled feature and label arrays
         """
@@ -1436,13 +1436,13 @@ class MultiDatasetLoader:
 
     def _fingerprint_rows(self, x: np.ndarray, y: np.ndarray) -> np.ndarray:
         """Create deterministic fingerprints for rows to detect duplicates.
-        
+
         Uses a combination of feature hash and label to create a unique identifier.
-        
+
         Args:
             x: Feature array (n_samples, n_features)
             y: Label array (n_samples,)
-            
+
         Returns:
             fingerprints: Hash array of shape (n_samples,)
         """
@@ -1471,15 +1471,15 @@ class MultiDatasetLoader:
         dataset_name: str = "unknown",
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """Remove duplicate rows between train/val/test splits.
-        
+
         Ensures that no same row appears in multiple splits (data leakage prevention).
-        
+
         Args:
             x_train, y_train: Training set
             x_val, y_val: Validation set
             x_test, y_test: Test set
             dataset_name: Name for logging
-            
+
         Returns:
             (x_train, y_train, x_val_clean, y_val_clean, x_test_clean, y_test_clean):
                 Training set unchanged, validation and test cleaned
@@ -1513,15 +1513,15 @@ class MultiDatasetLoader:
         dataset_code: int = 0,
     ) -> np.ndarray:
         """Build group/session keys using coarse fingerprinting.
-        
+
         Rows with similar features are grouped together (coarse fingerprint).
         Useful for GroupShuffleSplit to prevent inter-group leakage.
-        
+
         Args:
             x: Feature array (n_samples, n_features)
             y: Label array (n_samples,)
             dataset_code: Integer code for the dataset (0=NSL-KDD, 1=UNSW, 2=CICIDS)
-            
+
         Returns:
             group_keys: Array of group identifiers (n_samples,)
         """

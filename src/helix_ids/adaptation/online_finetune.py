@@ -153,6 +153,7 @@ class OnlineFineTuner:
             else:
                 logits = outputs
 
+            assert logits is not None
             preds = logits.argmax(dim=-1)
             accuracy: float = (preds == y).float().mean().item()
 

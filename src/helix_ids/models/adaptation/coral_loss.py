@@ -148,7 +148,7 @@ class DeepCORALLoss(nn.Module):
         else:
             weights = self.layer_weights
 
-        total_loss = 0.0
+        total_loss: torch.Tensor = torch.tensor(0.0)
         for i, (src, tgt) in enumerate(zip(source_features, target_features)):
             total_loss = total_loss + weights[i] * self.coral(src, tgt)
 
