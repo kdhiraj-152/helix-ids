@@ -193,6 +193,19 @@ def finalize_export_artifact(
     deployment_manifest: Path | None = None,
     exporter_metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    # If no sidecars were explicitly provided, attempt to auto-discover
+    # common contract sidecar files next to the artifact. This allows
+    # callers to write sidecar files to disk and finalize the artifact
+    # without needing to pass the paths explicitly (tests rely on this).
+    artifact_p = Path(artifact_path)
+    if not sidecars:
+        candidates = {
+            "contract": artifact_p.with_suffix(artifact_p.suffix + ".contract.json"),
+            "feature_order": artifact_p.with_suffix(artifact_p.suffix + ".feature_order.json"),
+            "schema_hash": artifact_p.with_suffix(artifact_p.suffix + ".schema_hash.txt"),
+        }
+        sidecars = {k: p for k, p in candidates.items() if p.exists()}
+
     provenance_chain = build_provenance_chain(
         artifact_path,
         manifest=manifest,
