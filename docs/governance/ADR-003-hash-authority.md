@@ -44,6 +44,6 @@ HELIX-IDS tracks artifact integrity through SHA-256 hashes at every pipeline sta
 
 ## Consequences
 
-- **Positive:** Strong integrity guarantees at every pipeline stage with tamper-evident artifacts.
+- **Positive:** Integrity guarantees at every pipeline stage with tamper-evident artifacts.
 - **Negative:** Full file hashing adds overhead to dataset pipeline (~2% for typical NSL-KDD splits).
 - **Neutral:** Hash fields are immutable — errors require new run with corrected inputs.

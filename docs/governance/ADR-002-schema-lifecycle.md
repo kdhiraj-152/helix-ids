@@ -39,6 +39,6 @@ This ADR defines how schema changes are handled without breaking existing artifa
 
 ## Consequences
 
-- **Positive:** Schema changes are tracked, auditable, and reversible.
+- **Positive:** Schema changes are tracked and reversible.
 - **Negative:** Breaking changes require a formal migration cycle (min 30d compatibility window).
 - **Neutral:** Registry ownership is a single point — governance lead must remain active.

@@ -8,7 +8,7 @@
 
 ## Context
 
-HELIX-IDS operates in a formalization-first mode where pipeline changes must be governed, auditable, and reproducible. This ADR establishes the foundational governance principles.
+HELIX-IDS operates in a formalization-first mode where pipeline changes must be governed, auditable, and reproducible. This ADR defines the core governance principles.
 
 ## Current Guarantees
 
@@ -38,6 +38,6 @@ HELIX-IDS operates in a formalization-first mode where pipeline changes must be 
 
 ## Consequences
 
-- **Positive:** Rigorous governance enables auditability, reproducibility, and formal schema evolution.
+- **Positive:** Governance enables auditability and reproducibility.
 - **Negative:** Overhead of governance checks adds ~5% to CI runtime.
 - **Neutral:** Formalization mode restricts exploratory changes; required for paper-stage stability.

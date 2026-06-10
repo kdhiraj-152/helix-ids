@@ -84,21 +84,11 @@ For file placement policy and cleanup behavior, see `docs/REPOSITORY_LAYOUT.md`.
 
 ## Legacy System Architecture
 
-> **Document Version**: 1.0  
-> **Last Updated**: 2026-04-08  
-> **Status**: Production Ready  
-> **Methodology**: SPARC (Architecture Phase)
+The sections below document the original SPARC-era architecture. Some paths no longer match the current codebase — the canonical reference is `src/helix_ids/` and `scripts/`.
 
----
+### 1. System Overview
 
-## 1. System Overview
-
-HELIX-IDS employs a modular, layered architecture designed for:
-
-- **Portability**: Single codebase, multiple deployment targets
-- **Scalability**: From ESP32 to cloud servers
-- **Maintainability**: Clear separation of concerns
-- **Performance**: Optimized inference pipelines
+HELIX-IDS uses a modular design with clear separation between data, model, and deployment layers:
 
 ---
 
@@ -180,43 +170,23 @@ flowchart LR
 graph TD
     subgraph Core["Core Modules"]
         M1[helix_ids.data]
-        M2[helix_ids.features]
-        M3[helix_ids.models]
-        M4[helix_ids.inference]
-    end
-    
-    subgraph Utils["Utility Modules"]
-        U1[helix_ids.utils.metrics]
-        U2[helix_ids.utils.logging]
-        U3[helix_ids.utils.config]
-    end
-    
-    subgraph Deploy["Deployment Modules"]
-        D1[deploy.production]
-        D2[deploy.rpi]
-        D3[deploy.esp32]
+        M2[helix_ids.models]
+        M3[helix_ids.governance]
+        M4[helix_ids.operations]
     end
     
     M1 --> M2
-    M2 --> M3
+    M2 --> M4
+    M3 --> M1
+    M3 --> M2
     M3 --> M4
-    
-    U1 --> M3
-    U2 --> M1
-    U2 --> M4
-    U3 --> M1
-    U3 --> M3
-    
-    M4 --> D1
-    M4 --> D2
-    M3 --> D3
 ```
 
 ---
 
 ## 4. Model Architecture
 
-### 4.1 MLP Network Architecture
+### 4.1 MLP Network Architecture (Legacy Single-Head)
 
 ```mermaid
 graph LR
@@ -750,73 +720,4 @@ PredictResponse = {
 
 ---
 
-## 12. Security Architecture
-
-### 12.1 Model Security
-
-```mermaid
-flowchart TB
-    subgraph Input["Input Validation"]
-        IV1[Feature Range Checks]
-        IV2[Type Validation]
-        IV3[Anomaly Detection]
-    end
-    
-    subgraph Model["Model Protection"]
-        MP1[Input Sanitization]
-        MP2[Rate Limiting]
-        MP3[Model Encryption]
-    end
-    
-    subgraph Output["Output Security"]
-        OS1[Confidence Thresholding]
-        OS2[Audit Logging]
-        OS3[Alert Rate Limiting]
-    end
-    
-    IV1 --> MP1
-    IV2 --> MP1
-    IV3 --> MP2
-    MP1 --> Model_Inference
-    Model_Inference --> OS1
-    OS1 --> OS2
-    OS2 --> OS3
-```
-
-### 12.2 Adversarial Robustness
-
-- **Input perturbation tolerance**: ±5% feature noise
-- **Confidence calibration**: Platt scaling for reliable uncertainty
-- **Out-of-distribution detection**: Mahalanobis distance threshold
-- **Model integrity**: SHA-256 checksum validation
-
----
-
-## 13. Scalability Considerations
-
-### 13.1 Horizontal Scaling (Production)
-
-```mermaid
-graph TB
-    LB[Load Balancer] --> S1[Server 1]
-    LB --> S2[Server 2]
-    LB --> S3[Server N]
-    
-    S1 --> Cache[Redis Cache]
-    S2 --> Cache
-    S3 --> Cache
-    
-    S1 --> DB[(Metrics DB)]
-    S2 --> DB
-    S3 --> DB
-```
-
-### 13.2 Edge Scaling (IoT)
-
-- **Hub-and-Spoke**: Central RPi 4 with ESP32 nodes
-- **Federated Updates**: Model updates pushed from cloud
-- **Local Aggregation**: Batch predictions on hub
-
----
-
-*Document generated following SPARC Architecture methodology. See REFINEMENT.md for optimization history.*
+*Note: The sections above document the original SPARC-era architecture. For the current system, refer to [ARCHITECTURE.md](#scope) (sections 1-83) and [docs/architecture/ARCHITECTURE_FULL.md](ARCHITECTURE_FULL.md).*

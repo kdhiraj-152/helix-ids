@@ -1,6 +1,6 @@
 # HELIX IDS deployment runbook (model-building -> operations)
 
-This runbook executes your 6-phase transition with hard gates and concrete commands.
+6-phase deployment transition with hard gates and concrete commands.
 
 ## Scope
 
@@ -255,13 +255,9 @@ PYTHONPATH=src pytest -q tests/test_operations/test_serve_rest_metrics.py tests/
 # 4 passed
 ```
 
-## Operational interpretation
+## What ships
 
-This transition is complete: model-building -> system operation.
-
-You now have:
-
-- live service behavior checks
-- hard production gate on override rate
-- degraded-state signaling for incident automation
-- continuous capture of reality data for v1.1 learning
+- Live service behavior checks
+- Hard production gate on override rate
+- Degraded-state signaling for incident automation
+- Continuous capture of reality data for v1.1 learning

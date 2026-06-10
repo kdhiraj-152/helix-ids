@@ -4,7 +4,7 @@ Last updated: 2026-06-09
 
 ## Training Pipeline
 
-The HELIX-IDS training pipeline is a multi-stage process that converts processed datasets into governed model checkpoints with full provenance metadata.
+The training pipeline converts processed datasets into governed model checkpoints with full provenance metadata.
 
 ```mermaid
 flowchart TD

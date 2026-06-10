@@ -169,17 +169,16 @@ PYTHONPATH=src python -m pytest tests/test_adversarial_robustness.py -v
 }
 ```
 
-## Gap: What This Document Does Not Contain
+## Benchmarks Not Yet Run
 
-This document defines the **protocol** for benchmarks that **have not yet been executed**. The following are pending:
+This document defines the protocol. The benchmarks themselves have not been executed.
 
-1. ✓ Protocol defined (this document)
-2. ✗ Server latency benchmarks (code exists, not run)
-3. ✗ Edge latency benchmarks (config exists, not run)
-4. ✗ Throughput benchmarks (code exists, not run)
-5. ✗ Memory benchmarks (code exists, not run)
-6. ✗ Power benchmarks (hardware setup required)
-7. ✗ Baseline comparisons (Random Forest, SVM, MLP not benchmarked)
-8. ✗ Ablation benchmarks (see docs/ABLATION_STUDY.md — not yet written)
-9. ✗ Results archive (no JSON output from prior runs preserved)
-10. ✗ Statistical significance analysis (multiple seeds not run)
+1. Server latency benchmarks (code exists, not run)
+2. Edge latency benchmarks (config exists, not run)
+3. Throughput benchmarks (code exists, not run)
+4. Memory benchmarks (code exists, not run)
+5. Power benchmarks (hardware setup required)
+6. Baseline comparisons (Random Forest, SVM, MLP not benchmarked)
+7. Ablation benchmarks (not yet written)
+8. Results archive (no JSON output from prior runs preserved)
+9. Statistical significance analysis (multiple seeds not run)

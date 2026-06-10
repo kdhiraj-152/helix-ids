@@ -4,21 +4,21 @@ Last updated: 2026-06-09
 
 ## System Overview
 
-HELIX-IDS (Hierarchical Edge-optimized Lightweight Intrusion eXpert) is a production-grade network intrusion detection system designed for edge deployment. It combines a feature-based neural network classifier with domain adaptation, formal governance/provenance verification, and runtime monitoring.
+HELIX-IDS (Hierarchical Edge-optimized Lightweight Intrusion eXpert) is a network intrusion detection system for edge deployment. It combines a neural network classifier with domain adaptation, formal governance and provenance verification, and runtime monitoring.
 
-The system operates across three deployment tiers:
-- **Server/Cloud**: Full training, evaluation, and high-throughput inference
-- **Edge (RPi 4, RPi Zero)**: Optimized inference with reduced model variants
+The system runs on three tiers:
+- **Server/Cloud**: Training, evaluation, high-throughput inference
+- **Edge (RPi 4, RPi Zero)**: Optimized inference with smaller model variants
 - **Microcontroller (ESP32)**: Minimal inference with quantized models
 
 ## Design Goals
 
-1. **Detection accuracy**: Match or exceed state-of-the-art on NSL-KDD, UNSW-NB15, CICIDS-2018
-2. **Edge viability**: Sub-100ms inference on Raspberry Pi hardware
+1. **Detection accuracy**: Match or exceed baselines on NSL-KDD, UNSW-NB15, CICIDS-2018
+2. **Edge viability**: Under 100ms inference on Raspberry Pi hardware
 3. **Provable reproducibility**: Every artifact carries a cryptographic provenance chain
-4. **Operational safety**: Drift detection, traffic expansion guards, staged rollouts
-5. **Threat-awareness**: Rare attack classes (R2L, U2R) receive targeted loss weighting
-6. **Multi-dataset transfer**: Domain adaptation enables training on one dataset and generalizing to others
+4. **Operational safety**: Drift detection, staged rollouts, traffic expansion guards
+5. **Threat-awareness**: Rare attack classes (R2L, U2R) get targeted loss weighting
+6. **Multi-dataset transfer**: Domain adaptation for training on one dataset and generalizing to others
 
 ## Component Map
 
@@ -283,7 +283,7 @@ flowchart TD
 | **Integrity** | Artifact content is verifiably unchanged | SHA-256 hashes in manifests |
 | **Authenticity** | Not guaranteed | Manifests are not cryptographically signed |
 
-The governance framework provides strong **integrity** guarantees — any tampering with an artifact is detectable. However, **authenticity** (proving who created an artifact) is not yet implemented. See `docs/SECURITY_REVIEW.md` for details.
+The governance framework provides integrity guarantees. Any tampering with an artifact is detectable. Authenticity (proving who created an artifact) is not yet implemented. See `docs/SECURITY_REVIEW.md` for details.
 
 ## Failure Modes
 
@@ -310,9 +310,9 @@ The governance framework provides strong **integrity** guarantees — any tamper
 
 ## Technical Debt
 
-1. **ARCHITECTURE.md** contains ~200 lines of legacy system descriptions that no longer apply after cleanup
-2. **`adaptation/feature_harmonization.py`** duplicates some functionality from `data/feature_harmonization.py` — the data module is authoritative
+1. **ARCHITECTURE.md** contains legacy sections that no longer match the current codebase
+2. **`adaptation/feature_harmonization.py`** duplicates some functionality from `data/feature_harmonization.py` (the data module is authoritative)
 3. **`cli.py`** references subcommands that may not all be maintained
-4. **`train_multidataset_v2_fixed.py`** at repo root is a thin wrapper — should be consolidated
-5. **No Dockerfile** — environment setup currently manual
-6. **No CI/CD pipeline** — only local pre-commit validation
+4. **`train_multidataset_v2_fixed.py`** at repo root is a thin wrapper that should be consolidated
+5. **No Dockerfile**; environment setup is manual
+6. **No CI/CD pipeline**; only local pre-commit validation

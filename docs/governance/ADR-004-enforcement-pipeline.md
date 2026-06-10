@@ -67,6 +67,6 @@ HELIX-IDS enforces governance through a layered CI + runtime pipeline. This ADR 
 
 ## Consequences
 
-- **Positive:** Multi-layer enforcement prevents both intentional bypass and accidental drift.
+- **Positive:** Multi-layer enforcement prevents bypass and detects drift.
 - **Negative:** Complex CI pipeline (~5 jobs, dependency chains) — failure attribution can be non-obvious.
 - **Neutral:** Runtime enforcement adds overhead; acceptable for production but may slow research iteration.

@@ -100,7 +100,7 @@ Input: [B, 64] feature embedding
   Binary classes: Normal, Attack
 ```
 
-**Threshold Decoupling** (key innovation):
+**Threshold Decoupling**:
 
 After the family head produces logits, a per-class margin is applied:
 - Positive class (family class = target): no margin
