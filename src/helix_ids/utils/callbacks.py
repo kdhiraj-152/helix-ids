@@ -20,6 +20,12 @@ import torch
 import torch.optim as optim
 
 from ..contracts.schema_contract import runtime_contract_payload
+from ..governance.provenance import (
+    ARTIFACT_MANIFEST_KEY,
+    checkpoint_manifest_payload,
+    write_contract_sidecars,
+)
+from .export import build_export_manifest, finalize_export_artifact, verify_export_artifact
 
 # Setup module logger
 logger = logging.getLogger(__name__)
@@ -345,18 +351,41 @@ class ModelCheckpoint(Callback):
             if self.optimizer is not None:
                 checkpoint["optimizer_state_dict"] = self.optimizer.state_dict()
 
-        checkpoint.update(runtime_contract_payload())
+        # Attach canonical runtime contract to the checkpoint payload
+        contract_payload = runtime_contract_payload()
+        checkpoint.update(contract_payload)
+
+        # Build a provenance manifest (without artifact sha256 yet) and embed it into the
+        # checkpoint payload so that the artifact carries its provenance.
+        manifest_base = build_export_manifest(
+            contract=contract_payload,
+            model_architecture=self.model.__class__.__name__,
+            export_config={"format": "checkpoint"},
+        )
+
+        # Embed the manifest (without artifact_sha256) in the saved payload
+        checkpoint[ARTIFACT_MANIFEST_KEY] = checkpoint_manifest_payload(manifest_base)
+
+        # Persist the checkpoint file
         torch.save(checkpoint, save_path)
 
-        contract_path = save_path.with_suffix(save_path.suffix + ".contract.json")
-        feature_order_path = save_path.with_suffix(save_path.suffix + ".feature_order.json")
-        schema_hash_path = save_path.with_suffix(save_path.suffix + ".schema_hash.txt")
-        contract_path.write_text(json.dumps(runtime_contract_payload(), indent=2), encoding="utf-8")
-        feature_order_path.write_text(
-            json.dumps(runtime_contract_payload()["feature_order"], indent=2),
-            encoding="utf-8",
-        )
-        schema_hash_path.write_text(runtime_contract_payload()["schema_hash"] + "\n", encoding="utf-8")
+        # Write traditional contract sidecars for compatibility and human inspection
+        sidecars = write_contract_sidecars(save_path, contract_payload)
+
+        # Finalize the manifest (compute and write artifact sha256 sidecar)
+        finalize_export_artifact(save_path, manifest_base, sidecars=sidecars)
+
+        # Verify provenance immediately to catch save-time inconsistencies
+        try:
+            verify_export_artifact(
+                save_path,
+                kind="checkpoint",
+                contract=contract_payload,
+                embedded_manifest=checkpoint_manifest_payload(manifest_base),
+            )
+        except Exception:  # pragma: no cover - defensive check
+            logger.exception("ModelCheckpoint: saved artifact failed provenance verification")
+            raise
 
         self.best_filepath = save_path
 

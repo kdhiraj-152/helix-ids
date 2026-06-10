@@ -9,9 +9,8 @@ When deploying to a new network:
 Expected improvement: +20-30pp on target network
 """
 
-from typing import cast
-
 import logging
+from typing import cast
 
 import torch
 import torch.nn as nn

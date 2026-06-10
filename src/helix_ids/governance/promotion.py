@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Iterable
 from dataclasses import dataclass
 from statistics import mean, pstdev
-from typing import Callable, Iterable
+from typing import Callable
 
 
 @dataclass(frozen=True)

@@ -24,15 +24,16 @@ import warnings
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from sklearn.metrics import balanced_accuracy_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
-from sklearn.metrics import balanced_accuracy_score
 from torch.utils.data import DataLoader, TensorDataset
 
 warnings.filterwarnings("ignore")
@@ -43,11 +44,22 @@ SRC_DIR = PROJECT_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from helix_ids.governance.entrypoint import governed_entrypoint  # noqa: E402
+from helix_ids.contracts.schema_contract import runtime_contract_payload
+from helix_ids.governance import (
+    ARTIFACT_MANIFEST_KEY,
+    checkpoint_manifest_payload,
+    write_contract_sidecars,
+)
 from helix_ids.governance.determinism import seed_worker, set_global_determinism
+from helix_ids.governance.entrypoint import governed_entrypoint  # noqa: E402
 from helix_ids.governance.parameters import DEFAULT_GOVERNANCE_POLICY
 from helix_ids.governance.promotion import SeedRunSummary, aggregate_seed_runs
 from helix_ids.governance.run_registry import RunRegistry
+from helix_ids.utils.export import (
+    build_export_manifest,
+    finalize_export_artifact,
+    verify_export_artifact,
+)
 from helix_ids.utils.metrics import (
     compute_binary_f1,
     compute_classification_report,
@@ -55,7 +67,6 @@ from helix_ids.utils.metrics import (
     compute_macro_f1,
     compute_per_class_f1_array,
 )  # noqa: E402
-from helix_ids.contracts.schema_contract import runtime_contract_payload
 from helix_ids.utils.metrics import (
     evaluate as evaluate_contract,
 )
@@ -715,6 +726,27 @@ def skipped_metrics(reason: str, class_names=None):
     }
 
 
+def _build_optional_nsl_test_dataset(data: dict[str, Any]) -> TensorDataset | None:
+    if not data.get("use_nsl_eval", True):
+        return None
+    return TensorDataset(
+        torch.FloatTensor(data["X_nsl_test"]), torch.LongTensor(data["y_nsl_test"])
+    )
+
+
+def _evaluate_optional_nsl_metrics(
+    model: nn.Module,
+    nsl_test_loader: DataLoader | None,
+    platform: str,
+) -> dict[str, Any]:
+    if nsl_test_loader is not None:
+        result = cast(dict[str, Any], evaluate_model(model, nsl_test_loader, DEVICE, f"{platform} on NSL-KDD"))
+        return {str(key): value for key, value in result.items()}
+    logger.warning("Skipping NSL-KDD evaluation for %s due to single-class test set.", platform)
+    result = cast(dict[str, Any], skipped_metrics("NSL-KDD test is single-class; evaluation skipped."))
+    return {str(key): value for key, value in result.items()}
+
+
 # ==================== MAIN PIPELINE ====================
 
 
@@ -759,11 +791,7 @@ def main():
 
     train_ds = TensorDataset(torch.FloatTensor(x_train_split), torch.LongTensor(y_train_split))
     val_ds = TensorDataset(torch.FloatTensor(x_val), torch.LongTensor(y_val))
-    nsl_test_ds = None
-    if data.get("use_nsl_eval", True):
-        nsl_test_ds = TensorDataset(
-            torch.FloatTensor(data["X_nsl_test"]), torch.LongTensor(data["y_nsl_test"])
-        )
+    nsl_test_ds = _build_optional_nsl_test_dataset(data)
     unsw_test_ds = TensorDataset(
         torch.FloatTensor(data["X_unsw_test"]), torch.LongTensor(data["y_unsw_test"])
     )
@@ -845,11 +873,7 @@ def main():
         logger.info(f"\nBest validation F1 (macro): {best_f1:.4f}")
 
         # Evaluate on both test sets
-        if nsl_test_loader is not None:
-            nsl_metrics = evaluate_model(model, nsl_test_loader, DEVICE, f"{platform} on NSL-KDD")
-        else:
-            nsl_metrics = skipped_metrics("NSL-KDD test is single-class; evaluation skipped.")
-            logger.warning("Skipping NSL-KDD evaluation for %s due to single-class test set.", platform)
+        nsl_metrics = _evaluate_optional_nsl_metrics(model, nsl_test_loader, platform)
         unsw_metrics = evaluate_model(model, unsw_test_loader, DEVICE, f"{platform} on UNSW-NB15")
 
         # Per-class threshold tuning
@@ -860,6 +884,24 @@ def main():
                 f"  Class {cls_id} ({SafeDataLoader.CLASS_NAMES[cls_id]}): "
                 f"thresh={info['threshold']:.2f}, F1={info['f1']:.4f}"
             )
+
+        # Build model_card before payload (used by both payload and file output)
+        model_card = {
+            "model_name": f"HELIX-IDS-{platform}-v2",
+            "version": "2.0",
+            "fixes": ["data_leakage", "class_weighted_focal_loss", "per_class_thresholds"],
+            "architecture": str(cfg["hidden_dims"]),
+            "class_names": SafeDataLoader.CLASS_NAMES,
+            "class_weights": class_weights,
+            "dropout": cfg["dropout"],
+            "lr": cfg["lr"],
+            "parameters": model.params_count,
+            "best_val_f1_macro": float(best_f1),
+            "nsl_kdd": nsl_metrics,
+            "unsw_nb15": unsw_metrics,
+            "thresholds": thresholds,
+            "training_date": datetime.now().isoformat(),
+        }
 
         # Save model payload and canonical runtime contract sidecars
         platform_dir = MODELS_DIR / platform
@@ -872,21 +914,46 @@ def main():
             "model_card": model_card,
         }
         # Embed immutable runtime contract metadata and write canonical sidecars
-        payload.update(runtime_contract_payload())
+        contract = runtime_contract_payload()
+        payload.update(contract)
+        manifest_base = build_export_manifest(
+            contract=contract,
+            model_architecture=model.__class__.__name__,
+            export_config={"format": "checkpoint", "origin": "train_multidataset_v2_fixed"},
+        )
+        payload[ARTIFACT_MANIFEST_KEY] = checkpoint_manifest_payload(manifest_base)
         torch.save(payload, path)
         with open(platform_dir / "thresholds.json", "w") as f:
             json.dump(thresholds, f, indent=2)
-        # Write sidecars next to checkpoint
-        try:
-            contract_path = path.with_suffix(path.suffix + ".contract.json")
-            feature_order_path = path.with_suffix(path.suffix + ".feature_order.json")
-            schema_hash_path = path.with_suffix(path.suffix + ".schema_hash.txt")
-            contract_path.write_text(json.dumps(runtime_contract_payload(), indent=2), encoding="utf-8")
-            feature_order_path.write_text(json.dumps(runtime_contract_payload()["feature_order"], indent=2), encoding="utf-8")
-            schema_hash_path.write_text(str(runtime_contract_payload()["schema_hash"]) + "\n", encoding="utf-8")
-        except Exception:
-            # If sidecar emission fails, raise to avoid producing non-canonical artifact
-            raise
+
+        sidecars = write_contract_sidecars(path, contract)
+        finalize_export_artifact(path, manifest_base, sidecars=sidecars)
+        verify_export_artifact(
+            path,
+            kind="checkpoint",
+            contract=contract,
+            embedded_manifest=checkpoint_manifest_payload(manifest_base),
+        )
+        # Embed immutable runtime contract metadata and write canonical sidecars
+        contract = runtime_contract_payload()
+        payload.update(contract)
+        manifest_base = build_export_manifest(
+            contract=contract,
+            model_architecture=model.__class__.__name__,
+            export_config={"format": "checkpoint", "origin": "train_multidataset_v2_fixed"},
+        )
+        payload[ARTIFACT_MANIFEST_KEY] = checkpoint_manifest_payload(manifest_base)
+        torch.save(payload, path)
+        with open(platform_dir / "thresholds.json", "w") as f:
+            json.dump(thresholds, f, indent=2)
+        sidecars = write_contract_sidecars(path, contract)
+        finalize_export_artifact(path, manifest_base, sidecars=sidecars)
+        verify_export_artifact(
+            path,
+            kind="checkpoint",
+            contract=contract,
+            embedded_manifest=checkpoint_manifest_payload(manifest_base),
+        )
 
         model_card = {
             "model_name": f"HELIX-IDS-{platform}-v2",

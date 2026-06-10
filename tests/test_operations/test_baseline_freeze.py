@@ -12,17 +12,27 @@ from helix_ids.operations.baseline_freeze import seal_baseline
 
 def _make_checkpoint(path: Path) -> None:
     model = create_helix_full(HelixFullConfig(input_dim=17, family_output_dim=7))
+
     from helix_ids.contracts import runtime_contract_payload
-    import json
 
     payload = {"model_state_dict": model.state_dict()}
     contract = runtime_contract_payload()
     payload.update(contract)
+    from helix_ids.governance import (
+        ARTIFACT_MANIFEST_KEY,
+        checkpoint_manifest_payload,
+        write_contract_sidecars,
+    )
+    from helix_ids.utils.export import build_export_manifest, finalize_export_artifact
+    manifest_base = build_export_manifest(
+        contract=contract,
+        model_architecture=model.__class__.__name__,
+        export_config={"format": "checkpoint", "origin": "test_baseline_freeze"},
+    )
+    payload[ARTIFACT_MANIFEST_KEY] = checkpoint_manifest_payload(manifest_base)
     torch.save(payload, path)
-    # write sidecars
-    (path.with_suffix(path.suffix + ".contract.json")).write_text(json.dumps(contract, indent=2), encoding="utf-8")
-    (path.with_suffix(path.suffix + ".feature_order.json")).write_text(json.dumps(contract["feature_order"], indent=2), encoding="utf-8")
-    (path.with_suffix(path.suffix + ".schema_hash.txt")).write_text(str(contract["schema_hash"]) + "\n", encoding="utf-8")
+    sidecars = write_contract_sidecars(path, contract)
+    finalize_export_artifact(path, manifest_base, sidecars=sidecars)
 
 
 def test_seal_baseline_creates_manifest_and_core_artifacts(tmp_path: Path) -> None:

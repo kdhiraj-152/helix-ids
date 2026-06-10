@@ -21,12 +21,21 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+from helix_ids import __version__ as HELIX_IDS_VERSION
 from helix_ids.contracts import (
     CANONICAL_BINARY_CLASSES,
     CANONICAL_FAMILY_CLASSES,
     CANONICAL_INPUT_DIM,
 )
 from helix_ids.contracts.schema_contract import runtime_contract_payload
+from helix_ids.governance import (
+    build_artifact_manifest,
+    build_provenance_chain,
+    embed_manifest_in_onnx_metadata,
+    finalize_artifact_manifest,
+    verify_artifact_provenance,
+    write_contract_sidecars,
+)
 
 # Optional ONNX dependencies - gracefully handle if not installed
 try:
@@ -145,6 +154,81 @@ def check_onnx_dependencies(require_runtime: bool = False) -> tuple[bool, str]:
         )
 
     return True, "ONNX dependencies available"
+
+
+def build_export_manifest(
+    *,
+    contract: dict[str, Any] | None = None,
+    model_architecture: str,
+    export_config: dict[str, Any] | None = None,
+    git_commit: str | None = None,
+    git_branch: str | None = None,
+    exporter_version: str | None = None,
+    runtime_version: str | None = None,
+    training_timestamp: str | None = None,
+    onnx_opset: int | None = None,
+    provenance_fields: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return dict(
+        build_artifact_manifest(
+        contract=contract,
+        model_architecture=model_architecture,
+        export_config=export_config,
+        git_commit=git_commit,
+        git_branch=git_branch,
+        exporter_version=exporter_version or HELIX_IDS_VERSION,
+        runtime_version=runtime_version or HELIX_IDS_VERSION,
+        training_timestamp=training_timestamp,
+        onnx_opset=onnx_opset,
+        provenance_fields=provenance_fields,
+    )
+    )
+
+
+def finalize_export_artifact(
+    artifact_path: Path | str,
+    manifest: dict[str, Any],
+    *,
+    sidecars: dict[str, Path],
+    deployment_manifest: Path | None = None,
+    exporter_metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    provenance_chain = build_provenance_chain(
+        artifact_path,
+        manifest=manifest,
+        sidecars=sidecars,
+        deployment_manifest=deployment_manifest,
+        exporter_metadata=exporter_metadata,
+    )
+    return dict(finalize_artifact_manifest(artifact_path, manifest, provenance_chain=provenance_chain))
+
+
+def verify_export_artifact(
+    artifact_path: Path | str,
+    *,
+    kind: str,
+    contract: dict[str, Any] | None = None,
+    embedded_manifest: dict[str, Any] | None = None,
+    require_embedded_manifest: bool = True,
+    deployment_manifest: Path | None = None,
+) -> dict[str, Any] | None:
+    path = Path(artifact_path)
+    sidecars = {
+        "contract": path.with_suffix(path.suffix + ".contract.json"),
+        "feature_order": path.with_suffix(path.suffix + ".feature_order.json"),
+        "schema_hash": path.with_suffix(path.suffix + ".schema_hash.txt"),
+    }
+    result = verify_artifact_provenance(
+        path,
+        kind=kind,
+        contract=contract,
+        embedded_manifest=embedded_manifest,
+        require_embedded_manifest=require_embedded_manifest,
+        sidecars=sidecars,
+        deployment_manifest=deployment_manifest or (path.parent / "deployment.manifest.json" if (path.parent / "deployment.manifest.json").exists() else None),
+        require_chain=True,
+    )
+    return None if result is None else dict(result)
 
 
 class ONNXExporter:
@@ -308,17 +392,37 @@ class ONNXExporter:
             metadata=metadata,
         )
         contract = runtime_contract_payload()
-        exported_path.with_name("contract.json").write_text(json.dumps(contract, indent=2), encoding="utf-8")
-        exported_path.with_name("feature_order.json").write_text(
-            json.dumps(contract["feature_order"], indent=2),
-            encoding="utf-8",
+        manifest_base = build_export_manifest(
+            contract=contract,
+            model_architecture=model.__class__.__name__,
+            export_config=metadata,
+            onnx_opset=config.opset_version,
         )
-        exported_path.with_name("schema_hash.txt").write_text(str(contract["schema_hash"]) + "\n", encoding="utf-8")
+        onnx_model = onnx.load(str(exported_path))
+        embed_manifest_in_onnx_metadata(onnx_model, manifest_base)
+        onnx.save(onnx_model, str(exported_path))
+
+        sidecars = write_contract_sidecars(exported_path, contract)
 
         parity_input = torch.arange(contract["input_dim"], dtype=torch.float32, device=next(model.parameters()).device).reshape(1, -1)
         is_valid, details = validate_onnx(exported_path, pytorch_model=model, test_input=parity_input)
         if not is_valid:
             raise RuntimeError(f"ONNX export parity validation failed: {details}")
+
+        manifest = finalize_export_artifact(
+            exported_path,
+            manifest_base,
+            sidecars=sidecars,
+            exporter_metadata=metadata,
+        )
+        from helix_ids.governance.provenance import manifest_without_artifact_sha256
+
+        verify_export_artifact(
+            exported_path,
+            kind="onnx",
+            contract=contract,
+            embedded_manifest=manifest_without_artifact_sha256(manifest),
+        )
 
         return exported_path
 
@@ -348,6 +452,7 @@ def validate_onnx(
         return False, {"error": message}
 
     filepath = Path(filepath)
+    verify_export_artifact(filepath, kind="onnx")
     results = {
         "filepath": str(filepath),
         "valid": False,
@@ -487,6 +592,7 @@ def benchmark_onnx(
         return {"error": message}
 
     filepath = Path(filepath)
+    verify_export_artifact(filepath, kind="onnx")
 
     # Convert input to numpy
     if isinstance(x_sample, torch.Tensor):
@@ -625,8 +731,6 @@ def export_for_edge(
             f"Unknown variant: {variant}. Choose from {list(HELIX_VARIANT_SIZES.keys())}"
         )
 
-    # Create metadata
-    contract = runtime_contract_payload()
     metadata = ExportMetadata(
         variant=variant,
         version=version,
@@ -644,13 +748,8 @@ def export_for_edge(
     # Export ONNX model
     exporter = ONNXExporter(verbose=True)
     exported = exporter.export_with_config(model, created_files["onnx"], metadata)
+    verify_export_artifact(exported, kind="onnx")
     contract = runtime_contract_payload()
-    exported.with_name("contract.json").write_text(json.dumps(contract, indent=2), encoding="utf-8")
-    exported.with_name("feature_order.json").write_text(
-        json.dumps(contract["feature_order"], indent=2),
-        encoding="utf-8",
-    )
-    exported.with_name("schema_hash.txt").write_text(str(contract["schema_hash"]) + "\n", encoding="utf-8")
 
     # Save metadata JSON
     metadata.to_json(created_files["metadata"])
@@ -875,11 +974,10 @@ def quick_export(
         Path to exported model
     """
     exporter = ONNXExporter(verbose=True)
-    return exporter.export_to_onnx(
+    return exporter.export_with_config(
         model=model,
         filepath=output_path,
-        input_shape=(1, input_dim),
-        opset_version=opset_version,
+        config=ExportMetadata(input_dim=input_dim, opset_version=opset_version),
     )
 
 

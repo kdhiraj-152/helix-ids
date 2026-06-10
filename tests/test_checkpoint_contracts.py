@@ -15,7 +15,6 @@ from helix_ids.data.feature_harmonization import FEATURE_ORDER
 from helix_ids.models.full import HelixFullConfig, create_helix_full
 from helix_ids.operations.inference_runtime import HelixInferenceRuntime
 
-
 EXPECTED_FEATURE_ORDER = list(FEATURE_ORDER)
 
 

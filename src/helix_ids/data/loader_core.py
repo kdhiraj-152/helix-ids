@@ -370,8 +370,8 @@ class UnifiedDataLoader:
             if fit:
                 self._feature_stats["mean"] = np.nanmean(x_arr, axis=0)
                 self._feature_stats["std"] = np.nanstd(x_arr, axis=0)
-            means = self._feature_stats.get("mean", np.nanmean(x_arr, axis=0))
-            stds = self._feature_stats.get("std", np.nanstd(x_arr, axis=0))
+            means = cast(np.ndarray, self._feature_stats.get("mean", np.nanmean(x_arr, axis=0)))
+            stds = cast(np.ndarray, self._feature_stats.get("std", np.nanstd(x_arr, axis=0)))
             stds = np.where(stds == 0, 1, stds)
             lower, upper = means - self.outlier_sigma * stds, means + self.outlier_sigma * stds
             x_arr = np.clip(x_arr, lower, upper)

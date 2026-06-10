@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Any, Callable, Optional, TypedDict
+from typing import Any, Callable, TypedDict
 
-CONTRACT_VERSION = "2.1"
+from .immutable_constants import CONTRACT_VERSION
+
 DECISION_MODES = {"probe", "action", "non_identifiable"}
 DECISION_TRANSITIONS = {
     "probe": {"probe", "action", "non_identifiable"},
@@ -19,7 +20,7 @@ class DiagnosticContract(TypedDict):
     confidence: float
     probe_plan: list[dict[str, Any]]
     diagnostic_cycle: dict[str, Any]
-    terminal_reason: Optional[str]
+    terminal_reason: str | None
 
 
 def migrate_contract_payload(payload: dict[str, Any]) -> dict[str, Any]:

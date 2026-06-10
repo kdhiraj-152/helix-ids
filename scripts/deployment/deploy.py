@@ -115,10 +115,17 @@ class HelixDeployer:
         model_path = Path(self.config["model_path"])
         if not model_path.exists():
             raise FileNotFoundError(f"Model not found: {model_path}")
+        for sidecar_path in [
+            model_path.with_suffix(model_path.suffix + ".contract.json"),
+            model_path.with_suffix(model_path.suffix + ".feature_order.json"),
+            model_path.with_suffix(model_path.suffix + ".schema_hash.txt"),
+        ]:
+            if not sidecar_path.exists():
+                raise RuntimeError(f"Missing deployment provenance sidecar: {sidecar_path}")
 
         # Load model
         self.model = HelixIDS(input_dim=32, hidden_dims=self.config["hidden_dims"])
-        self.model.load_state_dict(torch.load(model_path, map_location="cpu"))
+        self.model.load_state_dict(torch.load(model_path, map_location="cpu", weights_only=True))
         self.model.eval()
 
         # Load scaler

@@ -1,0 +1,52 @@
+experiment_id: phase1_edge_latency
+
+defaults:
+  seeds: [42]
+  config:
+    mapping_version: "2026-05-25"
+    evaluation_mode: "edge_latency"
+    model_architecture: "helix_ids_full_v1"
+    platforms: ["rpi_zero", "esp32"]
+    platform_targets: ["rpi_zero", "esp32"]
+  dataset:
+    dataset_id: "multi_dataset_v1"
+    dataset_roots:
+      - data/nsl_kdd
+      - data/unsw_nb15
+      - data/cicids2018
+      - data/processed
+      - data/splits
+    raw_files:
+      - data/nsl_kdd/raw/KDDTrain+.txt
+      - data/nsl_kdd/raw/KDDTest+.txt
+      - data/unsw_nb15/raw/UNSW_NB15_training-set.csv
+      - data/unsw_nb15/raw/UNSW_NB15_testing-set.csv
+      - data/cicids2018/raw/Friday-02-03-2018_TrafficForML_CICFlowMeter.csv
+      - data/cicids2018/raw/Friday-16-02-2018_TrafficForML_CICFlowMeter.csv
+      - data/cicids2018/raw/Friday-23-02-2018_TrafficForML_CICFlowMeter.csv
+      - data/cicids2018/raw/Thuesday-20-02-2018_TrafficForML_CICFlowMeter.csv
+      - data/cicids2018/raw/Thursday-01-03-2018_TrafficForML_CICFlowMeter.csv
+      - data/cicids2018/raw/Thursday-15-02-2018_TrafficForML_CICFlowMeter.csv
+      - data/cicids2018/raw/Thursday-22-02-2018_TrafficForML_CICFlowMeter.csv
+      - data/cicids2018/raw/Wednesday-14-02-2018_TrafficForML_CICFlowMeter.csv
+      - data/cicids2018/raw/Wednesday-21-02-2018_TrafficForML_CICFlowMeter.csv
+      - data/cicids2018/raw/Wednesday-28-02-2018_TrafficForML_CICFlowMeter.csv
+    processed_files:
+      - data/nsl_kdd/train.csv
+      - data/nsl_kdd/test.csv
+      - data/unsw_nb15/train.csv
+      - data/unsw_nb15/test.csv
+      - data/processed/cicids2018_cleaned.csv
+    split_files:
+      - data/splits/nsl-kdd_indices.json
+      - data/splits/unsw-nb15_indices.json
+      - data/splits/cicids2018_indices.json
+
+benchmarks:
+  - id: edge_latency
+    entrypoint: benchmark_e2e_v2_fixed
+    config:
+      evaluation_mode: "edge_latency"
+      platforms: ["rpi_zero", "esp32"]
+      platform_targets: ["rpi_zero", "esp32"]
+      model_architecture: "helix_ids_full_v1"

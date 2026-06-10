@@ -8,11 +8,8 @@ Phase 4B Objective 2 — covers:
 """
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
-
-import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -21,7 +18,6 @@ from scripts.ci.validate_benchmark_outputs import (
     _check_config_hashes,
     _check_dataset_hashes,
 )
-
 
 # ---------------------------------------------------------------------------
 # _check_config_hashes — valid and invalid cases

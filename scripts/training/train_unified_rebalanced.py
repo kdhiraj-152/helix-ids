@@ -13,14 +13,19 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import sys
 import time
 from datetime import datetime
 from pathlib import Path
-import sys
 from typing import cast
 
 import numpy as np
-from sklearn.metrics import accuracy_score, confusion_matrix, f1_score, precision_recall_fscore_support
+from sklearn.metrics import (
+    accuracy_score,
+    confusion_matrix,
+    f1_score,
+    precision_recall_fscore_support,
+)
 
 # Add project root and src to path for direct script execution.
 project_root = Path(__file__).resolve().parents[2]
@@ -32,7 +37,6 @@ from src.helix_ids.models.adaptation.transfer_learning import (
     MultiDatasetPretrainer,
     TransferLearningConfig,
 )
-
 
 logging.basicConfig(
     level=logging.INFO,

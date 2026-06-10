@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Any, Sequence
-
+from collections.abc import Sequence
+from typing import Any
 
 CANONICAL_FEATURE_ORDER = [
     "protocol_type",
@@ -127,9 +127,12 @@ def assert_runtime_contract(
 
 
 def runtime_contract_payload() -> dict[str, Any]:
+    from helix_ids.contracts.immutable_constants import CONTRACT_VERSION, FEATURE_ORDER_HASH
     return {
         "schema_version": SCHEMA_VERSION,
         "schema_hash": SCHEMA_HASH,
+        "contract_version": CONTRACT_VERSION,
+        "feature_order_hash": FEATURE_ORDER_HASH,
         "feature_order": list(CANONICAL_FEATURE_ORDER),
         "input_dim": CANONICAL_INPUT_DIM,
         "binary_output_dim": CANONICAL_BINARY_CLASSES,

@@ -25,10 +25,10 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 
-def start_server(checkpoint: str, host: str, port: int, extra_args: List[str], log_path: str):
+def start_server(checkpoint: str, host: str, port: int, extra_args: list[str], log_path: str):
     """Start the `serve_rest.py` server from the repository root and wait for its /health endpoint.
 
     Uses an absolute PYTHONPATH based on the repo layout so callers can run this script
@@ -65,7 +65,7 @@ def start_server(checkpoint: str, host: str, port: int, extra_args: List[str], l
         proc.terminate()
     except Exception:
         pass
-    raise RuntimeError("server failed to become healthy in time; see log: %s" % log_path)
+    raise RuntimeError(f"server failed to become healthy in time; see log: {log_path}")
 
 
 def stop_server(proc: subprocess.Popen, logf) -> None:
@@ -90,7 +90,7 @@ def send_requests(host: str, port: int, n: int, features_dim: int = 17) -> None:
     sample = [0.0] * features_dim
     data = json.dumps({"features": sample}).encode("utf-8")
     headers = {"Content-Type": "application/json"}
-    for i in range(n):
+    for _i in range(n):
         req = urllib.request.Request(url, data=data, headers=headers, method="POST")
         try:
             with urllib.request.urlopen(req, timeout=10) as resp:
@@ -100,10 +100,10 @@ def send_requests(host: str, port: int, n: int, features_dim: int = 17) -> None:
             pass
 
 
-def parse_jsonl(path: Path) -> List[Dict[str, Any]]:
+def parse_jsonl(path: Path) -> list[dict[str, Any]]:
     if not path.exists():
         return []
-    out: List[Dict[str, Any]] = []
+    out: list[dict[str, Any]] = []
     with path.open("r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
@@ -116,7 +116,7 @@ def parse_jsonl(path: Path) -> List[Dict[str, Any]]:
     return out
 
 
-def compute_override_series(events: List[Dict[str, Any]]) -> List[float]:
+def compute_override_series(events: list[dict[str, Any]]) -> list[float]:
     vals = [1.0 if (e.get("override", {}).get("applied", False)) else 0.0 for e in events]
     cum = []
     s = 0.0
@@ -126,8 +126,8 @@ def compute_override_series(events: List[Dict[str, Any]]) -> List[float]:
     return cum
 
 
-def compute_class_counts(events: List[Dict[str, Any]]) -> Dict[int, int]:
-    counts: Dict[int, int] = {}
+def compute_class_counts(events: list[dict[str, Any]]) -> dict[int, int]:
+    counts: dict[int, int] = {}
     for e in events:
         pred = e.get("prediction", {}).get("family_class")
         if isinstance(pred, list):
@@ -281,8 +281,8 @@ def main() -> None:
     no_counts = compute_class_counts(no_events)
     h_counts = compute_class_counts(h_events)
 
-    def _extract_confidences(events: List[Dict[str, Any]]) -> List[float]:
-        out: List[float] = []
+    def _extract_confidences(events: list[dict[str, Any]]) -> list[float]:
+        out: list[float] = []
         for e in events:
             pred = e.get("prediction") or {}
             c = pred.get("confidence") if isinstance(pred, dict) else None
@@ -294,8 +294,8 @@ def main() -> None:
         return out
 
 
-    def _extract_margins(events: List[Dict[str, Any]]) -> List[float]:
-        out: List[float] = []
+    def _extract_margins(events: list[dict[str, Any]]) -> list[float]:
+        out: list[float] = []
         for e in events:
             cm = e.get("class_margin_override") or {}
             m = cm.get("margin") if isinstance(cm, dict) else None

@@ -1,18 +1,32 @@
 #!/usr/bin/env python3
-"""Backward-compatible wrapper. Canonical script moved to scripts/training/train_multidataset_v2_fixed.py."""
+"""Compatibility shim for legacy import path.
 
-import os
+This file delegates to the canonical implementation at
+`scripts/training/train_multidataset_v2_fixed.py` to preserve
+backwards-compatible imports used by tests and CI.
+"""
+
+from __future__ import annotations
+
+import importlib
 import sys
+from pathlib import Path
 
-SCRIPT_DIR = os.path.dirname(__file__)
-if SCRIPT_DIR not in sys.path:
-    sys.path.insert(0, SCRIPT_DIR)
+# Ensure project root is on sys.path
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
-TARGET = os.path.join(SCRIPT_DIR, "training", "train_multidataset_v2_fixed.py")
+try:
+    _mod = importlib.import_module("scripts.training.train_multidataset_v2_fixed")
+except Exception:  # pragma: no cover - best-effort shim
+    # Fall back to direct module name if available
+    _mod = importlib.import_module("train_multidataset_v2_fixed")
 
-if __name__ == "__main__":
-    os.execv(sys.executable, [sys.executable, TARGET, *sys.argv[1:]])
-else:
-    from training.train_multidataset_v2_fixed import HELIXMLP5Class, ImprovedTrainer, SafeDataLoader
+# Re-export common symbols expected by callers/tests
+SafeDataLoader = getattr(_mod, "SafeDataLoader", None)
+HELIXMLP5Class = getattr(_mod, "HELIXMLP5Class", None)
+ImprovedTrainer = getattr(_mod, "ImprovedTrainer", None)
+compute_class_weights = getattr(_mod, "compute_class_weights", None)
 
-    __all__ = ["HELIXMLP5Class", "ImprovedTrainer", "SafeDataLoader"]
+__all__ = [name for name in ("SafeDataLoader", "HELIXMLP5Class", "ImprovedTrainer", "compute_class_weights") if globals().get(name) is not None]

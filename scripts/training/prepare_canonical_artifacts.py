@@ -21,16 +21,15 @@ SRC_DIR = PROJECT_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from helix_ids.data.multi_dataset_loader import MultiDatasetLoader  # noqa: E402
 from helix_ids.contracts import (  # noqa: E402
     CANONICAL_BINARY_CLASSES,
     CANONICAL_FAMILY_CLASSES,
     CANONICAL_INPUT_DIM,
     SCHEMA_HASH,
     SCHEMA_VERSION,
-    runtime_contract_payload,
 )
 from helix_ids.data.feature_harmonization import FEATURE_ORDER  # noqa: E402
+from helix_ids.data.multi_dataset_loader import MultiDatasetLoader  # noqa: E402
 
 REQUIRED_ARTIFACTS = [
     "X_train.npy",

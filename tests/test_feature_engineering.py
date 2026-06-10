@@ -11,7 +11,6 @@ Tests cover:
 
 import numpy as np
 import pandas as pd
-import pytest
 
 # =============================================================================
 # Constants
@@ -45,16 +44,16 @@ class TestRateFeatures:
         and connection duration.
         """
         df = raw_network_data.copy()
-        
+
         # Calculate expected bytes_per_sec
         total_bytes = df["src_bytes"] + df["dst_bytes"]
         # Avoid division by zero
         duration_safe = df["duration"].replace(0, 1e-6)
         expected_bps = total_bytes / duration_safe
-        
+
         # Compute actual feature
         df["bytes_per_sec"] = total_bytes / duration_safe
-        
+
         # Verify calculation
         np.testing.assert_array_almost_equal(
             df["bytes_per_sec"].values,
@@ -73,11 +72,11 @@ class TestRateFeatures:
             "dst_bytes": [500.0, 1000.0, 1500.0],
             "duration": [0.0, 0.0, 1.0],
         })
-        
+
         total_bytes = df["src_bytes"] + df["dst_bytes"]
         duration_safe = df["duration"].replace(0, 1e-6)
         df["bytes_per_sec"] = total_bytes / duration_safe
-        
+
         # Should not have inf or nan
         assert not df["bytes_per_sec"].isin([np.inf, -np.inf]).any(), \
             "bytes_per_sec should not contain infinity"
@@ -91,13 +90,13 @@ class TestRateFeatures:
         Verifies packet rate computation handles various durations.
         """
         df = raw_network_data.copy()
-        
+
         # Calculate packets per second
         duration_safe = df["duration"].replace(0, 1e-6)
         expected_pps = df["count"] / duration_safe
-        
+
         df["packets_per_sec"] = df["count"] / duration_safe
-        
+
         np.testing.assert_array_almost_equal(
             df["packets_per_sec"].values,
             expected_pps.values,
@@ -111,13 +110,13 @@ class TestRateFeatures:
         Network traffic rates cannot be negative in valid data.
         """
         df = raw_network_data.copy()
-        
+
         total_bytes = df["src_bytes"] + df["dst_bytes"]
         duration_safe = df["duration"].replace(0, 1e-6).clip(lower=1e-6)
-        
+
         df["bytes_per_sec"] = total_bytes / duration_safe
         df["packets_per_sec"] = df["count"] / duration_safe
-        
+
         assert (df["bytes_per_sec"] >= 0).all(), "bytes_per_sec should be non-negative"
         assert (df["packets_per_sec"] >= 0).all(), "packets_per_sec should be non-negative"
 
@@ -137,14 +136,14 @@ class TestRatioFeatures:
         Measures the proportion of outbound traffic.
         """
         df = raw_network_data.copy()
-        
+
         total_bytes = df["src_bytes"] + df["dst_bytes"]
         # Avoid division by zero
         total_safe = total_bytes.replace(0, 1.0)
-        
+
         expected_ratio = df["src_bytes"] / total_safe
         df["bytes_ratio"] = df["src_bytes"] / total_safe
-        
+
         np.testing.assert_array_almost_equal(
             df["bytes_ratio"].values,
             expected_ratio.values,
@@ -158,11 +157,11 @@ class TestRatioFeatures:
         As a proportion, it must be in [0, 1] range.
         """
         df = raw_network_data.copy()
-        
+
         total_bytes = df["src_bytes"] + df["dst_bytes"]
         total_safe = total_bytes.replace(0, 1.0)
         df["bytes_ratio"] = df["src_bytes"] / total_safe
-        
+
         assert (df["bytes_ratio"] >= 0).all(), "bytes_ratio should be >= 0"
         assert (df["bytes_ratio"] <= 1).all(), "bytes_ratio should be <= 1"
 
@@ -173,13 +172,13 @@ class TestRatioFeatures:
         Measures traffic asymmetry: +1 = all outbound, -1 = all inbound.
         """
         df = raw_network_data.copy()
-        
+
         total_bytes = df["src_bytes"] + df["dst_bytes"]
         total_safe = total_bytes.replace(0, 1.0)
-        
+
         expected_imbalance = (df["src_bytes"] - df["dst_bytes"]) / total_safe
         df["bytes_imbalance"] = (df["src_bytes"] - df["dst_bytes"]) / total_safe
-        
+
         np.testing.assert_array_almost_equal(
             df["bytes_imbalance"].values,
             expected_imbalance.values,
@@ -191,11 +190,11 @@ class TestRatioFeatures:
         Test bytes_imbalance is bounded between -1 and 1.
         """
         df = raw_network_data.copy()
-        
+
         total_bytes = df["src_bytes"] + df["dst_bytes"]
         total_safe = total_bytes.replace(0, 1.0)
         df["bytes_imbalance"] = (df["src_bytes"] - df["dst_bytes"]) / total_safe
-        
+
         assert (df["bytes_imbalance"] >= -1).all(), "bytes_imbalance should be >= -1"
         assert (df["bytes_imbalance"] <= 1).all(), "bytes_imbalance should be <= 1"
 
@@ -209,13 +208,13 @@ class TestRatioFeatures:
             "src_bytes": [0.0, 0.0, 100.0],
             "dst_bytes": [0.0, 0.0, 0.0],
         })
-        
+
         total_bytes = df["src_bytes"] + df["dst_bytes"]
         total_safe = total_bytes.replace(0, 1.0)
-        
+
         df["bytes_ratio"] = df["src_bytes"] / total_safe
         df["bytes_imbalance"] = (df["src_bytes"] - df["dst_bytes"]) / total_safe
-        
+
         # Should not have NaN
         assert not df["bytes_ratio"].isna().any()
         assert not df["bytes_imbalance"].isna().any()
@@ -236,10 +235,10 @@ class TestLogTransforms:
         Log transform helps normalize skewed distributions.
         """
         df = raw_network_data.copy()
-        
+
         expected_log = np.log1p(df["src_bytes"])
         df["log_src_bytes"] = np.log1p(df["src_bytes"])
-        
+
         np.testing.assert_array_almost_equal(
             df["log_src_bytes"].values,
             expected_log.values,
@@ -251,10 +250,10 @@ class TestLogTransforms:
         Test log transform of dst_bytes: log(1 + dst_bytes).
         """
         df = raw_network_data.copy()
-        
+
         expected_log = np.log1p(df["dst_bytes"])
         df["log_dst_bytes"] = np.log1p(df["dst_bytes"])
-        
+
         np.testing.assert_array_almost_equal(
             df["log_dst_bytes"].values,
             expected_log.values,
@@ -266,10 +265,10 @@ class TestLogTransforms:
         Test log transform of count: log(1 + count).
         """
         df = raw_network_data.copy()
-        
+
         expected_log = np.log1p(df["count"])
         df["log_count"] = np.log1p(df["count"])
-        
+
         np.testing.assert_array_almost_equal(
             df["log_count"].values,
             expected_log.values,
@@ -281,10 +280,10 @@ class TestLogTransforms:
         Test log transform of srv_count: log(1 + srv_count).
         """
         df = raw_network_data.copy()
-        
+
         expected_log = np.log1p(df["srv_count"])
         df["log_srv_count"] = np.log1p(df["srv_count"])
-        
+
         np.testing.assert_array_almost_equal(
             df["log_srv_count"].values,
             expected_log.values,
@@ -303,12 +302,12 @@ class TestLogTransforms:
             "count": [0, 1, 100],
             "srv_count": [0, 0, 50],
         })
-        
+
         df["log_src_bytes"] = np.log1p(df["src_bytes"])
         df["log_dst_bytes"] = np.log1p(df["dst_bytes"])
         df["log_count"] = np.log1p(df["count"])
         df["log_srv_count"] = np.log1p(df["srv_count"])
-        
+
         for col in ["log_src_bytes", "log_dst_bytes", "log_count", "log_srv_count"]:
             assert not df[col].isin([np.inf, -np.inf]).any(), f"{col} should not contain infinity"
             assert not df[col].isna().any(), f"{col} should not contain NaN"
@@ -321,9 +320,9 @@ class TestLogTransforms:
         df = pd.DataFrame({
             "src_bytes": [1e9, 1e12, 1e15],
         })
-        
+
         df["log_src_bytes"] = np.log1p(df["src_bytes"])
-        
+
         # Log should significantly reduce the range
         assert df["log_src_bytes"].max() < df["src_bytes"].max()
         assert df["log_src_bytes"].max() < 50  # log(1e15) ≈ 34.5
@@ -395,17 +394,17 @@ class TestEdgeCases:
             "count": [0] * 5,
             "srv_count": [0] * 5,
         })
-        
+
         # Compute features with safe division
         total_bytes = df["src_bytes"] + df["dst_bytes"]
         total_safe = total_bytes.replace(0, 1.0)
         duration_safe = df["duration"].replace(0, 1e-6)
-        
+
         df["bytes_per_sec"] = total_bytes / duration_safe
         df["bytes_ratio"] = df["src_bytes"] / total_safe
         df["bytes_imbalance"] = (df["src_bytes"] - df["dst_bytes"]) / total_safe
         df["log_src_bytes"] = np.log1p(df["src_bytes"])
-        
+
         # Should not have any NaN or Inf
         for col in ["bytes_per_sec", "bytes_ratio", "bytes_imbalance", "log_src_bytes"]:
             assert not df[col].isna().any(), f"{col} should not have NaN"
@@ -418,18 +417,18 @@ class TestEdgeCases:
         NaN should be handled gracefully (filled or propagated consistently).
         """
         df = edge_case_network_data.copy()
-        
+
         # Check that NaN is present in input
         assert df.isna().any().any(), "Test data should contain NaN"
-        
+
         # Fill NaN before computation
         df_filled = df.fillna(0)
-        
+
         total_bytes = df_filled["src_bytes"] + df_filled["dst_bytes"]
         total_safe = total_bytes.replace(0, 1.0)
-        
+
         df_filled["bytes_ratio"] = df_filled["src_bytes"] / total_safe
-        
+
         # After filling, should not have NaN
         assert not df_filled["bytes_ratio"].isna().any()
 
@@ -445,15 +444,15 @@ class TestEdgeCases:
             "duration": [1.0, 0.001, 1000.0],
             "count": [1000000, 500000, 100],
         })
-        
+
         total_bytes = df["src_bytes"] + df["dst_bytes"]
         total_safe = total_bytes.replace(0, 1.0)
         duration_safe = df["duration"].replace(0, 1e-6)
-        
+
         df["bytes_per_sec"] = total_bytes / duration_safe
         df["bytes_ratio"] = df["src_bytes"] / total_safe
         df["log_src_bytes"] = np.log1p(df["src_bytes"])
-        
+
         # Should not overflow
         assert not df["bytes_per_sec"].isin([np.inf, -np.inf]).any()
         assert not df["bytes_ratio"].isna().any()
@@ -469,16 +468,16 @@ class TestEdgeCases:
             "src_bytes": [-100.0, 100.0, 200.0],  # Invalid negative
             "dst_bytes": [100.0, -50.0, 150.0],   # Invalid negative
         })
-        
+
         # Clip negative values to 0
         df["src_bytes"] = df["src_bytes"].clip(lower=0)
         df["dst_bytes"] = df["dst_bytes"].clip(lower=0)
-        
+
         total_bytes = df["src_bytes"] + df["dst_bytes"]
         total_safe = total_bytes.replace(0, 1.0)
-        
+
         df["bytes_ratio"] = df["src_bytes"] / total_safe
-        
+
         assert (df["bytes_ratio"] >= 0).all()
         assert (df["bytes_ratio"] <= 1).all()
 
@@ -497,12 +496,12 @@ class TestFeatureEngineeringPipeline:
         """
         df = raw_network_data.copy()
         n_samples = len(df)
-        
+
         # Manually engineer features to simulate pipeline
         total_bytes = df["src_bytes"] + df["dst_bytes"]
         total_safe = total_bytes.replace(0, 1.0)
         duration_safe = df["duration"].replace(0, 1e-6)
-        
+
         # Add engineered features
         df["bytes_per_sec"] = total_bytes / duration_safe
         df["packets_per_sec"] = df["count"] / duration_safe
@@ -512,7 +511,7 @@ class TestFeatureEngineeringPipeline:
         df["log_dst_bytes"] = np.log1p(df["dst_bytes"])
         df["log_count"] = np.log1p(df["count"])
         df["log_srv_count"] = np.log1p(df["srv_count"])
-        
+
         # Check shape preserved
         assert len(df) == n_samples, "Number of samples should be preserved"
 
@@ -524,17 +523,17 @@ class TestFeatureEngineeringPipeline:
         """
         df1 = raw_network_data.copy()
         df2 = raw_network_data.copy()
-        
+
         # Engineer same features on both
         for df in [df1, df2]:
             total_bytes = df["src_bytes"] + df["dst_bytes"]
             total_safe = total_bytes.replace(0, 1.0)
             duration_safe = df["duration"].replace(0, 1e-6)
-            
+
             df["bytes_per_sec"] = total_bytes / duration_safe
             df["bytes_ratio"] = df["src_bytes"] / total_safe
             df["log_src_bytes"] = np.log1p(df["src_bytes"])
-        
+
         # Results should be identical
         pd.testing.assert_frame_equal(df1, df2)
 
@@ -543,15 +542,15 @@ class TestFeatureEngineeringPipeline:
         Test that engineered features have consistent dtypes.
         """
         df = raw_network_data.copy()
-        
+
         total_bytes = df["src_bytes"] + df["dst_bytes"]
         total_safe = total_bytes.replace(0, 1.0)
         duration_safe = df["duration"].replace(0, 1e-6)
-        
+
         df["bytes_per_sec"] = total_bytes / duration_safe
         df["bytes_ratio"] = df["src_bytes"] / total_safe
         df["log_src_bytes"] = np.log1p(df["src_bytes"])
-        
+
         # All engineered features should be float
         assert df["bytes_per_sec"].dtype in [np.float32, np.float64]
         assert df["bytes_ratio"].dtype in [np.float32, np.float64]
@@ -580,7 +579,7 @@ class TestFeatureSelection:
         Features like 'label', 'attack_type', 'class' should not be present.
         """
         leakage_features = ["label", "attack_type", "class", "attack", "target", "y"]
-        
+
         for feature in leakage_features:
             assert feature not in production_feature_names, \
                 f"Leakage feature '{feature}' should not be in production features"
@@ -591,12 +590,12 @@ class TestFeatureSelection:
         """
         df_original = raw_network_data.copy()
         df = raw_network_data.copy()
-        
+
         # Engineer features
         total_bytes = df["src_bytes"] + df["dst_bytes"]
         total_safe = total_bytes.replace(0, 1.0)
         df["bytes_ratio"] = df["src_bytes"] / total_safe
-        
+
         # Original columns should be unchanged
         np.testing.assert_array_equal(
             df["src_bytes"].values,

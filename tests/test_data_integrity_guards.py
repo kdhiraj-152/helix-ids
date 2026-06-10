@@ -5,8 +5,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from helix_ids.data.multi_dataset_loader import MultiDatasetLoader
 from helix_ids.data.feature_harmonization import COMMON_FEATURES
+from helix_ids.data.multi_dataset_loader import MultiDatasetLoader
 
 
 def _loader() -> MultiDatasetLoader:

@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from helix_ids.governance.ast_validator import ASTValidatorConfig, main, validate_paths
 
 

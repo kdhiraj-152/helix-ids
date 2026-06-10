@@ -9,7 +9,6 @@ Tests cover:
 """
 
 import json
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -63,7 +62,7 @@ class TestNSLKDDLoading:
         """
         train_path = nsl_kdd_data_path / "train.csv"
         df = pd.read_csv(train_path)
-        
+
         assert len(df) > 0, "Training data should not be empty"
 
     def test_nsl_kdd_test_loadable(self, nsl_kdd_data_path):
@@ -72,7 +71,7 @@ class TestNSLKDDLoading:
         """
         test_path = nsl_kdd_data_path / "test.csv"
         df = pd.read_csv(test_path)
-        
+
         assert len(df) > 0, "Test data should not be empty"
 
     def test_nsl_kdd_metadata_exists(self, nsl_kdd_data_path):
@@ -97,7 +96,7 @@ class TestNSLKDDLoading:
         """
         train_path = nsl_kdd_data_path / "train.csv"
         df = pd.read_csv(train_path)
-        
+
         # NSL-KDD should have at least 1000 samples
         assert len(df) >= 1000, f"Expected at least 1000 samples, got {len(df)}"
 
@@ -107,7 +106,7 @@ class TestNSLKDDLoading:
         """
         train_path = nsl_kdd_data_path / "train.csv"
         df = pd.read_csv(train_path)
-        
+
         # Should have numeric columns
         numeric_cols = df.select_dtypes(include=[np.number]).columns
         assert len(numeric_cols) > 0, "Should have numeric columns"
@@ -141,7 +140,7 @@ class TestUNSWNB15Loading:
         """
         train_path = unsw_nb15_data_path / "train.csv"
         df = pd.read_csv(train_path)
-        
+
         assert len(df) > 0, "Training data should not be empty"
 
     def test_unsw_test_loadable(self, unsw_nb15_data_path):
@@ -150,7 +149,7 @@ class TestUNSWNB15Loading:
         """
         test_path = unsw_nb15_data_path / "test.csv"
         df = pd.read_csv(test_path)
-        
+
         assert len(df) > 0, "Test data should not be empty"
 
     def test_unsw_metadata_exists(self, unsw_nb15_data_path):
@@ -166,7 +165,7 @@ class TestUNSWNB15Loading:
         """
         train_path = unsw_nb15_data_path / "train.csv"
         df = pd.read_csv(train_path)
-        
+
         # UNSW-NB15 should have at least 1000 samples
         assert len(df) >= 1000, f"Expected at least 1000 samples, got {len(df)}"
 
@@ -192,7 +191,7 @@ class TestUnifiedFeatureAlignment:
         """
         from scripts.train_multidataset_v2_fixed import SafeDataLoader
         count = len(SafeDataLoader.UNIFIED_FEATURES)
-        
+
         assert count == UNIFIED_FEATURES, \
             f"Expected {UNIFIED_FEATURES} unified features, got {count}"
 
@@ -208,20 +207,20 @@ class TestUnifiedFeatureAlignment:
         Test production features match unified feature set.
         """
         unified_path = processed_data_path / "unified_features.json"
-        
+
         if unified_path.exists():
-            with open(unified_path, "r") as f:
+            with open(unified_path) as f:
                 unified = json.load(f)
-            
+
             if isinstance(unified, list):
                 unified_features = set(unified)
             elif isinstance(unified, dict):
                 unified_features = set(unified.get("features", []))
             else:
                 unified_features = set()
-            
+
             production_set = set(production_feature_names)
-            
+
             # Check overlap (may not be exact due to engineering)
             overlap = production_set & unified_features
             # At least some features should match
@@ -233,7 +232,7 @@ class TestUnifiedFeatureAlignment:
         """
         train_path = nsl_kdd_data_path / "train.csv"
         df = pd.read_csv(train_path)
-        
+
         # Should have numeric columns that can be used
         numeric_cols = df.select_dtypes(include=[np.number]).columns
         assert len(numeric_cols) > 10, "Should have at least 10 numeric columns for features"
@@ -244,7 +243,7 @@ class TestUnifiedFeatureAlignment:
         """
         train_path = unsw_nb15_data_path / "train.csv"
         df = pd.read_csv(train_path)
-        
+
         # Should have numeric columns that can be used
         numeric_cols = df.select_dtypes(include=[np.number]).columns
         assert len(numeric_cols) > 10, "Should have at least 10 numeric columns for features"
@@ -284,23 +283,23 @@ class TestDataSplits:
         Test NSL-KDD split ratios are approximately correct.
         """
         indices_path = project_root / "data" / "splits" / "nsl-kdd_indices.json"
-        
+
         if not indices_path.exists():
             pytest.skip("Split indices file not found")
-        
-        with open(indices_path, "r") as f:
+
+        with open(indices_path) as f:
             indices = json.load(f)
-        
+
         # Get total count
         train_path = nsl_kdd_data_path / "train.csv"
         df = pd.read_csv(train_path)
         _ = len(df)
-        
+
         if isinstance(indices, dict):
             train_count = len(indices.get("train", []))
             val_count = len(indices.get("val", indices.get("validation", [])))
             test_count = len(indices.get("test", []))
-            
+
             # Allow 10% tolerance on ratios
             if train_count + val_count + test_count > 0:
                 actual_train_ratio = train_count / (train_count + val_count + test_count)
@@ -312,18 +311,18 @@ class TestDataSplits:
         Test that train/val/test splits don't overlap.
         """
         indices_path = project_root / "data" / "splits" / "nsl-kdd_indices.json"
-        
+
         if not indices_path.exists():
             pytest.skip("Split indices file not found")
-        
-        with open(indices_path, "r") as f:
+
+        with open(indices_path) as f:
             indices = json.load(f)
-        
+
         if isinstance(indices, dict):
             train_set = set(indices.get("train", []))
             val_set = set(indices.get("val", indices.get("validation", [])))
             test_set = set(indices.get("test", []))
-            
+
             # Check no overlap
             assert len(train_set & val_set) == 0, "Train and val sets overlap"
             assert len(train_set & test_set) == 0, "Train and test sets overlap"
@@ -334,22 +333,22 @@ class TestDataSplits:
         Test that splits cover all data (no missing indices).
         """
         indices_path = project_root / "data" / "splits" / "nsl-kdd_indices.json"
-        
+
         if not indices_path.exists():
             pytest.skip("Split indices file not found")
-        
-        with open(indices_path, "r") as f:
+
+        with open(indices_path) as f:
             indices = json.load(f)
-        
+
         train_path = nsl_kdd_data_path / "train.csv"
         df = pd.read_csv(train_path)
         total = len(df)
-        
+
         if isinstance(indices, dict):
             train_count = len(indices.get("train", []))
             val_count = len(indices.get("val", indices.get("validation", [])))
             test_count = len(indices.get("test", []))
-            
+
             total_split = train_count + val_count + test_count
             # Should cover at least 90% of data (some may be filtered)
             if total > 0:
@@ -407,7 +406,7 @@ class TestUnifiedDataLoader:
             from src.helix_ids.data.unified_loader import UnifiedDataLoader
             loader = UnifiedDataLoader(data_dir=str(project_root / "data"))
             X, y, _ = loader.load("nsl-kdd")
-            
+
             assert X is not None
             assert y is not None
             assert len(X) == len(y)
@@ -423,7 +422,7 @@ class TestUnifiedDataLoader:
             from src.helix_ids.data.unified_loader import UnifiedDataLoader
             loader = UnifiedDataLoader(data_dir=str(project_root / "data"))
             X, y, _ = loader.load("unsw-nb15")
-            
+
             assert X is not None
             assert y is not None
             assert len(X) == len(y)
@@ -446,10 +445,10 @@ class TestDataQuality:
         """
         train_path = nsl_kdd_data_path / "train.csv"
         df = pd.read_csv(train_path)
-        
+
         # Find label column (may be 'label', 'class', 'attack', or last column)
         label_cols = [c for c in df.columns if c.lower() in ['label', 'class', 'attack', 'attack_type']]
-        
+
         if label_cols:
             label_col = label_cols[0]
             null_count = df[label_col].isna().sum()
@@ -461,9 +460,9 @@ class TestDataQuality:
         """
         train_path = nsl_kdd_data_path / "train.csv"
         df = pd.read_csv(train_path)
-        
+
         numeric_cols = df.select_dtypes(include=[np.number]).columns
-        
+
         for col in numeric_cols[:10]:  # Check first 10 numeric columns
             # Should not have extreme values
             assert not np.isinf(df[col]).any(), f"Column {col} has infinite values"
@@ -477,10 +476,10 @@ class TestDataQuality:
         """
         train_path = unsw_nb15_data_path / "train.csv"
         df = pd.read_csv(train_path)
-        
+
         # Find label column
         label_cols = [c for c in df.columns if c.lower() in ['label', 'class', 'attack', 'attack_cat']]
-        
+
         if label_cols:
             label_col = label_cols[0]
             null_count = df[label_col].isna().sum()
@@ -492,10 +491,10 @@ class TestDataQuality:
         """
         train_path = nsl_kdd_data_path / "train.csv"
         df = pd.read_csv(train_path)
-        
+
         # Find label column
         label_cols = [c for c in df.columns if c.lower() in ['label', 'class', 'attack', 'attack_type']]
-        
+
         if label_cols:
             label_col = label_cols[0]
             unique_labels = df[label_col].nunique()
@@ -515,7 +514,7 @@ class TestDataLoadingEdgeCases:
         Test graceful handling of missing files.
         """
         nonexistent_path = project_root / "data" / "nonexistent" / "train.csv"
-        
+
         with pytest.raises((FileNotFoundError, IOError, Exception)):
             pd.read_csv(nonexistent_path)
 
@@ -529,7 +528,7 @@ class TestDataLoadingEdgeCases:
             f.write("col1,col2,col3\n")
             f.write("1,2\n")  # Missing column
             f.write("a,b,c,d\n")  # Extra column
-        
+
         # Should still load (pandas is forgiving) or raise specific error
         try:
             _ = pd.read_csv(corrupted_path, on_bad_lines='skip')
@@ -543,7 +542,7 @@ class TestDataLoadingEdgeCases:
         """
         empty_path = tmp_path / "empty.csv"
         empty_path.touch()
-        
+
         with pytest.raises((pd.errors.EmptyDataError, Exception)):
             pd.read_csv(empty_path)
 
@@ -554,7 +553,7 @@ class TestDataLoadingEdgeCases:
         headers_path = tmp_path / "headers_only.csv"
         with open(headers_path, "w") as f:
             f.write("col1,col2,col3\n")
-        
+
         df = pd.read_csv(headers_path)
         assert len(df) == 0
         assert list(df.columns) == ["col1", "col2", "col3"]

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from collections import deque
-from dataclasses import dataclass
 import json
+from collections import deque
+from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping, cast
+from typing import Any
 
 import numpy as np
 import torch
@@ -12,23 +13,24 @@ import torch
 from helix_ids.contracts import CONTRACT_VERSION, FEATURE_ORDER_HASH
 from helix_ids.contracts.schema_contract import (
     CANONICAL_BINARY_CLASSES,
-    CANONICAL_FEATURE_ORDER,
     CANONICAL_FAMILY_CLASSES,
+    CANONICAL_FEATURE_ORDER,
     CANONICAL_INPUT_DIM,
-    SCHEMA_HASH,
-    SCHEMA_VERSION,
     assert_runtime_contract,
     runtime_contract_payload,
     validate_feature_order,
 )
 from helix_ids.governance import (
     embed_manifest_in_onnx_metadata,
-    verify_artifact_provenance,
     verify_ingress_artifact,
     write_contract_sidecars,
 )
-from helix_ids.utils.export import build_export_manifest, finalize_export_artifact, verify_export_artifact
 from helix_ids.models.full import HelixFullConfig, create_helix_full
+from helix_ids.utils.export import (
+    build_export_manifest,
+    finalize_export_artifact,
+    verify_export_artifact,
+)
 
 
 @dataclass(frozen=True)
@@ -207,14 +209,13 @@ class HelixInferenceRuntime:
             kind=kind,
             contract=contract,
             embedded_manifest=embedded_manifest,
-            allow_legacy_local_dev=True,
             sidecars=sidecars,
             deployment_manifest=deployment_manifest,
         )
         manifest = sidecar or embedded_manifest
         if not manifest:
             # Legacy artifacts may bypass manifest checks only when explicitly allowed
-            # via HELIX_ALLOW_LEGACY_ARTIFACTS.
+            # via allow_legacy_artifacts().
             return
         for field in ("schema_hash", "feature_order_hash", "contract_version"):
             if str(manifest[field]) != str(contract[field]):

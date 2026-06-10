@@ -15,17 +15,16 @@ from helix_ids.governance.lifecycle_verifier import (
     tamper_deleted_manifest,
     tamper_embedded_and_sidecar_mismatch,
     tamper_embedded_sidecar_mismatch,
-    tamper_extra_feature_sidecar,
     tamper_exporter_version,
+    tamper_extra_feature_sidecar,
     tamper_manifest_replay,
     tamper_missing_feature_sidecar,
     tamper_provenance_chain,
     tamper_reordered_feature_sidecar,
-    tamper_sidecar_manifest_mismatch,
     tamper_schema_hash,
+    tamper_sidecar_manifest_mismatch,
     verify_lifecycle_artifacts,
 )
-
 
 try:
     import onnx  # noqa: F401

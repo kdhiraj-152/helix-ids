@@ -7,23 +7,25 @@ synthetic fills and removes non-transferable proxy features.
 
 import json
 import os
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, List, Mapping, Optional, Sequence, Union
+from typing import Any
 
 import numpy as np
 import pandas as pd
 import torch
 
+from ..contracts import CONTRACT_VERSION
 from ..contracts.schema_contract import (
     CANONICAL_FEATURE_ORDER,
     SCHEMA_VERSION,
     assert_runtime_contract,
-    compute_schema_hash as _compute_schema_hash_contract,
     validate_feature_order,
 )
-from ..contracts import CONTRACT_VERSION
-from ..governance import verify_artifact_provenance
+from ..contracts.schema_contract import (
+    compute_schema_hash as _compute_schema_hash_contract,
+)
 
 
 def compute_schema_hash(*args, **kwargs) -> str:
@@ -251,7 +253,6 @@ def normalize_column_name(name: str) -> str:
 
 def normalize_per_dataset(X):
     """Normalize a single dataset tensor with z-score scaling."""
-    import torch
 
     mean = X.mean(dim=0, keepdim=True)
     std = X.std(dim=0, keepdim=True)
@@ -337,9 +338,9 @@ class FeatureMapping:
     """Raw column aliases required to construct the invariant feature space."""
 
     dataset_name: str
-    original_features: List[str]
-    common_features: List[str]
-    feature_mapping: Mapping[str, Union[str, List[str]]]
+    original_features: list[str]
+    common_features: list[str]
+    feature_mapping: Mapping[str, str | list[str]]
 
     def to_dict(self):
         payload = asdict(self)
@@ -414,19 +415,21 @@ def load_artifact(
     artifact = torch.load(artifact_path, map_location="cpu", weights_only=True)
     from helix_ids.governance import verify_ingress_artifact
 
+    _validate_artifact_keys(artifact)
+    _deployment_manifest_candidate = artifact_path.parent / "deployment.manifest.json"
+    _deployment_manifest = _deployment_manifest_candidate if _deployment_manifest_candidate.exists() else None
     verify_ingress_artifact(
         artifact_path,
         kind="checkpoint",
         contract=artifact,
         embedded_manifest=artifact.get("artifact_manifest"),
-        allow_legacy_local_dev=True,
+        deployment_manifest=_deployment_manifest,
         sidecars={
             "contract": artifact_path.with_suffix(artifact_path.suffix + ".contract.json"),
             "feature_order": artifact_path.with_suffix(artifact_path.suffix + ".feature_order.json"),
             "schema_hash": artifact_path.with_suffix(artifact_path.suffix + ".schema_hash.txt"),
         },
     )
-    _validate_artifact_keys(artifact)
     artifact_contract_version = str(artifact["contract_version"])
     if artifact_contract_version != CONTRACT_VERSION:
         raise AssertionError(
@@ -580,7 +583,7 @@ def _find_column(
     df: pd.DataFrame,
     normalized_columns: Mapping[str, str],
     candidates: Sequence[str],
-) -> Optional[str]:
+) -> str | None:
     _ = df
     for candidate in candidates:
         key = normalize_column_name(candidate)
@@ -610,7 +613,7 @@ def _optional_numeric(
     df: pd.DataFrame,
     normalized_columns: Mapping[str, str],
     candidates: Sequence[str],
-) -> Optional[pd.Series]:
+) -> pd.Series | None:
     col = _find_column(df, normalized_columns, candidates)
     if col is None:
         return None
@@ -653,9 +656,9 @@ def _protocol_one_hot(protocol_raw: pd.Series) -> tuple[pd.Series, pd.Series, pd
 def _state_indicators(
     *,
     dataset_name: str,
-    state_raw: Optional[pd.Series],
-    syn_count: Optional[pd.Series],
-    rst_count: Optional[pd.Series],
+    state_raw: pd.Series | None,
+    syn_count: pd.Series | None,
+    rst_count: pd.Series | None,
     total_bytes: pd.Series,
 ) -> tuple[pd.Series, pd.Series]:
     if dataset_name == "cicids":
@@ -683,7 +686,7 @@ def _optional_average(
     df: pd.DataFrame,
     normalized_columns: Mapping[str, str],
     candidates: Sequence[str],
-) -> Optional[pd.Series]:
+) -> pd.Series | None:
     series_list: list[pd.Series] = []
     for candidate in candidates:
         col = _find_column(df, normalized_columns, [candidate])
@@ -695,13 +698,13 @@ def _optional_average(
     return stacked.mean(axis=1)
 
 
-def _series_or_default(series: Optional[pd.Series], index: pd.Index, default: float = 0.0) -> pd.Series:
+def _series_or_default(series: pd.Series | None, index: pd.Index, default: float = 0.0) -> pd.Series:
     if series is None:
         return pd.Series(default, index=index, dtype=np.float64)
     return pd.to_numeric(series, errors="coerce").fillna(default).astype(np.float64)
 
 
-def _nonnegative_proxy(series: Optional[pd.Series], index: pd.Index, default: float = 0.0) -> pd.Series:
+def _nonnegative_proxy(series: pd.Series | None, index: pd.Index, default: float = 0.0) -> pd.Series:
     values = _series_or_default(series, index=index, default=default)
     # Some preprocessed exports contain z-scored count-like fields; abs keeps magnitude signal.
     if (values < 0).any():

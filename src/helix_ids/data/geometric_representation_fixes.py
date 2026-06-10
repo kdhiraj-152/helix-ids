@@ -17,7 +17,6 @@ import numpy as np
 import pandas as pd
 from scipy.spatial.distance import cdist
 from scipy.stats import entropy
-from sklearn.decomposition import PCA
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import StandardScaler
 
@@ -55,17 +54,17 @@ class GeometricRepresentationFixer:
             DataFrame with new interaction features appended
         """
         df = df.copy()
-        
+
         # Apply feature engineering in stages
         self._add_byte_features(df)
         self._add_count_features(df)
         self._add_rate_flag_service_interactions(df)
         self._add_categorical_cross_features(df)
         self._add_flag_entropy_features(df)
-        
+
         if not minimal_set:
             self._add_extended_features(df)
-        
+
         # Count new features for logging
         new_feature_pattern = (
             "log_",
@@ -80,23 +79,23 @@ class GeometricRepresentationFixer:
             "flag_entropy",
         )
         new_count = len([c for c in df.columns if c.startswith(new_feature_pattern)])
-        
+
         logger.info("Added %d interaction features: new shape %s", new_count, df.shape)
         return df
-    
+
     def _add_byte_features(self, df: pd.DataFrame) -> None:
         """Add log-transformed and ratio-based byte features."""
         if "src_bytes" in df.columns:
             df["log_src_bytes"] = np.log1p(np.abs(df["src_bytes"].fillna(0)))
         if "dst_bytes" in df.columns:
             df["log_dst_bytes"] = np.log1p(np.abs(df["dst_bytes"].fillna(0)))
-            
+
         if "src_bytes" in df.columns and "dst_bytes" in df.columns:
             src_b = np.abs(df["src_bytes"].fillna(0)).astype(np.float32)
             dst_b = np.abs(df["dst_bytes"].fillna(0)).astype(np.float32)
             df["src_dst_bytes_ratio"] = src_b / (dst_b + 1.0)
             df["dst_src_bytes_ratio"] = dst_b / (src_b + 1.0)
-    
+
     def _add_count_features(self, df: pd.DataFrame) -> None:
         """Add log-transformed connection count features and ratios."""
         if "count" in df.columns:
@@ -124,7 +123,7 @@ class GeometricRepresentationFixer:
             diff_srv_rate = np.abs(df["diff_srv_rate"].fillna(0)).astype(np.float32)
             flag_codes = pd.factorize(df["flag"].fillna("__MISSING__").astype(str), sort=True)[0]
             df["diff_srv_rate_x_flag"] = diff_srv_rate * (flag_codes.astype(np.float32) + 1.0)
-    
+
     def _add_categorical_cross_features(self, df: pd.DataFrame) -> None:
         """Add service × protocol categorical interaction."""
         if "service" in df.columns and "protocol_type" in df.columns:
@@ -140,7 +139,7 @@ class GeometricRepresentationFixer:
                 + "_"
                 + df["flag"].astype(str)
             )
-    
+
     def _add_flag_entropy_features(self, df: pd.DataFrame) -> None:
         """Add flag entropy per row for behavioral diversity."""
         if "flag" in df.columns:
@@ -148,13 +147,13 @@ class GeometricRepresentationFixer:
             df["flag_entropy"] = flag_vals.apply(
                 lambda x: float(entropy([ord(c) for c in str(x)]) if len(str(x)) > 0 else 0.0)
             )
-    
+
     def _add_extended_features(self, df: pd.DataFrame) -> None:
         """Add extended set of discriminative features."""
         for col in ["serror_rate", "rerror_rate"]:
             if col in df.columns:
                 df[f"{col}_logged"] = -np.log10(np.abs(df[col].fillna(0)) + 1e-9)
-                
+
         if "same_srv_rate" in df.columns:
             df["same_srv_rate_inv"] = 1.0 - (np.abs(df["same_srv_rate"].fillna(0)))
 
@@ -185,7 +184,7 @@ class GeometricRepresentationFixer:
             feature_names = [f"f{i}" for i in range(X.shape[1])]
         if categorical_cols is None:
             categorical_cols = set()
-            
+
         x_out = X.copy().astype(np.float32)
         stats: dict[str, Any] = {
             "scaler": None,
@@ -193,7 +192,7 @@ class GeometricRepresentationFixer:
             "continuous_indices": [],
             "categorical_indices": [],
         }
-        
+
         # Identify continuous vs categorical
         continuous_idx = []
         categorical_idx = []
@@ -202,10 +201,10 @@ class GeometricRepresentationFixer:
                 categorical_idx.append(i)
             else:
                 continuous_idx.append(i)
-                
+
         stats["continuous_indices"] = continuous_idx
         stats["categorical_indices"] = categorical_idx
-        
+
         # Normalize only continuous features
         if continuous_idx:
             x_continuous = x_out[:, continuous_idx]
@@ -216,9 +215,9 @@ class GeometricRepresentationFixer:
             else:
                 if stats["scaler"]:
                     x_continuous = stats["scaler"].transform(x_continuous)
-                    
+
             x_out[:, continuous_idx] = x_continuous
-            
+
         logger.info(
             "Split normalization: %d continuous (scaled), %d categorical (preserved)",
             len(continuous_idx),
@@ -249,25 +248,25 @@ class GeometricRepresentationFixer:
             (X_with_density, nn_model) tuple
         """
         k = k or self.k_nn
-        
+
         if fit:
             nn_model = NearestNeighbors(n_neighbors=k, n_jobs=-1)
             nn_model.fit(X)
-            
+
         if nn_model is None:
             raise ValueError("nn_model required when fit=False")
-            
+
         # Compute k-NN distances (exclude self)
         distances, _ = nn_model.kneighbors(X)
-        
+
         # Average distance to k neighbors (density inverse)
         avg_distances = distances[:, 1:].mean(axis=1)  # Exclude self
         density = 1.0 / (avg_distances + 1e-8)
-        
+
         # Append as feature (log scale for better dynamic range)
         log_density = np.log1p(density).reshape(-1, 1).astype(np.float32)
         x_out = np.hstack([X, log_density]).astype(np.float32)
-        
+
         logger.info(
             "Added density feature: density range [%.4f, %.4f], "
             "shape %s -> %s",
@@ -300,18 +299,18 @@ class GeometricRepresentationFixer:
         class_ids = sorted(centers.keys())
         collision_pairs: list[dict[str, Any]] = []
         class_collision_map: dict[int, list[int]] = {cid: [] for cid in class_ids}
-        
+
         if len(class_ids) < 2:
             return collision_pairs, class_collision_map
-            
+
         center_matrix = np.array([centers[cid] for cid in class_ids], dtype=np.float32)
         dist_mat = cdist(center_matrix, center_matrix, metric="euclidean")
-        
+
         for i, cls_i in enumerate(class_ids):
             for j in range(i + 1, len(class_ids)):
                 cls_j = class_ids[j]
                 dist_val = float(dist_mat[i, j])
-                
+
                 if dist_val < collision_threshold:
                     collision_pairs.append({
                         "class_i": int(cls_i),
@@ -321,7 +320,7 @@ class GeometricRepresentationFixer:
                     })
                     class_collision_map[cls_i].append(cls_j)
                     class_collision_map[cls_j].append(cls_i)
-                    
+
         logger.info(
             "Detected %d secondary collisions (threshold=%.3f)",
             len(collision_pairs),
@@ -357,7 +356,7 @@ class GeometricRepresentationFixer:
         """
         class_ids = sorted(centers.keys())
         confusion_matrix: dict[int, dict[str, Any]] = {}
-        
+
         for cls in class_ids:
             confusion_matrix[cls] = {
                 "n_samples": 0,
@@ -365,15 +364,15 @@ class GeometricRepresentationFixer:
                 "nearest_classes": {},
                 "confusion_with": {},
             }
-            
+
         if len(features) == 0 or len(class_ids) < 1:
             return confusion_matrix
-            
+
         # Compute distances to all centers for all samples
         center_matrix = np.array([centers[cid] for cid in class_ids], dtype=np.float32)
         dists = cdist(features, center_matrix, metric="euclidean")  # (n_samples, n_classes)
         nearest_class_idx = np.argsort(dists, axis=1)
-        
+
         # Build confusion matrix - split into helper to reduce complexity
         self._populate_confusion_matrix(
             nearest_class_idx,
@@ -382,16 +381,16 @@ class GeometricRepresentationFixer:
             confusion_matrix,
             top_k,
         )
-        
+
         # Compute ratios
         self._compute_confusion_ratios(class_ids, confusion_matrix)
-        
+
         logger.info(
             "Built nearest-center confusion matrix for %d classes",
             len(class_ids),
         )
         return confusion_matrix
-    
+
     def _populate_confusion_matrix(
         self,
         nearest_class_idx: np.ndarray,
@@ -405,11 +404,11 @@ class GeometricRepresentationFixer:
             true_class = int(true_class_idx)
             if true_class not in confusion_matrix:
                 continue
-                
+
             confusion_matrix[true_class]["n_samples"] += 1
             nearest_idx = nearest_class_idx[sample_idx, 0]
             nearest_class = class_ids[nearest_idx]
-            
+
             if nearest_class == true_class:
                 confusion_matrix[true_class]["correct_nearest_center_count"] += 1
             else:
@@ -418,7 +417,7 @@ class GeometricRepresentationFixer:
                 if nearest_class not in confusion_with:
                     confusion_with[nearest_class] = 0
                 confusion_with[nearest_class] += 1
-                
+
             # Track all nearest classes
             nearest_classes: dict[int, int] = confusion_matrix[true_class]["nearest_classes"]
             for rank in range(min(top_k, len(class_ids))):
@@ -426,7 +425,7 @@ class GeometricRepresentationFixer:
                 if nc not in nearest_classes:
                     nearest_classes[nc] = 0
                 nearest_classes[nc] += 1
-    
+
     def _compute_confusion_ratios(
         self,
         class_ids: list[int],
@@ -462,7 +461,7 @@ class GeometricRepresentationFixer:
             Dict with capacity assessment and recommendations
         """
         recommendations = []
-        
+
         if intra_inter_ratio >= target_ratio:
             # Model is under-capacity
             if embedding_dim < 256:
@@ -472,7 +471,7 @@ class GeometricRepresentationFixer:
                     "suggested": int(embedding_dim * 1.5),
                     "rationale": "Embedding dimension too small for manifold complexity",
                 })
-                
+
             if dropout_rate > 0.3:
                 recommendations.append({
                     "action": "reduce_dropout",
@@ -480,12 +479,12 @@ class GeometricRepresentationFixer:
                     "suggested": max(0.1, dropout_rate - 0.1),
                     "rationale": "Dropout may be over-regularizing, destroying discriminative structure",
                 })
-                
+
             recommendations.append({
                 "action": "remove_bottleneck_layers",
                 "rationale": "Remove any intermediate layers that compress to < 50% of embedding_dim",
             })
-            
+
         return {
             "current_ratio": float(intra_inter_ratio),
             "target_ratio": float(target_ratio),
@@ -526,7 +525,7 @@ def apply_geometric_fixes(
         - nn_model: Fitted k-NN model for density
     """
     fixer = GeometricRepresentationFixer(k_nn=k_nn)
-    
+
     # Fix 2: Apply split normalization first
     x_normalized, norm_stats = fixer.split_normalization(
         X,
@@ -534,14 +533,14 @@ def apply_geometric_fixes(
         categorical_cols=categorical_cols,
         fit=True,
     )
-    
+
     # Fix 3: Add local density features
     x_with_density, nn_model = fixer.add_local_density_features(
         x_normalized,
         k=k_nn,
         fit=True,
     )
-    
+
     # Fix 4 & 5: Collision detection & confusion matrix
     collision_pairs, class_collision_map = fixer.detect_secondary_collisions(
         centers,
@@ -553,7 +552,7 @@ def apply_geometric_fixes(
         centers,
         top_k=3,
     )
-    
+
     return {
         "X_enhanced": x_with_density,
         "collision_pairs": collision_pairs,

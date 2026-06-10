@@ -5,8 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-import numpy as np
 import pytest
+
 from helix_ids.data.learnability_contract import (
     create_summary,
     derive_root_cause,
@@ -46,9 +46,9 @@ def test_derive_root_cause_feature_space_collapse() -> None:
         "stage_diagnostics": {},
         "stage_transitions": {},
     }
-    
+
     root_cause = derive_root_cause(meta)
-    
+
     assert root_cause["primary"] == "feature_space_collapse"
     assert root_cause["mode"] == "single"
     assert 0.0 <= root_cause["confidence"] <= 1.0
@@ -70,9 +70,9 @@ def test_derive_root_cause_class_prediction_collapse() -> None:
         "stage_diagnostics": {},
         "stage_transitions": {},
     }
-    
+
     root_cause = derive_root_cause(meta)
-    
+
     assert root_cause["primary"] == "class_prediction_collapse"
     assert root_cause["mode"] == "single"
     assert root_cause["scores"]["class_prediction_collapse"] > 0.2
@@ -92,9 +92,9 @@ def test_derive_root_cause_feature_degeneracy() -> None:
         "stage_diagnostics": {},
         "stage_transitions": {},
     }
-    
+
     root_cause = derive_root_cause(meta)
-    
+
     assert root_cause["primary"] == "feature_degeneracy"
     assert root_cause["mode"] == "single"
     assert root_cause["scores"]["feature_degeneracy"] > 0.9
@@ -285,9 +285,9 @@ def test_rank_failure_stages() -> None:
     stage_transitions = {
         "stage1->stage2": {"f1_ratio": 0.6, "centroid_shrinkage_ratio": 0.8},
     }
-    
+
     result = rank_failure_stages(stage_transitions)
-    
+
     assert result["primary_failure_stage"] == "stage1->stage2"
     assert result["f1_drop"] == pytest.approx(0.4, abs=0.001)
     assert len(result["stages_ranked"]) == 1
@@ -299,9 +299,9 @@ def test_extract_feature_kill_list() -> None:
         "stage1": {"mutual_info_delta": [-0.5, -0.3, -0.0002, -0.2, -0.1, 0.0]},
         "stage2": {"mutual_info_delta": [-0.8, -0.01, -0.0005, -0.4, -0.2, -0.6]},
     }
-    
+
     kill_list = extract_feature_kill_list(stage_diagnostics, top_n=25, epsilon=1e-3)
-    
+
     assert len(kill_list) <= 10
     assert all(isinstance(f, str) and f.startswith("f_") for f in kill_list)
     assert "f_2" not in kill_list  # filtered as epsilon-level noise
@@ -315,9 +315,9 @@ def test_get_action_directive_scaling_destruction() -> None:
         "kill_list": ["f_0", "f_1"],
         "confidence": 0.87,
     }
-    
+
     action = get_action_directive(diagnosis)
-    
+
     assert action["type"] == "REMOVE_SCALING"
     assert action["target_stage"] == "standard_scaling"
     assert action["expected_effect"] == "increase centroid distance"
@@ -333,9 +333,9 @@ def test_get_action_directive_feature_degeneracy() -> None:
         "kill_list": ["f_5", "f_6", "f_7"],
         "confidence": 0.7,
     }
-    
+
     action = get_action_directive(diagnosis)
-    
+
     assert action["type"] == "DROP_FEATURES"
     assert action["target_features"] == ["f_5", "f_6", "f_7"]
 
@@ -348,9 +348,9 @@ def test_get_action_directive_class_prediction_collapse() -> None:
         "kill_list": [],
         "confidence": 0.6,
     }
-    
+
     action = get_action_directive(diagnosis)
-    
+
     assert action["type"] == "REBUILD_LABELS"
 
 
@@ -421,9 +421,9 @@ def test_create_summary() -> None:
         "stage_diagnostics": {},
         "stage_transitions": {},
     }
-    
+
     summary = create_summary(meta)
-    
+
     assert summary["status"] == "FAIL"
     assert summary["primary_issue"] in {
         "feature_space_collapse",
@@ -773,9 +773,9 @@ def test_format_failure_message() -> None:
         "action": "REMOVE_SCALING",
         "confidence": 0.90,
     }
-    
+
     message = format_failure_message(summary)
-    
+
     assert "UNSW CONTRACT FAILURE" in message
     assert "scaling_destruction" in message
     assert "REMOVE_SCALING" in message
@@ -785,17 +785,17 @@ def test_format_failure_message() -> None:
 def test_actual_artifact_contract_diagnosis() -> None:
     """Integration test with actual processed artifact."""
     artifact_dir = Path("data/processed/multi_dataset_v1")
-    
+
     if not artifact_dir.exists():
         # Skip if artifact doesn't exist
         return
-    
+
     meta_path = artifact_dir / "meta.json"
     if not meta_path.exists():
         return
 
     meta = load_meta(artifact_dir=artifact_dir)
-    
+
     # Verify diagnosis structure
     assert "diagnosis" in meta
     assert "primary" in meta["diagnosis"]
@@ -803,11 +803,11 @@ def test_actual_artifact_contract_diagnosis() -> None:
     assert "confidence" in meta["diagnosis"]
     assert "scores" in meta["diagnosis"]
     assert "mode" in meta["diagnosis"]
-    
+
     # Verify action directive
     assert "action" in meta
     assert "type" in meta["action"]
-    
+
     # Verify summary
     assert "summary" in meta
     assert meta["summary"]["status"] in ["PASS", "FAIL"]

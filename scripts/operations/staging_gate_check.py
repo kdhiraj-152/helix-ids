@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-from urllib.error import URLError, HTTPError
+from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 
 
@@ -37,7 +37,7 @@ def main() -> int:
     try:
         payload = _fetch_metrics(args.metrics_endpoint)
     except (URLError, HTTPError, TimeoutError, OSError) as exc:
-        print(f"[HELIX GATE] BLOCKED", flush=True)
+        print("[HELIX GATE] BLOCKED", flush=True)
         print("override_rate=nan", flush=True)
         print("degraded_state=1", flush=True)
         print(f"error={exc}", file=sys.stderr)

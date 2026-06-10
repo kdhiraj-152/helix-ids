@@ -1,9 +1,10 @@
 import json
+
 import numpy as np
 import pandas as pd
 import pytest
 
-from src.helix_ids.operations.monitoring import LiveMonitor, ContractViolationError
+from src.helix_ids.contracts import CONTRACT_VERSION, SCHEMA_VERSION
 from src.helix_ids.data.feature_harmonization import (
     FEATURE_ORDER,
     SchemaDriftError,
@@ -13,8 +14,7 @@ from src.helix_ids.data.feature_harmonization import (
     load_artifact,
 )
 from src.helix_ids.data.multi_dataset_loader import MultiDatasetLoader
-from src.helix_ids.contracts import CONTRACT_VERSION
-from src.helix_ids.contracts import SCHEMA_VERSION
+from src.helix_ids.operations.monitoring import ContractViolationError, LiveMonitor
 
 
 def test_monitor_raises_on_cardinality_mismatch(tmp_path):
@@ -28,7 +28,7 @@ def test_monitor_raises_on_cardinality_mismatch(tmp_path):
         monitor.evaluate(
             preds,
             producer="unit-test",
-            artifact_path="/tmp/fake.pt",
+                artifact_path=str(tmp_path / "fake.pt"),
             schema_hash_expected="abc",
             schema_hash_actual="def",
             feature_names_expected=["a", "b"],
@@ -73,19 +73,29 @@ def test_feature_harmonization_rejects_column_reorder(tmp_path):
     model_path = tmp_path / "artifact_reorder.pt"
     import torch
 
-    torch.save(
-        {
-            "model": {"w": torch.zeros((1, 1))},
-            "schema_version": SCHEMA_VERSION,
-            "schema_hash": harmonized.attrs["schema_hash"],
-            "feature_order": FEATURE_ORDER,
-            "input_dim": len(FEATURE_ORDER),
-            "binary_output_dim": 2,
-            "family_output_dim": 7,
-            "contract_version": CONTRACT_VERSION,
-        },
-        model_path,
+    artifact = {
+        "model": {"w": torch.zeros((1, 1))},
+        "schema_version": SCHEMA_VERSION,
+        "schema_hash": harmonized.attrs["schema_hash"],
+        "feature_order": FEATURE_ORDER,
+        "input_dim": len(FEATURE_ORDER),
+        "binary_output_dim": 2,
+        "family_output_dim": 7,
+        "contract_version": CONTRACT_VERSION,
+    }
+    torch.save(artifact, model_path)
+    from helix_ids.governance import (
+        build_artifact_manifest,
+        checkpoint_manifest_payload,
+        write_contract_sidecars,
     )
+    from helix_ids.utils.export import finalize_export_artifact
+    contract = {key: artifact[key] for key in ("schema_version", "schema_hash", "feature_order", "input_dim", "binary_output_dim", "family_output_dim", "contract_version")}
+    manifest_base = build_artifact_manifest(model_architecture="unit-test", contract=contract)
+    artifact["artifact_manifest"] = checkpoint_manifest_payload(manifest_base)
+    torch.save(artifact, model_path)
+    sidecars = write_contract_sidecars(model_path, contract)
+    finalize_export_artifact(model_path, manifest_base, sidecars=sidecars)
 
     with pytest.raises(SchemaDriftError):
         load_artifact(
@@ -115,19 +125,29 @@ def test_feature_harmonization_rejects_missing_and_extra_features(tmp_path):
     model_path = tmp_path / "artifact.pt"
     import torch
 
-    torch.save(
-        {
-            "model": {"w": torch.zeros((1, 1))},
-            "schema_version": SCHEMA_VERSION,
-            "schema_hash": harmonized.attrs["schema_hash"],
-            "feature_order": FEATURE_ORDER,
-            "input_dim": len(FEATURE_ORDER),
-            "binary_output_dim": 2,
-            "family_output_dim": 7,
-            "contract_version": CONTRACT_VERSION,
-        },
-        model_path,
+    artifact = {
+        "model": {"w": torch.zeros((1, 1))},
+        "schema_version": SCHEMA_VERSION,
+        "schema_hash": harmonized.attrs["schema_hash"],
+        "feature_order": FEATURE_ORDER,
+        "input_dim": len(FEATURE_ORDER),
+        "binary_output_dim": 2,
+        "family_output_dim": 7,
+        "contract_version": CONTRACT_VERSION,
+    }
+    torch.save(artifact, model_path)
+    from helix_ids.governance import (
+        build_artifact_manifest,
+        checkpoint_manifest_payload,
+        write_contract_sidecars,
     )
+    from helix_ids.utils.export import finalize_export_artifact
+    contract = {key: artifact[key] for key in ("schema_version", "schema_hash", "feature_order", "input_dim", "binary_output_dim", "family_output_dim", "contract_version")}
+    manifest_base = build_artifact_manifest(model_architecture="unit-test", contract=contract)
+    artifact["artifact_manifest"] = checkpoint_manifest_payload(manifest_base)
+    torch.save(artifact, model_path)
+    sidecars = write_contract_sidecars(model_path, contract)
+    finalize_export_artifact(model_path, manifest_base, sidecars=sidecars)
 
     with pytest.raises(SchemaDriftError):
         load_artifact(model_path, features.drop(columns=[FEATURE_ORDER[0]]))
@@ -157,19 +177,29 @@ def test_feature_harmonization_rejects_schema_hash_mismatch(tmp_path):
     model_path = tmp_path / "artifact_hash.pt"
     import torch
 
-    torch.save(
-        {
-            "model": {"w": torch.zeros((1, 1))},
-            "schema_version": SCHEMA_VERSION,
-            "schema_hash": "deadbeef",
-            "feature_order": FEATURE_ORDER,
-            "input_dim": len(FEATURE_ORDER),
-            "binary_output_dim": 2,
-            "family_output_dim": 7,
-            "contract_version": CONTRACT_VERSION,
-        },
-        model_path,
+    artifact = {
+        "model": {"w": torch.zeros((1, 1))},
+        "schema_version": SCHEMA_VERSION,
+        "schema_hash": "deadbeef",
+        "feature_order": FEATURE_ORDER,
+        "input_dim": len(FEATURE_ORDER),
+        "binary_output_dim": 2,
+        "family_output_dim": 7,
+        "contract_version": CONTRACT_VERSION,
+    }
+    torch.save(artifact, model_path)
+    from helix_ids.governance import (
+        build_artifact_manifest,
+        checkpoint_manifest_payload,
+        write_contract_sidecars,
     )
+    from helix_ids.utils.export import finalize_export_artifact
+    contract = {key: artifact[key] for key in ("schema_version", "schema_hash", "feature_order", "input_dim", "binary_output_dim", "family_output_dim", "contract_version")}
+    manifest_base = build_artifact_manifest(model_architecture="unit-test", contract=contract)
+    artifact["artifact_manifest"] = checkpoint_manifest_payload(manifest_base)
+    torch.save(artifact, model_path)
+    sidecars = write_contract_sidecars(model_path, contract)
+    finalize_export_artifact(model_path, manifest_base, sidecars=sidecars)
 
     with pytest.raises(AssertionError, match="schema_hash mismatch"):
         load_artifact(model_path, features)

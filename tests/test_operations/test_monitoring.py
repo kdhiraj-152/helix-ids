@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import numpy as np
 
-from helix_ids.operations.monitoring import LiveMonitor, MonitorConfig, compute_zero_prediction_classes
+from helix_ids.operations.monitoring import (
+    LiveMonitor,
+    MonitorConfig,
+    compute_zero_prediction_classes,
+)
 
 
 def test_zero_prediction_classes_counts_missing() -> None:

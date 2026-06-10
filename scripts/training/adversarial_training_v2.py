@@ -16,6 +16,18 @@ import torch
 import torch.nn as nn
 from sklearn.metrics import accuracy_score, f1_score
 
+from helix_ids.contracts.schema_contract import runtime_contract_payload
+from helix_ids.governance import (
+    ARTIFACT_MANIFEST_KEY,
+    checkpoint_manifest_payload,
+    write_contract_sidecars,
+)
+from helix_ids.utils.export import (
+    build_export_manifest,
+    finalize_export_artifact,
+    verify_export_artifact,
+)
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
 logger = logging.getLogger(__name__)
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -131,7 +143,8 @@ def evaluate_robustness(model, X_test, y_test, device, epsilons=None):
 def main():
     from sklearn.model_selection import train_test_split
     from torch.utils.data import DataLoader, TensorDataset
-    from train_multidataset_v2_fixed import (
+
+    from scripts.training.train_multidataset_v2_fixed import (
         HELIXMLP5Class,
         SafeDataLoader,
     )
@@ -211,17 +224,26 @@ def main():
     # Save
     model_dir = PROJECT_ROOT / "models" / "v2_fixed" / "adversarial"
     model_dir.mkdir(parents=True, exist_ok=True)
-    # Save canonical checkpoint including runtime contract and sidecars
-    from helix_ids.contracts.schema_contract import runtime_contract_payload
-    import json
-
+    # Save canonical checkpoint including runtime contract and manifest chain
     model_path = model_dir / "model_adversarial.pt"
     payload = {"model_state_dict": model.state_dict()}
-    payload.update(runtime_contract_payload())
+    contract = runtime_contract_payload()
+    payload.update(contract)
+    manifest_base = build_export_manifest(
+        contract=contract,
+        model_architecture=model.__class__.__name__,
+        export_config={"format": "checkpoint", "origin": "adversarial_training_v2"},
+    )
+    payload[ARTIFACT_MANIFEST_KEY] = checkpoint_manifest_payload(manifest_base)
     torch.save(payload, model_path)
-    (model_path.with_suffix(model_path.suffix + ".contract.json")).write_text(json.dumps(runtime_contract_payload(), indent=2), encoding="utf-8")
-    (model_path.with_suffix(model_path.suffix + ".feature_order.json")).write_text(json.dumps(runtime_contract_payload()["feature_order"], indent=2), encoding="utf-8")
-    (model_path.with_suffix(model_path.suffix + ".schema_hash.txt")).write_text(str(runtime_contract_payload()["schema_hash"]) + "\n", encoding="utf-8")
+    sidecars = write_contract_sidecars(model_path, contract)
+    finalize_export_artifact(model_path, manifest_base, sidecars=sidecars)
+    verify_export_artifact(
+        model_path,
+        kind="checkpoint",
+        contract=contract,
+        embedded_manifest=checkpoint_manifest_payload(manifest_base),
+    )
 
     results = {
         "nsl_kdd_robustness": nsl_robustness,

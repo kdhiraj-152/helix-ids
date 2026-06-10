@@ -50,7 +50,7 @@ def calculate_entropy_stable(
     """
     if probs.size == 0:
         return np.array([])
-    
+
     # Clip for numerical stability
     safe_probs = np.clip(probs, eps, 1.0 - eps)
 
@@ -89,7 +89,7 @@ def summarize_entropy(
             num_classes=0,
             collapsed_samples=0,
         )
-    
+
     # Calculate normalized entropy
     entropy = calculate_entropy_stable(probs, eps=eps)
 
@@ -167,7 +167,7 @@ def detect_batch_composition_risk(
     """
     unique_predicted = len(np.unique(predicted_classes))
     missing_classes = num_expected_classes - unique_predicted
-    
+
     return {
         "unique_classes_predicted": unique_predicted,
         "missing_classes": missing_classes,

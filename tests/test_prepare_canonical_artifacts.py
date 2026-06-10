@@ -18,8 +18,9 @@ from scripts.training.prepare_canonical_artifacts import (
 def _touch(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.name == "canonical_contract.json":
-        from helix_ids.contracts import runtime_contract_payload
         import json
+
+        from helix_ids.contracts import runtime_contract_payload
 
         path.write_text(json.dumps(runtime_contract_payload(), indent=2), encoding="utf-8")
     else:

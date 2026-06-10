@@ -6,12 +6,15 @@ import json
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 from sklearn.metrics import f1_score
 
-import numpy as np
-
 from helix_ids.operations.inference_runtime import HelixInferenceRuntime, InferenceConfig
-from helix_ids.operations.monitoring import LiveMonitor, MonitorConfig, compute_zero_prediction_classes
+from helix_ids.operations.monitoring import (
+    LiveMonitor,
+    MonitorConfig,
+    compute_zero_prediction_classes,
+)
 
 
 def _entropy(p: np.ndarray) -> float:

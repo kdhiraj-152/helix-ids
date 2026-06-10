@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import numpy as np
 import pytest
 import torch
 
@@ -14,9 +13,20 @@ from helix_ids.contracts import (
     runtime_contract_payload,
 )
 from helix_ids.data.feature_harmonization import FEATURE_ORDER
+from helix_ids.governance import (
+    ARTIFACT_MANIFEST_KEY,
+    artifact_manifest_path,
+    checkpoint_manifest_payload,
+    read_embedded_manifest,
+    write_contract_sidecars,
+)
 from helix_ids.models.full import HelixFullConfig, create_helix_full
 from helix_ids.operations.inference_runtime import HelixInferenceRuntime
-
+from helix_ids.utils.export import (
+    build_export_manifest,
+    finalize_export_artifact,
+    verify_export_artifact,
+)
 
 EXPECTED_FEATURE_ORDER = list(FEATURE_ORDER)
 
@@ -38,13 +48,21 @@ def _make_runtime(tmp_path: Path) -> HelixInferenceRuntime:
     contract["binary_output_dim"] = CANONICAL_BINARY_CLASSES
     contract["family_output_dim"] = CANONICAL_FAMILY_CLASSES
     payload.update(contract)
+    manifest_base = build_export_manifest(
+        contract=contract,
+        model_architecture=model.__class__.__name__,
+        export_config={"format": "checkpoint", "origin": "test_export_contract"},
+    )
+    payload[ARTIFACT_MANIFEST_KEY] = checkpoint_manifest_payload(manifest_base)
     torch.save(payload, checkpoint)
-    # write sidecars
-    import json
-
-    (checkpoint.with_suffix(checkpoint.suffix + ".contract.json")).write_text(json.dumps(contract, indent=2), encoding="utf-8")
-    (checkpoint.with_suffix(checkpoint.suffix + ".feature_order.json")).write_text(json.dumps(contract["feature_order"], indent=2), encoding="utf-8")
-    (checkpoint.with_suffix(checkpoint.suffix + ".schema_hash.txt")).write_text(str(contract["schema_hash"]) + "\n", encoding="utf-8")
+    sidecars = write_contract_sidecars(checkpoint, contract)
+    finalize_export_artifact(checkpoint, manifest_base, sidecars=sidecars)
+    verify_export_artifact(
+        checkpoint,
+        kind="checkpoint",
+        contract=contract,
+        embedded_manifest=checkpoint_manifest_payload(manifest_base),
+    )
     return HelixInferenceRuntime(checkpoint)
 
 
@@ -76,6 +94,11 @@ def test_torchscript_and_onnx_exports_include_contract_sidecars(tmp_path: Path) 
     onnx_contract = json.loads(onnx_contract_path.read_text(encoding="utf-8"))
     assert onnx_contract == torchscript_contract
 
+    torchscript_manifest_path = artifact_manifest_path(torchscript_path)
+    onnx_manifest_path = artifact_manifest_path(onnx_path)
+    assert torchscript_manifest_path.exists()
+    assert onnx_manifest_path.exists()
+
 
 
 def test_service_contract_matches_runtime_metadata(tmp_path: Path) -> None:
@@ -97,3 +120,11 @@ def test_service_contract_matches_runtime_metadata(tmp_path: Path) -> None:
     assert service_contract["input"]["feature_order"] == EXPECTED_FEATURE_ORDER
     assert service_contract["canonical_contract"]["feature_order"] == EXPECTED_FEATURE_ORDER
     assert service_contract["canonical_contract"]["input_dim"] == CANONICAL_INPUT_DIM
+
+
+def test_checkpoint_manifest_chain_is_embedded(tmp_path: Path) -> None:
+    runtime = _make_runtime(tmp_path)
+    manifest_path = artifact_manifest_path(runtime.checkpoint_path)
+    assert manifest_path.exists()
+    embedded = read_embedded_manifest(runtime.checkpoint_path, kind="checkpoint")
+    assert embedded is not None

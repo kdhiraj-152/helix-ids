@@ -1,7 +1,8 @@
+from typing import cast
+
 import numpy as np
 import pandas as pd
 import pytest
-from typing import cast
 
 from src.helix_ids.data.dataset_config import CICIDS_2018_CONFIG
 from src.helix_ids.data.label_mapping import _map_cicids_labels, encode_labels

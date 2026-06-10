@@ -12,8 +12,7 @@ from typing import Any
 import numpy as np
 from sklearn.feature_selection import mutual_info_classif
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import confusion_matrix
-from sklearn.metrics import f1_score
+from sklearn.metrics import confusion_matrix, f1_score
 
 from ..contracts import (
     CONTRACT_VERSION,
@@ -405,19 +404,19 @@ def rank_failure_stages(
     """
     if not stage_transitions:
         return {"primary_failure_stage": None, "name": None, "f1_drop": 0.0, "stages_ranked": []}
-    
+
     stage_impacts: list[tuple[str, float]] = []
     for transition_name, transition_data in stage_transitions.items():
         f1_ratio = float(transition_data.get("f1_ratio", 1.0))
         f1_drop = 1.0 - f1_ratio
         stage_impacts.append((transition_name, f1_drop))
-    
+
     # Sort by magnitude of drop (descending)
     stage_impacts.sort(key=lambda x: abs(x[1]), reverse=True)
-    
+
     if not stage_impacts:
         return {"primary_failure_stage": None, "name": None, "f1_drop": 0.0, "stages_ranked": []}
-    
+
     primary_transition, primary_drop = stage_impacts[0]
     return {
         "primary_failure_stage": primary_transition,
@@ -437,17 +436,17 @@ def extract_feature_kill_list(
     These features are responsible for collapse.
     """
     feature_impacts: dict[int, float] = {}
-    
-    for stage_name, stage_data in stage_diagnostics.items():
+
+    for _stage_name, stage_data in stage_diagnostics.items():
         mi_delta = stage_data.get("mutual_info_delta", [])
         for feat_idx, delta in enumerate(mi_delta):
             # Keep only meaningful MI loss, not tiny numerical jitter.
             if float(delta) < -abs(float(epsilon)):
                 feature_impacts[feat_idx] = feature_impacts.get(feat_idx, 0) + abs(float(delta))
-    
+
     # Sort by absolute MI loss (descending)
     sorted_features = sorted(feature_impacts.items(), key=lambda x: x[1], reverse=True)
-    
+
     capped_top_n = max(0, min(int(top_n), 10))
     # Extract feature names (using f_N format)
     kill_list = [f"f_{feat_idx}" for feat_idx, _ in sorted_features[:capped_top_n]]
@@ -1628,7 +1627,7 @@ def get_action_directive(diagnosis: dict[str, Any], context: dict[str, Any] | No
             "block_future_probes": bool(diagnosis.get("block_future_probes", False)),
             "feasibility_warning": None,
         }
-    
+
     action_mapping = {
         "scaling_destruction": "REMOVE_SCALING",
         "feature_degeneracy": "DROP_FEATURES",
@@ -1654,7 +1653,7 @@ def get_action_directive(diagnosis: dict[str, Any], context: dict[str, Any] | No
         "REFRESH_BASELINE": "re-align scoring baseline to current data regime",
         "INVESTIGATE": "collect additional diagnostics",
     }
-    
+
     action_type = action_mapping.get(primary, "INVESTIGATE")
     feasibility_warning = None
     past_successful_config = (context or {}).get("past_successful_config", {})
@@ -1662,7 +1661,7 @@ def get_action_directive(diagnosis: dict[str, Any], context: dict[str, Any] | No
     if action_type in forbidden_actions:
         confidence = _clamp01(confidence * 0.7)
         feasibility_warning = "action_contradicts_past_successful_config"
-    
+
     return {
         "type": action_type,
         "target_stage": stage,
@@ -1686,7 +1685,7 @@ def create_summary(meta: dict[str, Any]) -> dict[str, Any]:
     """
     validated = bool(meta.get("validated", False))
     status = "PASS" if validated else "FAIL"
-    
+
     diagnosis_obj = meta.get("diagnosis")
     diagnosis: dict[str, Any] = diagnosis_obj if isinstance(diagnosis_obj, dict) else derive_root_cause(meta)
 
@@ -1697,7 +1696,7 @@ def create_summary(meta: dict[str, Any]) -> dict[str, Any]:
         else get_action_directive(diagnosis, context=meta)
     )
     confidence = float(min(diagnosis.get("confidence", 0.5), action.get("confidence", diagnosis.get("confidence", 0.5))))
-    
+
     return {
         "status": status,
         "primary_issue": diagnosis.get("primary", "unknown"),
@@ -1801,7 +1800,7 @@ def build_meta(
 
     validated, violations = evaluate_contract(metrics, thresholds=thresholds)
     min_recall = min(float(v) for v in metrics["per_class_recall"].values())
-    
+
     # Build meta with all diagnostics
     meta = {
         **metrics,
@@ -1812,7 +1811,7 @@ def build_meta(
         "snapshot_id": None,
         "frozen": False,
     }
-    
+
     # Add deterministic diagnosis analysis
     meta["diagnosis"] = derive_root_cause(meta)
     meta["action"] = get_action_directive(meta["diagnosis"], context=meta)
@@ -1827,7 +1826,7 @@ def build_meta(
         meta["reference_profile_updated"] = True
     else:
         meta["reference_profile_updated"] = False
-    
+
     return meta
 
 

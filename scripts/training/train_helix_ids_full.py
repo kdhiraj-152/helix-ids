@@ -50,12 +50,11 @@ SRC_DIR = PROJECT_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
+HELIX_FULL_RESULTS_DIR = Path("results/helix_full")
+
 from helix_ids.config.helix_full_config import DataConfig, TrainingConfig  # noqa: E402
-from helix_ids.contracts import runtime_contract_payload
 from helix_ids.contracts import (
-    CANONICAL_BINARY_CLASSES,
-    CANONICAL_FAMILY_CLASSES,
-    CANONICAL_INPUT_DIM,
+    runtime_contract_payload,
 )
 from helix_ids.data.geometric_representation_fixes import GeometricRepresentationFixer  # noqa: E402
 from helix_ids.data.learnability_contract import (
@@ -63,6 +62,11 @@ from helix_ids.data.learnability_contract import (
     assert_contract,
     compute_schema_hash,
     freeze_snapshot_if_valid,
+)
+from helix_ids.governance import (
+    ARTIFACT_MANIFEST_KEY,
+    checkpoint_manifest_payload,
+    write_contract_sidecars,
 )
 
 # Import from helix_ids package
@@ -76,6 +80,11 @@ from helix_ids.governance.parameters import DEFAULT_GOVERNANCE_POLICY
 from helix_ids.governance.promotion import SeedRunSummary, aggregate_seed_runs
 from helix_ids.governance.run_registry import RunRegistry
 from helix_ids.models.full import HelixFullConfig, HelixIDSFull, MultiTaskLoss, create_helix_full
+from helix_ids.utils.export import (
+    build_export_manifest,
+    finalize_export_artifact,
+    verify_export_artifact,
+)
 from helix_ids.utils.metrics import (  # noqa: E402
     compute_macro_f1,
 )
@@ -476,7 +485,42 @@ def _write_model_contract_sidecars(path: Path, artifact: dict[str, Any]) -> None
     path.with_suffix(path.suffix + ".schema_hash.txt").write_text(str(artifact["schema_hash"]) + "\n", encoding="utf-8")
 
 
-def _atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
+def _write_checkpoint_artifact(
+    path: Path,
+    artifact: dict[str, Any],
+    *,
+    model_architecture: str,
+    origin: str,
+) -> None:
+    contract = {
+        "schema_version": artifact["schema_version"],
+        "schema_hash": artifact["schema_hash"],
+        "feature_order": artifact["feature_order"],
+        "input_dim": artifact["input_dim"],
+        "binary_output_dim": artifact["binary_output_dim"],
+        "family_output_dim": artifact["family_output_dim"],
+        "contract_version": artifact.get("contract_version"),
+        "feature_order_hash": artifact.get("feature_order_hash"),
+    }
+    manifest_base = build_export_manifest(
+        contract=contract,
+        model_architecture=model_architecture,
+        export_config={"format": "checkpoint", "origin": origin},
+    )
+    payload = dict(artifact)
+    payload[ARTIFACT_MANIFEST_KEY] = checkpoint_manifest_payload(manifest_base)
+    torch.save(payload, path)
+    sidecars = write_contract_sidecars(path, contract)
+    finalize_export_artifact(path, manifest_base, sidecars=sidecars)
+    verify_export_artifact(
+        path,
+        kind="checkpoint",
+        contract=contract,
+        embedded_manifest=checkpoint_manifest_payload(manifest_base),
+    )
+
+
+def _atomic_write_json(path: Path, payload: Any) -> None:
     """Write JSON atomically via temporary file and replace."""
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_suffix(f"{path.suffix}.tmp")
@@ -786,16 +830,16 @@ def _apply_class4_logit_shift(
     """Subtract a fixed delta from class-4 logits (inference/eval only)."""
     arr = np.asarray(logits, dtype=np.float64)
     if arr.ndim != 2 or arr.shape[0] == 0:
-        return arr.copy()
+        return cast(np.ndarray, arr.copy())
     class_idx = int(class4_id)
     if class_idx < 0 or class_idx >= int(arr.shape[1]):
-        return arr.copy()
+        return cast(np.ndarray, arr.copy())
     shift = float(delta)
     if abs(shift) <= 0.0:
-        return arr.copy()
+        return cast(np.ndarray, arr.copy())
     out = arr.copy()
     out[:, class_idx] = out[:, class_idx] - shift
-    return out
+    return cast(np.ndarray, out)
 
 
 def _predict_with_class4_threshold(
@@ -810,7 +854,7 @@ def _predict_with_class4_threshold(
 
     pred = np.argmax(probs, axis=1).astype(np.int64, copy=False)
     if class4_id < 0 or class4_id >= int(probs.shape[1]):
-        return pred
+        return cast(np.ndarray, pred)
 
     p4 = probs[:, class4_id]
     choose4 = p4 >= float(threshold)
@@ -821,7 +865,7 @@ def _predict_with_class4_threshold(
 
     out = fallback.copy()
     out[choose4] = int(class4_id)
-    return out
+    return cast(np.ndarray, out)
 
 
 def _compute_multiclass_confusion(
@@ -833,11 +877,11 @@ def _compute_multiclass_confusion(
     """Compute multiclass confusion matrix with fixed class space."""
     conf = np.zeros((int(class_count), int(class_count)), dtype=np.int64)
     if y_true.size == 0:
-        return conf
+        return cast(np.ndarray, conf)
     y_t = np.clip(np.asarray(y_true, dtype=np.int64), 0, int(class_count) - 1)
     y_p = np.clip(np.asarray(y_pred, dtype=np.int64), 0, int(class_count) - 1)
     np.add.at(conf, (y_t, y_p), 1)
-    return conf
+    return cast(np.ndarray, conf)
 
 
 def _compute_class4_metrics(
@@ -973,7 +1017,7 @@ def _calibrate_family_predictions(
         scaled = np.asarray(logits, dtype=np.float64) / max(1e-6, float(t))
         shifted = scaled - np.max(scaled, axis=1, keepdims=True)
         exp_vals = np.exp(shifted)
-        return exp_vals / np.clip(np.sum(exp_vals, axis=1, keepdims=True), 1e-12, None)
+        return cast(np.ndarray, exp_vals / np.clip(np.sum(exp_vals, axis=1, keepdims=True), 1e-12, None))
 
     val_probs_uncal = _softmax_with_temperature(val_logits, 1.0)
     test_probs_uncal = _softmax_with_temperature(test_logits, 1.0)
@@ -1365,6 +1409,92 @@ def _normalize_calibration_block(
     return normalized_calibration
 
 
+def _load_seed_run_artifacts(
+    *,
+    seed: int,
+    proc: subprocess.CompletedProcess[str],
+) -> tuple[str, dict[str, Any], dict[str, Any], HelixIDSFull]:
+    eval_path = HELIX_FULL_RESULTS_DIR / f"eval_results_seed{int(seed)}.json"
+    train_path = HELIX_FULL_RESULTS_DIR / f"training_results_seed{int(seed)}.json"
+    if not eval_path.exists() or not train_path.exists():
+        raise RuntimeError(
+            "Multi-seed run did not emit expected artifacts for seed "
+            f"{seed}; exit={proc.returncode}"
+        )
+
+    train_payload = _load_json_dict(train_path)
+    train_exit_code = int(train_payload.get("run_exit_code", proc.returncode))
+    train_guard_failure = str(train_payload.get("guard_failure", "") or "")
+    if train_exit_code != 0:
+        raise RuntimeError(
+            "Seed run failed before calibration artifacts were materialized: "
+            f"seed={seed} exit={train_exit_code} guard_failure={train_guard_failure}"
+        )
+
+    eval_payload = _load_json_dict(eval_path)
+    eval_results = cast(dict[str, Any], eval_payload.get("results", {}))
+    if not eval_results:
+        raise RuntimeError(f"Missing eval results for seed {seed}")
+
+    dataset_name = min(eval_results.keys())
+    model_path = Path("models/helix_full") / f"helix_full_{dataset_name}_best.pt"
+    if not model_path.exists():
+        raise RuntimeError(f"Missing best checkpoint for seed {seed}: {model_path}")
+
+    artifact = torch.load(model_path, map_location="cpu", weights_only=True)
+    model_state = cast(dict[str, Any], artifact.get("model_state_dict", artifact.get("model", {})))
+    model: HelixIDSFull = create_helix_full(
+        HelixFullConfig(
+            input_dim=REQUIRED_GEOMETRY_FEATURE_DIM,
+            hidden_dims=(512, 384, 256, 256),
+            dropout_rates=(0.3, 0.3, 0.25, 0.2),
+        )
+    )
+    model.load_state_dict(model_state)
+
+    return dataset_name, train_payload, eval_results, model
+
+
+def _summarize_governance(strict_seed_runs: list[dict[str, Any]]) -> tuple[dict[str, Any], list[str], list[str]]:
+    macro_vals = [float(r["macro_f1"]) for r in strict_seed_runs]
+    p4_prec_vals = [float(r["class4_precision"]) for r in strict_seed_runs]
+    p4_rec_vals = [float(r["class4_recall"]) for r in strict_seed_runs]
+    zero_vals = [int(r["zero_prediction_classes"]) for r in strict_seed_runs]
+    entropy_vals = [float(r["entropy"]) for r in strict_seed_runs]
+
+    governance: dict[str, Any] = {
+        "mean_macro_f1": float(np.mean(macro_vals)),
+        "std_macro_f1": float(np.std(macro_vals)),
+        "mean_class4_precision": float(np.mean(p4_prec_vals)),
+        "mean_class4_recall": float(np.mean(p4_rec_vals)),
+        "min_class4_recall": float(np.min(p4_rec_vals)),
+        "mean_entropy": float(np.mean(entropy_vals)),
+        "max_zero_prediction_classes": int(max(zero_vals)),
+    }
+
+    failure_reasons: list[str] = []
+    if governance["std_macro_f1"] > 0.03:
+        failure_reasons.append("std_macro_f1_gt_0_03")
+    if governance["min_class4_recall"] < 0.80:
+        failure_reasons.append("min_class4_recall_lt_0_80")
+    if governance["mean_class4_precision"] < 0.25:
+        failure_reasons.append("mean_class4_precision_lt_0_25")
+    if governance["max_zero_prediction_classes"] != 0:
+        failure_reasons.append("max_zero_prediction_classes_ne_0")
+    if governance["mean_entropy"] <= 0.2:
+        failure_reasons.append("mean_entropy_le_0_2")
+
+    actions: list[str] = []
+    if governance["mean_class4_precision"] < 0.25:
+        actions.append("increase_tau_4")
+    if governance["min_class4_recall"] < 0.80:
+        actions.append("increase_focal_gamma_up_to_1_5")
+    if governance["mean_entropy"] <= 0.2:
+        actions.append("increase_temperature_max_to_5_0")
+
+    return governance, failure_reasons, actions
+
+
 def _run_multiseed_calibrated_governance(
     *,
     script_path: Path,
@@ -1395,57 +1525,17 @@ def _run_multiseed_calibrated_governance(
             text=True,
             check=False,
         )
-
-        eval_path = Path("results/helix_full") / f"eval_results_seed{int(seed)}.json"
-        train_path = Path("results/helix_full") / f"training_results_seed{int(seed)}.json"
-        if not eval_path.exists() or not train_path.exists():
-            raise RuntimeError(
-                "Multi-seed run did not emit expected artifacts for seed "
-                f"{seed}; exit={proc.returncode}"
-            )
-
-        train_payload = _load_json_dict(train_path)
-        train_exit_code = int(train_payload.get("run_exit_code", proc.returncode))
-        train_guard_failure = str(train_payload.get("guard_failure", "") or "")
-        if train_exit_code != 0:
-            raise RuntimeError(
-                "Seed run failed before calibration artifacts were materialized: "
-                f"seed={seed} exit={train_exit_code} guard_failure={train_guard_failure}"
-            )
-
-        eval_payload = _load_json_dict(eval_path)
-        eval_results = cast(dict[str, Any], eval_payload.get("results", {}))
-        if not eval_results:
-            raise RuntimeError(f"Missing eval results for seed {seed}")
-
-        # Single-dataset mode expected during strict governance runs.
-        dataset_name = sorted(eval_results.keys())[0]
-
-        model_path = Path("models/helix_full") / f"helix_full_{dataset_name}_best.pt"
-        if not model_path.exists():
-            raise RuntimeError(
-                f"Missing best checkpoint for seed {seed}: {model_path}"
-            )
-
-        artifact = torch.load(model_path, map_location="cpu")
-        model_state = cast(dict[str, Any], artifact.get("model_state_dict", artifact.get("model", {})))
-        model = create_helix_full(
-            HelixFullConfig(
-                input_dim=REQUIRED_GEOMETRY_FEATURE_DIM,
-                hidden_dims=(512, 384, 256, 256),
-                dropout_rates=(0.3, 0.3, 0.25, 0.2),
-            )
-        )
-        model.load_state_dict(model_state)
+        dataset_name, _train_payload, _, model = _load_seed_run_artifacts(seed=seed, proc=proc)
+        model_config = cast(HelixFullConfig, model.config)
 
         # Rebuild loaders from persisted split for deterministic calibration pass.
         splits_dir = Path("data/processed/multi_dataset_v1")
         x_val = np.load(splits_dir / f"X_val_{dataset_name}.npy", mmap_mode="r")
         y_val = np.load(splits_dir / f"y_val_{dataset_name}.npy").astype(np.int64, copy=False)
-        y_val = np.where(y_val >= int(model.config.family_output_dim), int(model.config.family_output_dim) - 1, y_val)
+        y_val = np.where(y_val >= int(model_config.family_output_dim), int(model_config.family_output_dim) - 1, y_val)
         x_test = np.load(splits_dir / f"X_test_{dataset_name}.npy", mmap_mode="r")
         y_test = np.load(splits_dir / f"y_test_{dataset_name}.npy").astype(np.int64, copy=False)
-        y_test = np.where(y_test >= int(model.config.family_output_dim), int(model.config.family_output_dim) - 1, y_test)
+        y_test = np.where(y_test >= int(model_config.family_output_dim), int(model_config.family_output_dim) - 1, y_test)
 
         val_loader = DataLoader(
             MultiTaskNumpyDataset(x_val, y_val),
@@ -1472,7 +1562,7 @@ def _run_multiseed_calibrated_governance(
             min_class4_recall=float(class4_recall_floor),
         )
         raw_artifacts = _emit_calibration_artifacts(
-            results_dir=Path("results/helix_full"),
+            results_dir=HELIX_FULL_RESULTS_DIR,
             dataset_name=dataset_name,
             seed=int(seed),
             calibration_payload=calib,
@@ -1498,41 +1588,7 @@ def _run_multiseed_calibrated_governance(
     if not strict_seed_runs:
         raise RuntimeError("No seed runs available for governance aggregation")
 
-    macro_vals = [float(r["macro_f1"]) for r in strict_seed_runs]
-    p4_prec_vals = [float(r["class4_precision"]) for r in strict_seed_runs]
-    p4_rec_vals = [float(r["class4_recall"]) for r in strict_seed_runs]
-    zero_vals = [int(r["zero_prediction_classes"]) for r in strict_seed_runs]
-    entropy_vals = [float(r["entropy"]) for r in strict_seed_runs]
-
-    governance = {
-        "mean_macro_f1": float(np.mean(macro_vals)),
-        "std_macro_f1": float(np.std(macro_vals)),
-        "mean_class4_precision": float(np.mean(p4_prec_vals)),
-        "mean_class4_recall": float(np.mean(p4_rec_vals)),
-        "min_class4_recall": float(np.min(p4_rec_vals)),
-        "mean_entropy": float(np.mean(entropy_vals)),
-        "max_zero_prediction_classes": int(max(zero_vals)),
-    }
-
-    failure_reasons: list[str] = []
-    if governance["std_macro_f1"] > 0.03:
-        failure_reasons.append("std_macro_f1_gt_0_03")
-    if governance["min_class4_recall"] < 0.80:
-        failure_reasons.append("min_class4_recall_lt_0_80")
-    if governance["mean_class4_precision"] < 0.25:
-        failure_reasons.append("mean_class4_precision_lt_0_25")
-    if governance["max_zero_prediction_classes"] != 0:
-        failure_reasons.append("max_zero_prediction_classes_ne_0")
-    if governance["mean_entropy"] <= 0.2:
-        failure_reasons.append("mean_entropy_le_0_2")
-
-    actions: list[str] = []
-    if governance["mean_class4_precision"] < 0.25:
-        actions.append("increase_tau_4")
-    if governance["min_class4_recall"] < 0.80:
-        actions.append("increase_focal_gamma_up_to_1_5")
-    if governance["mean_entropy"] <= 0.2:
-        actions.append("increase_temperature_max_to_5_0")
+    governance, failure_reasons, actions = _summarize_governance(strict_seed_runs)
 
     governance["status"] = "PASS" if not failure_reasons else "FAIL"
     governance["failure_reasons"] = failure_reasons
@@ -2361,7 +2417,7 @@ class FrozenIndexSampler(Sampler[int]):
             yield int(idx)
 
 
-def _build_interleaved_round_robin_indices(
+def _build_interleaved_round_robin_indices(  # NOSONAR
     y: np.ndarray,
     *,
     batch_size: int,
@@ -2380,36 +2436,88 @@ def _build_interleaved_round_robin_indices(
     y_int = np.asarray(y, dtype=np.int64)
     class_index = build_class_index(y_int)
     classes = sorted(class_index.keys())
-    if not classes:
-        raise ValueError("No classes available for interleaved sampler")
-
     batch_size_int = int(batch_size)
-    steps_per_epoch = max(1, int(math.ceil(y_int.shape[0] / max(1, batch_size_int))))
     min_unique = max(1, int(min_unique_classes_per_batch))
     class4_quota = max(0, int(class4_min_per_batch))
+    _validate_interleaved_round_robin_inputs(
+        classes=classes,
+        class_index=class_index,
+        batch_size_int=batch_size_int,
+        min_unique=min_unique,
+        class4_quota=class4_quota,
+    )
+
+    rng = np.random.default_rng(int(seed))
+    steps_per_epoch = max(1, int(math.ceil(y_int.shape[0] / max(1, batch_size_int))))
+    buckets: dict[int, np.ndarray] = {
+        int(class_id): rng.permutation(np.asarray(indices, dtype=np.int64))
+        for class_id, indices in class_index.items()
+    }
+    pointers: dict[int, int] = {int(class_id): 0 for class_id in classes}
+    class_cycle = np.asarray(classes, dtype=np.int64)
+    rng.shuffle(class_cycle)
+    class_cycle_list = [int(v) for v in class_cycle.tolist()]
+    non4_cycle_list = [int(c) for c in class_cycle_list if int(c) != 4] or class_cycle_list
+
+    flat_indices: list[int] = []
+    cycle_state = {"cycle_pos": 0, "non4_cycle_pos": 0}
+    for _ in range(steps_per_epoch):
+        batch_indices = _build_interleaved_round_robin_batch(
+            y_int=y_int,
+            batch_size_int=batch_size_int,
+            min_unique=min_unique,
+            class4_quota=class4_quota,
+            class_index=class_index,
+            buckets=buckets,
+            pointers=pointers,
+            class_cycle_list=class_cycle_list,
+            non4_cycle_list=non4_cycle_list,
+            cycle_state=cycle_state,
+            rng=rng,
+        )
+        flat_indices.extend(batch_indices)
+
+    return np.asarray(flat_indices, dtype=np.int64)
+
+
+def _validate_interleaved_round_robin_inputs(
+    *,
+    classes: list[int],
+    class_index: dict[int, np.ndarray],
+    batch_size_int: int,
+    min_unique: int,
+    class4_quota: int,
+) -> None:
+    if not classes:
+        raise ValueError("No classes available for interleaved sampler")
     if class4_quota > batch_size_int:
         raise ValueError(
             "class4_min_per_batch cannot exceed batch_size: "
             f"quota={class4_quota} batch_size={batch_size_int}"
         )
     if class4_quota > 0 and 4 not in class_index:
-        raise ValueError(
-            "class4_min_per_batch requested but class 4 is absent from labels"
-        )
+        raise ValueError("class4_min_per_batch requested but class 4 is absent from labels")
     if len(classes) < min_unique:
         raise ValueError(
             "Insufficient active classes for interleaved sampler: "
             f"active={len(classes)} required={min_unique}"
         )
 
-    rng = np.random.default_rng(int(seed))
 
-    buckets: dict[int, np.ndarray] = {
-        int(class_id): rng.permutation(np.asarray(indices, dtype=np.int64))
-        for class_id, indices in class_index.items()
-    }
-    pointers: dict[int, int] = {int(class_id): 0 for class_id in classes}
-
+def _build_interleaved_round_robin_batch(
+    *,
+    y_int: np.ndarray,
+    batch_size_int: int,
+    min_unique: int,
+    class4_quota: int,
+    class_index: dict[int, np.ndarray],
+    buckets: dict[int, np.ndarray],
+    pointers: dict[int, int],
+    class_cycle_list: list[int],
+    non4_cycle_list: list[int],
+    cycle_state: dict[str, int],
+    rng: np.random.Generator,
+) -> list[int]:
     def draw_from_class(class_id: int) -> int:
         cls_id = int(class_id)
         bucket = buckets[cls_id]
@@ -2422,57 +2530,36 @@ def _build_interleaved_round_robin_indices(
         pointers[cls_id] = ptr + 1
         return sample_idx
 
-    class_cycle = np.asarray(classes, dtype=np.int64)
-    rng.shuffle(class_cycle)
-    class_cycle_list = [int(v) for v in class_cycle.tolist()]
-    cycle_pos = 0
+    batch_indices: list[int] = []
+    if class4_quota > 0:
+        for _ in range(class4_quota):
+            batch_indices.append(draw_from_class(4))
 
-    non4_cycle_list = [int(c) for c in class_cycle_list if int(c) != 4]
-    if not non4_cycle_list:
-        non4_cycle_list = [int(c) for c in class_cycle_list]
-    non4_cycle_pos = 0
+    seeded_class_ids = [4] if class4_quota > 0 else []
+    for _ in range(max(0, min_unique - len(set(seeded_class_ids)))):
+        class_id = non4_cycle_list[cycle_state["non4_cycle_pos"] % len(non4_cycle_list)]
+        cycle_state["non4_cycle_pos"] += 1
+        seeded_class_ids.append(int(class_id))
+        batch_indices.append(draw_from_class(int(class_id)))
 
-    flat_indices: list[int] = []
-    for _ in range(steps_per_epoch):
-        batch_indices: list[int] = []
+    while len(batch_indices) < batch_size_int:
+        class_id = class_cycle_list[cycle_state["cycle_pos"] % len(class_cycle_list)]
+        cycle_state["cycle_pos"] += 1
+        batch_indices.append(draw_from_class(int(class_id)))
 
-        # Hard-enforce class-4 quota first (if requested).
-        if class4_quota > 0:
-            for _ in range(class4_quota):
-                batch_indices.append(draw_from_class(4))
-
-        # Enforce a minimum number of unique classes in every batch.
-        seeded_class_ids: list[int] = []
-        if class4_quota > 0:
-            seeded_class_ids.append(4)
-        required_unique_non4 = max(0, min_unique - len(set(seeded_class_ids)))
-        for _seed_slot in range(required_unique_non4):
-            class_id = non4_cycle_list[non4_cycle_pos % len(non4_cycle_list)]
-            non4_cycle_pos += 1
-            seeded_class_ids.append(int(class_id))
-            batch_indices.append(draw_from_class(int(class_id)))
-
-        # Fill the rest by round-robin across class buckets.
-        while len(batch_indices) < batch_size_int:
-            class_id = class_cycle_list[cycle_pos % len(class_cycle_list)]
-            cycle_pos += 1
-            batch_indices.append(draw_from_class(int(class_id)))
-
-        rng.shuffle(batch_indices)
-        batch_unique = int(np.unique(y_int[np.asarray(batch_indices, dtype=np.int64)]).shape[0])
-        if batch_unique < min_unique:
+    rng.shuffle(batch_indices)
+    batch_unique = int(np.unique(y_int[np.asarray(batch_indices, dtype=np.int64)]).shape[0])
+    if batch_unique < min_unique:
+        raise RuntimeError(
+            "Hard-stop integrity guard triggered: interleaved_sampler_batch_diversity_violation"
+        )
+    if class4_quota > 0:
+        class4_count = int(np.sum(y_int[np.asarray(batch_indices, dtype=np.int64)] == 4))
+        if class4_count < class4_quota:
             raise RuntimeError(
-                "Hard-stop integrity guard triggered: interleaved_sampler_batch_diversity_violation"
+                "Hard-stop integrity guard triggered: interleaved_sampler_class4_quota_violation"
             )
-        if class4_quota > 0:
-            class4_count = int(np.sum(y_int[np.asarray(batch_indices, dtype=np.int64)] == 4))
-            if class4_count < class4_quota:
-                raise RuntimeError(
-                    "Hard-stop integrity guard triggered: interleaved_sampler_class4_quota_violation"
-                )
-        flat_indices.extend(batch_indices)
-
-    return np.asarray(flat_indices, dtype=np.int64)
+    return batch_indices
 
 
 def _build_frozen_class_balanced_indices(
@@ -2796,7 +2883,7 @@ def _load_precomputed_splits(
         if not (key.startswith(("X_", "y_")) or key in {"feature_columns", "train_class_weights"}):
             continue
         # Training arrays are loaded eagerly; validation/test arrays can be mem-mapped.
-        if key.startswith("X_test_") or key.startswith("X_val_"):
+        if key.startswith(("X_test_", "X_val_")):
             splits[key] = cast(np.ndarray, np.load(npy_path, mmap_mode="r"))
         else:
             splits[key] = cast(
@@ -6866,23 +6953,17 @@ class HelixFullTrainer:
             return
         checkpoint_path = self.config.checkpoint_dir / f"checkpoint_epoch_{self.epoch}.pt"
         checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
-        torch.save(
-            _build_model_contract_artifact(
-                model_state=self.model.state_dict(),
-                feature_order=self.feature_order,
-                schema_hash=self.schema_hash,
-                extra={"epoch": self.epoch + 1},
-            ),
-            checkpoint_path,
+        artifact = _build_model_contract_artifact(
+            model_state=self.model.state_dict(),
+            feature_order=self.feature_order,
+            schema_hash=self.schema_hash,
+            extra={"epoch": self.epoch + 1},
         )
-        _write_model_contract_sidecars(
+        _write_checkpoint_artifact(
             checkpoint_path,
-            _build_model_contract_artifact(
-                model_state=self.model.state_dict(),
-                feature_order=self.feature_order,
-                schema_hash=self.schema_hash,
-                extra={"epoch": self.epoch + 1},
-            ),
+            artifact,
+            model_architecture=self.model.__class__.__name__,
+            origin="train_helix_ids_full:interval",
         )
         self.logger.info(f"Checkpoint saved: {checkpoint_path}")
 
@@ -7330,13 +7411,7 @@ def main():  # NOSONAR
                 continue
             if token in {"--disable-early-stopping", "--no-disable-early-stopping"}:
                 continue
-            if (
-                token.startswith("--multi-seeds=")
-                or token.startswith("--seed=")
-                or token.startswith("--epochs=")
-                or token.startswith("--calibration-mode=")
-                or token.startswith("--max-temperature=")
-            ):
+            if token.startswith(("--multi-seeds=", "--seed=", "--epochs=", "--calibration-mode=", "--max-temperature=")):
                 continue
             if token in skip_flags:
                 continue
@@ -7357,7 +7432,7 @@ def main():  # NOSONAR
             max_temperature=float(args.max_temperature),
             class4_recall_floor=0.80,
         )
-        report_path = Path("results/helix_full") / "multi_seed_calibrated_governance.json"
+        report_path = HELIX_FULL_RESULTS_DIR / "multi_seed_calibrated_governance.json"
         _atomic_write_json(report_path, governance_report)
         print(json.dumps(governance_report, indent=2, default=str))
         return {
@@ -7391,7 +7466,7 @@ def main():  # NOSONAR
     # Create output directories
     output_dir = Path(args.output)
     output_dir.mkdir(parents=True, exist_ok=True)
-    results_dir = Path("results/helix_full")
+    results_dir = HELIX_FULL_RESULTS_DIR
     results_dir.mkdir(parents=True, exist_ok=True)
 
     run_exit_code = 1
@@ -8230,10 +8305,18 @@ def main():  # NOSONAR
             schema_hash=schema_hash,
             extra={"dataset_name": dataset_name},
         )
-        torch.save(artifact, best_model_path)
-        torch.save(artifact, final_model_path)
-        _write_model_contract_sidecars(best_model_path, artifact)
-        _write_model_contract_sidecars(final_model_path, artifact)
+        _write_checkpoint_artifact(
+            best_model_path,
+            artifact,
+            model_architecture=model.__class__.__name__,
+            origin=f"train_helix_ids_full:{dataset_name}:best",
+        )
+        _write_checkpoint_artifact(
+            final_model_path,
+            artifact,
+            model_architecture=model.__class__.__name__,
+            origin=f"train_helix_ids_full:{dataset_name}:final",
+        )
 
         all_results[dataset_name] = dataset_results
         dataset_eval_metrics = cast(dict[str, Any], dataset_results["per_dataset_results"][dataset_name])
@@ -8611,7 +8694,7 @@ if __name__ == "__main__":
                 except ValueError:
                     epochs_override = None
                 break
-            if token.startswith("--epochs="):
+            if token.startswith(("--epochs=",)):
                 try:
                     epochs_override = int(token.split("=", 1)[1])
                 except ValueError:

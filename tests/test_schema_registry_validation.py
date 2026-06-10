@@ -28,9 +28,9 @@ def _write_registry(tmp_path: Path, entries: list[dict[str, Any]]) -> Path:
             if key in entry:
                 val = entry[key]
                 if isinstance(val, bool):
-                    lines.append("    {}: {}".format(key, str(val).lower()))
+                    lines.append(f"    {key}: {str(val).lower()}")
                 else:
-                    lines.append("    {}: \"{}\"".format(key, val))
+                    lines.append(f"    {key}: \"{val}\"")
     registry = tmp_path / "schema_registry.yaml"
     registry.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return registry
@@ -144,7 +144,7 @@ class TestSchemaRegistryValidation:
 
     def test_malformed_entry_not_dict(self, tmp_path: Path) -> None:
         """A non-dict entry in the schemas list should fail."""
-        from scripts.ci.validate_schema_registry import _load_registry, _load_registry_minimal
+        from scripts.ci.validate_schema_registry import _load_registry
 
         # Write a registry with a non-dict entry by using raw YAML
         registry = tmp_path / "schema_registry.yaml"
@@ -210,7 +210,7 @@ class TestSchemaRegistryValidation:
                 "approval_required": True,
             },
         ])
-        result = subprocess.run(
+        subprocess.run(
             [sys.executable, str(VALIDATOR_SCRIPT)],
             capture_output=True,
             text=True,

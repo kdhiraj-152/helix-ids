@@ -14,7 +14,6 @@ import argparse
 import json
 import pickle
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 import torch
@@ -22,7 +21,18 @@ import torch.nn as nn
 import torch.optim as optim
 from sklearn.metrics import classification_report, f1_score
 from torch.utils.data import DataLoader, TensorDataset
+
 from helix_ids.contracts.schema_contract import runtime_contract_payload
+from helix_ids.governance import (
+    ARTIFACT_MANIFEST_KEY,
+    checkpoint_manifest_payload,
+    write_contract_sidecars,
+)
+from helix_ids.utils.export import (
+    build_export_manifest,
+    finalize_export_artifact,
+    verify_export_artifact,
+)
 
 # Platform configurations
 PLATFORM_CONFIGS = {
@@ -230,19 +240,23 @@ def export_model(model, platform: str, scaler, feature_names, test_f1: float, nu
         "feature_names": feature_names,
     }
     # Embed immutable runtime contract metadata and write canonical sidecars
-    payload.update(runtime_contract_payload())
+    contract = runtime_contract_payload()
+    payload.update(contract)
+    manifest_base = build_export_manifest(
+        contract=contract,
+        model_architecture=model.__class__.__name__,
+        export_config={"format": "checkpoint", "origin": f"train_edge_models:{platform}"},
+    )
+    payload[ARTIFACT_MANIFEST_KEY] = checkpoint_manifest_payload(manifest_base)
     torch.save(payload, path)
-    # Write sidecars next to checkpoint
-    try:
-        contract_path = path.with_suffix(path.suffix + ".contract.json")
-        feature_order_path = path.with_suffix(path.suffix + ".feature_order.json")
-        schema_hash_path = path.with_suffix(path.suffix + ".schema_hash.txt")
-        contract_path.write_text(json.dumps(runtime_contract_payload(), indent=2), encoding="utf-8")
-        feature_order_path.write_text(json.dumps(runtime_contract_payload()["feature_order"], indent=2), encoding="utf-8")
-        schema_hash_path.write_text(str(runtime_contract_payload()["schema_hash"]) + "\n", encoding="utf-8")
-    except Exception:
-        # If sidecar emission fails, raise to avoid producing non-canonical artifact
-        raise
+    sidecars = write_contract_sidecars(path, contract)
+    finalize_export_artifact(path, manifest_base, sidecars=sidecars)
+    verify_export_artifact(
+        path,
+        kind="checkpoint",
+        contract=contract,
+        embedded_manifest=checkpoint_manifest_payload(manifest_base),
+    )
 
     # Save scaler
     with open(export_dir / "scaler.pkl", "wb") as f:

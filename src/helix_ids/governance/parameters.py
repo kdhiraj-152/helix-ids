@@ -86,6 +86,20 @@ class GovernancePolicy:
 DEFAULT_GOVERNANCE_POLICY = GovernancePolicy()
 
 
+def is_production_runtime() -> bool:
+    """Return True only when the runtime is explicitly marked as production.
+
+    Defaults to False unless an explicit production marker is present.
+    """
+    import os
+
+    for name in ("HELIX_RUNTIME_ENV", "HELIX_ENV", "HELIX_DEPLOY_ENV"):
+        value = os.getenv(name, "").strip().lower()
+        if value in {"prod", "production"}:
+            return True
+    return False
+
+
 def allow_legacy_artifacts() -> bool:
     """Central gate for allowing legacy artifact ingress.
 
@@ -95,4 +109,10 @@ def allow_legacy_artifacts() -> bool:
     """
     import os
 
-    return os.getenv("HELIX_ALLOW_LEGACY_ARTIFACTS", "").strip() == "1"
+    allowed = os.getenv("HELIX_ALLOW_LEGACY_ARTIFACTS", "").strip() == "1"
+    if allowed:
+        assert not is_production_runtime(), (
+            "Legacy artifact allowance is forbidden in production runtimes. "
+            "Unset HELIX_ALLOW_LEGACY_ARTIFACTS or switch to a non-production env."
+        )
+    return allowed

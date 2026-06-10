@@ -5,28 +5,22 @@ missing version field, retired-entry exception.
 """
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
-from unittest.mock import patch
-
-import pytest
-import yaml
 
 # Ensure the module is importable with PYTHONPATH=src
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from scripts.ci.validate_schema_registry import (
-    _parse_version,
-    _date_to_str,
-    _VERSION_RE,
-    validate_registry,
-    _load_registry,
-    _validate_entry,
-)
 from datetime import date
 
+from scripts.ci.validate_schema_registry import (
+    _VERSION_RE,
+    _date_to_str,
+    _parse_version,
+    _validate_entry,
+    validate_registry,
+)
 
 # ---------------------------------------------------------------------------
 # Unit tests: _parse_version
@@ -234,7 +228,6 @@ class TestValidateRegistryChronology:
             {"schema_name": "schema_b", "current_version": "2025-01-01", "status": "active"},
         ]), encoding="utf-8")
         passed, report = validate_registry(registry)
-        fails = [c for c in report["checks"] if c["status"] == "fail" and "chronology violation" in c["message"]]
         # schema_b (2025-01-01) < retired_schema (2026-06-02) even though retired
         assert not passed, "Active entry after retired must still be >= retired date"
 

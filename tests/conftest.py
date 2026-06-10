@@ -195,7 +195,7 @@ def raw_network_data():
     """
     rng = np.random.default_rng(42)
     n_samples = 100
-    
+
     data = {
         "src_bytes": rng.integers(0, 100000, n_samples).astype(float),
         "dst_bytes": rng.integers(0, 100000, n_samples).astype(float),
@@ -278,10 +278,10 @@ def loaded_production_model():
     """
     if not PRODUCTION_MODEL_PATH.exists():
         pytest.skip(f"Production model not found at {PRODUCTION_MODEL_PATH}")
-    
+
     from src.helix_ids.models.helix_ids import create_helix_model
     model = create_helix_model("nano", input_dim=INPUT_DIM, num_classes=OUTPUT_CLASSES)
-    
+
     # Load state dict if file has content
     if PRODUCTION_MODEL_PATH.stat().st_size > 0:
         state_dict = torch.load(PRODUCTION_MODEL_PATH, map_location="cpu", weights_only=True)
@@ -294,7 +294,7 @@ def loaded_production_model():
             pytest.skip("Production model checkpoint format is not a state dict")
 
         model.load_state_dict(state_dict, strict=False)
-    
+
     model.eval()
     return model
 
@@ -312,10 +312,10 @@ def production_scaler():
     """
     if not PRODUCTION_SCALER_PATH.exists():
         pytest.skip(f"Production scaler not found at {PRODUCTION_SCALER_PATH}")
-    
+
     if PRODUCTION_SCALER_PATH.stat().st_size == 0:
         pytest.skip("Production scaler file is empty")
-    
+
     with open(PRODUCTION_SCALER_PATH, "rb") as f:
         return pickle.load(f)
 
@@ -326,10 +326,10 @@ def fitted_minmax_scaler():
     Create a fitted MinMaxScaler for testing.
     """
     from sklearn.preprocessing import MinMaxScaler
-    
+
     rng = np.random.default_rng(42)
     X = rng.standard_normal((1000, INPUT_DIM))
-    
+
     scaler = MinMaxScaler()
     scaler.fit(X)
     return scaler
@@ -340,8 +340,8 @@ def production_feature_names():
     """Load production feature names from JSON."""
     if not PRODUCTION_FEATURE_NAMES_PATH.exists():
         return PRODUCTION_FEATURE_NAMES
-    
-    with open(PRODUCTION_FEATURE_NAMES_PATH, "r") as f:
+
+    with open(PRODUCTION_FEATURE_NAMES_PATH) as f:
         return json.load(f)
 
 
@@ -350,8 +350,8 @@ def model_card():
     """Load model card metadata."""
     if not PRODUCTION_MODEL_CARD_PATH.exists():
         pytest.skip(f"Model card not found at {PRODUCTION_MODEL_CARD_PATH}")
-    
-    with open(PRODUCTION_MODEL_CARD_PATH, "r") as f:
+
+    with open(PRODUCTION_MODEL_CARD_PATH) as f:
         return json.load(f)
 
 

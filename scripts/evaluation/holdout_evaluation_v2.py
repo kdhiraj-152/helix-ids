@@ -18,18 +18,18 @@ import numpy as np
 import torch
 from sklearn.model_selection import StratifiedKFold
 
+from helix_ids.governance.determinism import seed_worker, set_global_determinism
+from helix_ids.governance.entrypoint import governed_entrypoint
+from helix_ids.governance.parameters import DEFAULT_GOVERNANCE_POLICY
+from helix_ids.governance.promotion import SeedRunSummary, aggregate_seed_runs
+from helix_ids.governance.run_registry import RunRegistry
+from helix_ids.utils.metrics import evaluate as evaluate_contract
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
 logger = logging.getLogger(__name__)
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
-
-from helix_ids.governance.entrypoint import governed_entrypoint  # noqa: E402
-from helix_ids.governance.determinism import seed_worker, set_global_determinism
-from helix_ids.governance.parameters import DEFAULT_GOVERNANCE_POLICY
-from helix_ids.governance.promotion import SeedRunSummary, aggregate_seed_runs
-from helix_ids.governance.run_registry import RunRegistry
-from helix_ids.utils.metrics import evaluate as evaluate_contract  # noqa: E402
 
 RESULTS_DIR = PROJECT_ROOT / "results" / "v2_fixed"
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -46,7 +46,8 @@ CLASS_NAMES = ["Normal", "DoS", "Probe", "R2L", "U2R"]
 def cross_validate_holdout(model_class, model_kwargs, X, y, class_weights, n_folds=5, seed=42):
     """5-fold cross-validation for robust holdout estimation."""
     from torch.utils.data import DataLoader, TensorDataset
-    from train_multidataset_v2_fixed import ImprovedTrainer
+
+    from scripts.training.train_multidataset_v2_fixed import ImprovedTrainer
 
     skf = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=seed)
     fold_results = []
@@ -126,7 +127,7 @@ def cross_validate_holdout(model_class, model_kwargs, X, y, class_weights, n_fol
 
 def cross_dataset_holdout(model, nsl_scaler, unsw_scaler, n_features):
     """Evaluate trained model on completely separate dataset portions."""
-    from train_multidataset_v2_fixed import SafeDataLoader
+    from scripts.training.train_multidataset_v2_fixed import SafeDataLoader
 
     loader = SafeDataLoader()
     x_nsl, y_nsl = loader.load_nsl_kdd(PROJECT_ROOT / "data" / "nsl_kdd" / "test.csv")
@@ -172,7 +173,7 @@ def main():
     os.environ["HELIX_SEED"] = str(seed)
     determinism_state = set_global_determinism(seed)
 
-    from train_multidataset_v2_fixed import HELIXMLP5Class, SafeDataLoader
+    from scripts.training.train_multidataset_v2_fixed import HELIXMLP5Class, SafeDataLoader
 
     logger.info("=" * 80)
     logger.info("HELIX-IDS HOLDOUT EVALUATION")

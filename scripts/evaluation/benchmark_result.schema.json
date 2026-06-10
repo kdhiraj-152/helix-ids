@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helix-ids.local/schemas/benchmark_result.schema.json",
+  "title": "HELIX-IDS benchmark result payload",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "experiment_id",
+    "lineage",
+    "governance_metadata",
+    "lifecycle_metadata",
+    "reproducibility_metadata",
+    "metrics",
+    "runtime_metrics",
+    "platform_metrics",
+    "artifact_metadata"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "experiment_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "lineage": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "run_id",
+        "benchmark_id",
+        "variant_id",
+        "manifest_hash",
+        "manifest_path",
+        "schema_hash",
+        "mapping_version",
+        "mapping_hash",
+        "dataset_id",
+        "dataset_hash_primary",
+        "dataset_hashes",
+        "config_hashes",
+        "model_architecture",
+        "model_architecture_source",
+        "git_commit",
+        "git_branch",
+        "fingerprint"
+      ],
+      "properties": {
+        "run_id": {"type": "string", "minLength": 1},
+        "benchmark_id": {"type": "string", "minLength": 1},
+        "variant_id": {"type": "string", "minLength": 1},
+        "manifest_hash": {"type": "string", "minLength": 1},
+        "manifest_path": {"type": ["string", "null"]},
+        "schema_hash": {"type": "string", "minLength": 1},
+        "mapping_version": {"type": "string", "minLength": 1},
+        "mapping_hash": {"type": "string", "minLength": 1},
+        "dataset_id": {"type": "string", "minLength": 1},
+        "dataset_hash_primary": {"type": "string", "minLength": 1},
+        "dataset_hashes": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["raw", "processed", "split", "primary"],
+          "properties": {
+            "raw": {"type": "string", "minLength": 1},
+            "processed": {"type": "string", "minLength": 1},
+            "split": {"type": "string", "minLength": 1},
+            "primary": {"type": "string", "minLength": 1}
+          }
+        },
+        "config_hashes": {
+          "type": "object",
+          "additionalProperties": {"type": "string"},
+          "required": [
+            "helix_config",
+            "training_config",
+            "platform_configs",
+            "attack_params",
+            "schema_contract_hash",
+            "mapping_version",
+            "mapping_hash",
+            "governance_policy_hash"
+          ],
+          "properties": {
+            "helix_config": {"type": "string", "minLength": 1},
+            "training_config": {"type": "string", "minLength": 1},
+            "platform_configs": {"type": "string", "minLength": 1},
+            "attack_params": {"type": "string", "minLength": 1},
+            "schema_contract_hash": {"type": "string", "minLength": 1},
+            "mapping_version": {"type": "string", "minLength": 1},
+            "mapping_hash": {"type": "string", "minLength": 1},
+            "governance_policy_hash": {"type": "string", "minLength": 1},
+            "run_config_hash": {"type": "string", "minLength": 1}
+          }
+        },
+        "model_architecture": {"type": "string", "minLength": 1},
+        "model_architecture_source": {"type": "string", "minLength": 1},
+        "git_commit": {"type": "string", "minLength": 1},
+        "git_branch": {"type": ["string", "null"]},
+        "fingerprint": {"type": "string", "minLength": 1}
+      }
+    },
+    "governance_metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["state", "status"]
+    },
+    "lifecycle_metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["status"]
+    },
+    "reproducibility_metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["seed", "determinism", "run_id"]
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "runtime_metrics": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["dispatch", "timing", "runtime"]
+    },
+    "platform_metrics": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["latency"]
+    },
+    "artifact_metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["model_architecture", "model_architecture_source", "artifact_paths", "outputs"]
+    }
+  }
+}

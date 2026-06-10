@@ -7,7 +7,6 @@ Phase 3: train/evaluate UNSW-only HelixIDS-Full model.
 
 import argparse
 import json
-import logging
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -18,19 +17,31 @@ import torch.optim as optim
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, TensorDataset
 
+from helix_ids.contracts.schema_contract import runtime_contract_payload
+from helix_ids.governance import (
+    ARTIFACT_MANIFEST_KEY,
+    checkpoint_manifest_payload,
+    write_contract_sidecars,
+)
+from helix_ids.utils.export import (
+    build_export_manifest,
+    finalize_export_artifact,
+    verify_export_artifact,
+)
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SRC_DIR = PROJECT_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
+from train_helix_ids_full import HelixFullTrainer, setup_logging
+
 from helix_ids.config.helix_full_config import TrainingConfig
-from helix_ids.data.multi_dataset_loader import MultiDatasetLoader
 from helix_ids.data.feature_harmonization import (
-    COMMON_FEATURES,
     labels_to_multi_task,
 )
+from helix_ids.data.multi_dataset_loader import MultiDatasetLoader
 from helix_ids.models.full import MultiTaskLoss, create_helix_full
-from train_helix_ids_full import HelixFullTrainer, setup_logging
 
 
 def load_unsw_split(loader: MultiDatasetLoader):
@@ -70,7 +81,7 @@ def load_flagged_indices(mode: str):
     path = PROJECT_ROOT / "results" / "unsw_anomaly_analysis" / file_name
     if not path.exists():
         raise FileNotFoundError(f"Missing anomaly file: {path}")
-    with open(path, "r") as f:
+    with open(path) as f:
         payload = json.load(f)
     return np.array(payload["indices"], dtype=np.int64), payload
 
@@ -212,18 +223,25 @@ def main():
 
     best_model_path = output_dir / "helix_full_unsw_cleaned_best.pt"
     final_model_path = output_dir / "helix_full_unsw_cleaned_final.pt"
-    # Save canonical checkpoint payload including runtime contract and sidecars
-    from helix_ids.contracts.schema_contract import runtime_contract_payload
-    import json
-
     for p in [best_model_path, final_model_path]:
         payload = {"model_state_dict": model.state_dict()}
-        payload.update(runtime_contract_payload())
+        contract = runtime_contract_payload()
+        payload.update(contract)
+        manifest_base = build_export_manifest(
+            contract=contract,
+            model_architecture=model.__class__.__name__,
+            export_config={"format": "checkpoint", "origin": "train_unsw_only_cleaned"},
+        )
+        payload[ARTIFACT_MANIFEST_KEY] = checkpoint_manifest_payload(manifest_base)
         torch.save(payload, p)
-        # sidecars
-        (p.with_suffix(p.suffix + ".contract.json")).write_text(json.dumps(runtime_contract_payload(), indent=2), encoding="utf-8")
-        (p.with_suffix(p.suffix + ".feature_order.json")).write_text(json.dumps(runtime_contract_payload()["feature_order"], indent=2), encoding="utf-8")
-        (p.with_suffix(p.suffix + ".schema_hash.txt")).write_text(str(runtime_contract_payload()["schema_hash"]) + "\n", encoding="utf-8")
+        sidecars = write_contract_sidecars(p, contract)
+        finalize_export_artifact(p, manifest_base, sidecars=sidecars)
+        verify_export_artifact(
+            p,
+            kind="checkpoint",
+            contract=contract,
+            embedded_manifest=checkpoint_manifest_payload(manifest_base),
+        )
     logger.info("Saved model: %s", best_model_path)
 
     summary = {

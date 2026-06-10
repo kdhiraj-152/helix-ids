@@ -12,18 +12,18 @@ from pathlib import Path
 import numpy as np
 import torch
 
+from helix_ids.governance.determinism import set_global_determinism
+from helix_ids.governance.entrypoint import governed_entrypoint
+from helix_ids.governance.parameters import DEFAULT_GOVERNANCE_POLICY
+from helix_ids.governance.promotion import SeedRunSummary, aggregate_seed_runs
+from helix_ids.governance.run_registry import RunRegistry
+from helix_ids.utils.metrics import evaluate as evaluate_contract
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
 logger = logging.getLogger(__name__)
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
-
-from helix_ids.governance.entrypoint import governed_entrypoint  # noqa: E402
-from helix_ids.governance.determinism import set_global_determinism
-from helix_ids.governance.parameters import DEFAULT_GOVERNANCE_POLICY
-from helix_ids.governance.promotion import SeedRunSummary, aggregate_seed_runs
-from helix_ids.governance.run_registry import RunRegistry
-from helix_ids.utils.metrics import evaluate as evaluate_contract  # noqa: E402
 
 RESULTS_DIR = PROJECT_ROOT / "results" / "v2_fixed"
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -38,17 +38,24 @@ CLASS_NAMES = ["Normal", "DoS", "Probe", "R2L", "U2R"]
 
 
 def load_model_and_data(platform="production"):
-    from train_multidataset_v2_fixed import HELIXMLP5Class, SafeDataLoader
+    from scripts.training.train_multidataset_v2_fixed import HELIXMLP5Class, SafeDataLoader
 
     model_dir = PROJECT_ROOT / "models" / "v2_fixed" / platform
     with open(model_dir / "model_card_v2.json") as f:
         card = json.load(f)
+    for sidecar_path in [
+        model_dir / "model_v2.pt.contract.json",
+        model_dir / "model_v2.pt.feature_order.json",
+        model_dir / "model_v2.pt.schema_hash.txt",
+    ]:
+        if not sidecar_path.exists():
+            raise RuntimeError(f"Missing benchmark provenance sidecar: {sidecar_path}")
     hidden_dims = eval(card["architecture"])
     n_features = card["n_features"]
     model = HELIXMLP5Class(
         input_dim=n_features, hidden_dims=hidden_dims, num_classes=5, dropout=0.0
     )
-    model.load_state_dict(torch.load(model_dir / "model_v2.pt", map_location=DEVICE))
+    model.load_state_dict(torch.load(model_dir / "model_v2.pt", map_location=DEVICE, weights_only=True))
     model.eval()
     with open(model_dir / "nsl_scaler.pkl", "rb") as f:
         nsl_scaler = pickle.load(f)

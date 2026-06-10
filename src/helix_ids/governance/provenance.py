@@ -11,9 +11,10 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 import torch
 
@@ -27,14 +28,45 @@ from helix_ids.contracts import (
 )
 from helix_ids.contracts.schema_contract import assert_runtime_contract
 from helix_ids.governance.fingerprinting import canonical_json_hash
-from helix_ids.governance.parameters import allow_legacy_artifacts
-
+from helix_ids.governance.parameters import allow_legacy_artifacts, is_production_runtime
 
 ARTIFACT_MANIFEST_KEY = "artifact_manifest"
 ARTIFACT_MANIFEST_FILENAME = "manifest.json"
 LEGACY_ARTIFACT_MANIFEST_FILENAME = "artifact_manifest.json"
 DEPLOYMENT_MANIFEST_FILENAME = "deployment.manifest.json"
 PROVENANCE_CHAIN_KEY = "provenance_chain"
+_VOLATILE_MANIFEST_FIELDS = {
+    "artifact_sha256",
+    PROVENANCE_CHAIN_KEY,
+    "training_timestamp",
+    "torch_version",
+    "git_dirty",
+}
+_OPTIONAL_MANIFEST_FIELDS = {
+    "manifest_version",
+    "dataset_hash",
+    "normalized_dataset_hash",
+    "config_hash",
+    "training_code_hash",
+    "training_config_hash",
+    "export_config_hash",
+    "git_commit",
+    "git_branch",
+    "exporter_version",
+    "exporter_api_version",
+    "runtime_version",
+    "training_timestamp",
+    "onnx_opset",
+    "artifact_sha256",
+    PROVENANCE_CHAIN_KEY,
+    "model_architecture",
+    "quantization_config_hash",
+}
+_UNORDERED_LIST_FIELDS = {
+    "classes",
+    "input_names",
+    "output_names",
+}
 
 
 class ArtifactManifestError(RuntimeError):
@@ -97,7 +129,13 @@ def _environment_value_optional(*names: str) -> str | None:
 
 
 def _allow_legacy_manifest() -> bool:
-    return os.getenv("HELIX_ALLOW_LEGACY_MANIFEST", "").strip() == "1"
+    allowed = allow_legacy_artifacts() or os.getenv("HELIX_ALLOW_LEGACY_MANIFEST", "").strip() == "1"
+    if allowed:
+        assert not is_production_runtime(), (
+            "Legacy manifest allowance is forbidden in production runtimes. "
+            "Disable legacy flags or switch to a non-production env."
+        )
+    return allowed
 
 
 def _telemetry_path() -> Path:
@@ -202,6 +240,50 @@ def manifest_without_artifact_sha256(manifest: Mapping[str, Any]) -> dict[str, A
         for key, value in manifest.items()
         if key not in {"artifact_sha256", PROVENANCE_CHAIN_KEY}
     }
+
+
+def _normalize_timestamp(value: str) -> str:
+    raw = value.strip()
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return raw
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc).isoformat()
+
+
+def _normalize_manifest_value(key: str, value: Any) -> Any:
+    if value is None:
+        return None
+    if isinstance(value, Mapping):
+        return {inner_key: _normalize_manifest_value(inner_key, inner_value) for inner_key, inner_value in value.items()}
+    if isinstance(value, list):
+        normalized = [_normalize_manifest_value(key, item) for item in value]
+        if key in _UNORDERED_LIST_FIELDS:
+            return sorted(normalized, key=lambda item: json.dumps(item, sort_keys=True, separators=(",", ":")))
+        return normalized
+    if isinstance(value, str) and (key.endswith("_timestamp") or key in {"timestamp", "timestamp_utc"}):
+        return _normalize_timestamp(value)
+    return value
+
+
+def normalize_manifest(manifest: Mapping[str, Any]) -> dict[str, Any]:
+    normalized = dict(manifest)
+    for key in _OPTIONAL_MANIFEST_FIELDS:
+        normalized[key] = normalized.get(key)
+    for key in _VOLATILE_MANIFEST_FIELDS:
+        normalized.pop(key, None)
+    for key, value in list(normalized.items()):
+        normalized[key] = _normalize_manifest_value(key, value)
+    for field in ("binary_output_dim", "family_output_dim", "input_dim"):
+        if field in normalized and normalized[field] is not None:
+            normalized[field] = int(normalized[field])
+    return normalized
+
+
+def canonical_manifest_hash(manifest: Mapping[str, Any]) -> str:
+    return str(canonical_json_hash(normalize_manifest(manifest)))
 
 
 def manifest_json(manifest: Mapping[str, Any]) -> str:
@@ -321,24 +403,7 @@ def read_embedded_manifest(path: Path | str, *, kind: str) -> dict[str, Any] | N
 
 
 def _normalized_manifest(manifest: Mapping[str, Any]) -> dict[str, Any]:
-    normalized = dict(manifest)
-    normalized["manifest_version"] = normalized.get("manifest_version")
-    normalized["dataset_hash"] = normalized.get("dataset_hash")
-    normalized["training_config_hash"] = normalized.get("training_config_hash")
-    normalized["export_config_hash"] = normalized.get("export_config_hash")
-    normalized["git_commit"] = normalized.get("git_commit")
-    normalized["git_branch"] = normalized.get("git_branch")
-    normalized["exporter_version"] = normalized.get("exporter_version")
-    normalized["exporter_api_version"] = normalized.get("exporter_api_version")
-    normalized["training_timestamp"] = normalized.get("training_timestamp")
-    normalized["onnx_opset"] = normalized.get("onnx_opset")
-    normalized["artifact_sha256"] = normalized.get("artifact_sha256")
-    normalized[PROVENANCE_CHAIN_KEY] = normalized.get(PROVENANCE_CHAIN_KEY)
-    normalized["model_architecture"] = normalized.get("model_architecture")
-    normalized["binary_output_dim"] = int(normalized["binary_output_dim"])
-    normalized["family_output_dim"] = int(normalized["family_output_dim"])
-    normalized["input_dim"] = int(normalized["input_dim"])
-    return normalized
+    return normalize_manifest(manifest)
 
 
 def _manifest_projection(manifest: Mapping[str, Any]) -> dict[str, Any]:
@@ -617,7 +682,19 @@ def verify_ingress_artifact(
     # Centralize legacy-artifact gating via `allow_legacy_artifacts()` so
     # this logic is not scattered across the codebase and tests can toggle
     # the behavior by setting `HELIX_ALLOW_LEGACY_ARTIFACTS=1`.
-    allow = bool(allow_legacy_local_dev) or allow_legacy_artifacts()
+    allow = allow_legacy_artifacts()
+    if allow:
+        assert not is_production_runtime(), (
+            "Legacy artifact allowance is forbidden in production runtimes. "
+            "Unset HELIX_ALLOW_LEGACY_ARTIFACTS or switch to a non-production env."
+        )
+    if allow_legacy_local_dev:
+        if is_production_runtime():
+            raise AssertionError(
+                "Legacy artifact allowance is forbidden in production runtimes. "
+                "Unset local-dev flags or switch to a non-production env."
+            )
+        allow = True
     try:
         # When allowed, do not require an embedded/sidecar manifest — let callers
         # proceed when only contract sidecars exist. Otherwise enforce manifest
@@ -718,6 +795,8 @@ __all__ = [
     "manifest_from_json",
     "manifest_json",
     "manifest_without_artifact_sha256",
+    "normalize_manifest",
+    "canonical_manifest_hash",
     "read_embedded_manifest",
     "read_deployment_manifest",
     "verify_deployment_manifest",
@@ -726,8 +805,6 @@ __all__ = [
     "verify_artifact_provenance",
     "verify_contract_integrity",
     "verify_provenance_chain",
-    "verify_export_provenance",
-    "verify_runtime_compatibility",
     "verify_sidecar_set",
     "write_artifact_manifest_sidecar",
     "write_deployment_manifest",

@@ -7,7 +7,7 @@ import json
 import os
 from dataclasses import replace
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 from .orchestrator import DEFAULT_STAGE_SEQUENCE, GateOrchestrator
 from .parameters import DEFAULT_GOVERNANCE_POLICY
@@ -293,8 +293,8 @@ def governed_entrypoint(
 
             return result
 
-        setattr(wrapped, "__governed_entrypoint__", True)
-        setattr(wrapped, "__governed_entrypoint_id__", entrypoint_id)
+        cast(Any, wrapped).__governed_entrypoint__ = True
+        cast(Any, wrapped).__governed_entrypoint_id__ = entrypoint_id
         return wrapped
 
     return decorator

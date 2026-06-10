@@ -4,17 +4,17 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
 import pytest
 import torch
 from sklearn.metrics import f1_score
-from typing import Any, cast
 
+from helix_ids.data.multi_dataset_loader import MultiDatasetLoader
 from helix_ids.utils.entropy_diagnostics import calculate_entropy_stable
 from helix_ids.utils.metrics import compute_macro_f1
-from helix_ids.data.multi_dataset_loader import MultiDatasetLoader
 from scripts.training import train_helix_ids_full as train_mod
 
 
@@ -529,8 +529,8 @@ def test_resolve_class_balance_strategy_invalid_raises_value_error() -> None:
 
 
 def test_sampler_mode_literal_accepts_weighted_random_sampler() -> None:
-    mode_weighted = str("weighted_random_sampler").strip().lower()
-    mode_interleaved = str("interleaved_rr").strip().lower()
+    mode_weighted = "weighted_random_sampler".strip().lower()
+    mode_interleaved = "interleaved_rr".strip().lower()
     assert mode_weighted in {"interleaved_rr", "weighted_random_sampler"}
     assert mode_interleaved in {"interleaved_rr", "weighted_random_sampler"}
 

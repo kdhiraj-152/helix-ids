@@ -7,7 +7,6 @@ No runtime changes — read-only validation.
 """
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
@@ -236,7 +235,7 @@ def test_ci_workflow_references_all_validators() -> None:
     jobs = wf.get("jobs", {})
     # Collect all run/step commands that invoke validators
     validator_calls: set[str] = set()
-    for job_name, job in jobs.items():
+    for _job_name, job in jobs.items():
         for step in job.get("steps", []):
             run_cmd = step.get("run", "")
             # Look for validator invocations

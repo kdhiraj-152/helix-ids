@@ -4,11 +4,10 @@ from pathlib import Path
 
 import numpy as np
 import torch
-import json
 
+from helix_ids.contracts.schema_contract import runtime_contract_payload
 from helix_ids.models.full import HelixFullConfig, create_helix_full
 from helix_ids.operations.inference_runtime import HelixInferenceRuntime, InferenceConfig
-from helix_ids.contracts.schema_contract import runtime_contract_payload
 
 
 def _make_checkpoint(path: Path) -> None:
@@ -17,14 +16,22 @@ def _make_checkpoint(path: Path) -> None:
         "model_state_dict": model.state_dict(),
         **runtime_contract_payload(),
     }
+    from helix_ids.governance import (
+        ARTIFACT_MANIFEST_KEY,
+        checkpoint_manifest_payload,
+        write_contract_sidecars,
+    )
+    from helix_ids.utils.export import build_export_manifest, finalize_export_artifact
+    manifest_base = build_export_manifest(
+        contract=runtime_contract_payload(),
+        model_architecture=model.__class__.__name__,
+        export_config={"format": "checkpoint", "origin": "test_inference_runtime"},
+    )
+    payload[ARTIFACT_MANIFEST_KEY] = checkpoint_manifest_payload(manifest_base)
     torch.save(payload, path)
     # Write sidecar files expected by HelixInferenceRuntime
-    contract_path = Path(path).with_suffix(Path(path).suffix + ".contract.json")
-    feature_order_path = Path(path).with_suffix(Path(path).suffix + ".feature_order.json")
-    schema_hash_path = Path(path).with_suffix(Path(path).suffix + ".schema_hash.txt")
-    contract_path.write_text(json.dumps(runtime_contract_payload(), indent=2), encoding="utf-8")
-    feature_order_path.write_text(json.dumps(runtime_contract_payload()["feature_order"], indent=2), encoding="utf-8")
-    schema_hash_path.write_text(str(runtime_contract_payload()["schema_hash"]) + "\n", encoding="utf-8")
+    sidecars = write_contract_sidecars(path, runtime_contract_payload())
+    finalize_export_artifact(path, manifest_base, sidecars=sidecars)
 
 
 def test_predict_outputs_contract(tmp_path: Path) -> None:

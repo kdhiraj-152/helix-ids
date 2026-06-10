@@ -10,7 +10,6 @@ Tests cover:
 """
 
 import time
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -45,9 +44,9 @@ class TestModelLoading:
         Architecture: 32→64→32→16→2
         """
         from src.helix_ids.models.helix_ids import create_helix_model
-        
+
         model = create_helix_model("nano", input_dim=INPUT_DIM, num_classes=OUTPUT_CLASSES)
-        
+
         assert model is not None
         assert isinstance(model, torch.nn.Module)
 
@@ -56,16 +55,16 @@ class TestModelLoading:
         Test model accepts 32-dimensional input.
         """
         from src.helix_ids.models.helix_ids import create_helix_model
-        
+
         model = create_helix_model("nano", input_dim=INPUT_DIM, num_classes=OUTPUT_CLASSES)
         model.eval()
-        
+
         # Create test input
         x = torch.randn(1, INPUT_DIM)
-        
+
         with torch.no_grad():
             output = model(x)
-        
+
         # Should not raise an error
         assert output is not None
 
@@ -74,15 +73,15 @@ class TestModelLoading:
         Test model outputs 2 classes (Normal, Attack).
         """
         from src.helix_ids.models.helix_ids import create_helix_model
-        
+
         model = create_helix_model("nano", input_dim=INPUT_DIM, num_classes=OUTPUT_CLASSES)
         model.eval()
-        
+
         x = torch.randn(1, INPUT_DIM)
-        
+
         with torch.no_grad():
             output = model(x)
-        
+
         if output is None or (not hasattr(output, 'shape') and not isinstance(output, dict)):
             pytest.skip("Model did not return logits or output shape is invalid.")
         if isinstance(output, dict):
@@ -100,7 +99,7 @@ class TestModelLoading:
         """
         model = loaded_production_model
         assert model is not None
-        
+
         # Check model is in eval mode
         assert not model.training
 
@@ -128,13 +127,11 @@ class TestModelLoading:
         Architecture 32→64→32→16→2 should have approximately 4978 parameters.
         """
         from src.helix_ids.models.helix_ids import create_helix_model
-        
+
         model = create_helix_model("nano", input_dim=INPUT_DIM, num_classes=OUTPUT_CLASSES)
-        
+
         total_params = sum(p.numel() for p in model.parameters())
-        
-        # Allow some flexibility (within 50% of expected)
-        expected_params = 4978
+
         assert total_params > 0, "Model should have parameters"
         # Model architecture may vary, just ensure it's reasonable
         assert total_params < 100000, f"Model has too many parameters: {total_params}"
@@ -153,13 +150,13 @@ class TestSingleInference:
         Test inference on a single sample.
         """
         from src.helix_ids.models.helix_ids import create_helix_model
-        
+
         model = create_helix_model("nano", input_dim=INPUT_DIM, num_classes=OUTPUT_CLASSES)
         model.eval()
-        
+
         with torch.no_grad():
             output = model(sample_batch_single)
-        
+
         assert output is not None
 
     def test_single_sample_output_shape(self, sample_batch_single):
@@ -167,13 +164,13 @@ class TestSingleInference:
         Test single sample produces correct output shape.
         """
         from src.helix_ids.models.helix_ids import create_helix_model
-        
+
         model = create_helix_model("nano", input_dim=INPUT_DIM, num_classes=OUTPUT_CLASSES)
         model.eval()
-        
+
         with torch.no_grad():
             output = model(sample_batch_single)
-        
+
         if output is None or (not hasattr(output, 'shape') and not isinstance(output, dict)):
             pytest.skip("Model did not return logits or output shape is invalid.")
         if isinstance(output, dict):
@@ -190,13 +187,13 @@ class TestSingleInference:
         Test predict method returns class labels.
         """
         from src.helix_ids.models.helix_ids import create_helix_model
-        
+
         model = create_helix_model("nano", input_dim=INPUT_DIM, num_classes=OUTPUT_CLASSES)
         model.eval()
-        
+
         with torch.no_grad():
             prediction = model.predict(sample_batch_single)
-        
+
         assert prediction.shape == (1,), f"Expected shape (1,), got {prediction.shape}"
         assert prediction.item() in [0, 1], "Prediction should be 0 or 1"
 
@@ -205,13 +202,13 @@ class TestSingleInference:
         Test predict_proba returns valid probabilities.
         """
         from src.helix_ids.models.helix_ids import create_helix_model
-        
+
         model = create_helix_model("nano", input_dim=INPUT_DIM, num_classes=OUTPUT_CLASSES)
         model.eval()
-        
+
         with torch.no_grad():
             proba = model.predict_proba(sample_batch_single)
-        
+
         if proba is None or not hasattr(proba, 'shape'):
             pytest.skip("Model did not return probabilities or output shape is invalid.")
         if proba.shape != (1, OUTPUT_CLASSES):
@@ -234,13 +231,13 @@ class TestBatchInference:
         Test inference on small batch (32 samples).
         """
         from src.helix_ids.models.helix_ids import create_helix_model
-        
+
         model = create_helix_model("nano", input_dim=INPUT_DIM, num_classes=OUTPUT_CLASSES)
         model.eval()
-        
+
         with torch.no_grad():
             output = model(sample_batch_32)
-        
+
         assert output is not None
 
     def test_batch_inference_output_shape(self, sample_batch_32):
@@ -248,15 +245,15 @@ class TestBatchInference:
         Test batch inference produces correct output shape.
         """
         from src.helix_ids.models.helix_ids import create_helix_model
-        
+
         model = create_helix_model("nano", input_dim=INPUT_DIM, num_classes=OUTPUT_CLASSES)
         model.eval()
-        
+
         batch_size = sample_batch_32.shape[0]
-        
+
         with torch.no_grad():
             output = model(sample_batch_32)
-        
+
         if output is None or (not hasattr(output, 'shape') and not isinstance(output, dict)):
             pytest.skip("Model did not return logits or output shape is invalid.")
         if isinstance(output, dict):
@@ -273,15 +270,15 @@ class TestBatchInference:
         Test inference on large batch (1000 samples).
         """
         from src.helix_ids.models.helix_ids import create_helix_model
-        
+
         model = create_helix_model("nano", input_dim=INPUT_DIM, num_classes=OUTPUT_CLASSES)
         model.eval()
-        
+
         batch_size = sample_batch_large.shape[0]
-        
+
         with torch.no_grad():
             output = model(sample_batch_large)
-        
+
         if output is None or (not hasattr(output, 'shape') and not isinstance(output, dict)):
             pytest.skip("Model did not return logits or output shape is invalid.")
         if isinstance(output, dict):
@@ -298,15 +295,15 @@ class TestBatchInference:
         Test inference works for various batch sizes.
         """
         from src.helix_ids.models.helix_ids import create_helix_model
-        
+
         model = create_helix_model("nano", input_dim=INPUT_DIM, num_classes=OUTPUT_CLASSES)
         model.eval()
-        
+
         x = torch.randn(batch_size, INPUT_DIM)
-        
+
         with torch.no_grad():
             output = model(x)
-        
+
         if output is None or (not hasattr(output, 'shape') and not isinstance(output, dict)):
             pytest.skip("Model did not return logits or output shape is invalid.")
         if isinstance(output, dict):
@@ -331,13 +328,13 @@ class TestOutputType:
         Test that model output is a PyTorch tensor.
         """
         from src.helix_ids.models.helix_ids import create_helix_model
-        
+
         model = create_helix_model("nano", input_dim=INPUT_DIM, num_classes=OUTPUT_CLASSES)
         model.eval()
-        
+
         with torch.no_grad():
             output = model(sample_batch_32)
-        
+
         if output is None or (not hasattr(output, 'shape') and not isinstance(output, dict)):
             pytest.skip("Model did not return logits or output shape is invalid.")
         if isinstance(output, dict):
@@ -353,13 +350,13 @@ class TestOutputType:
         Test that output is float type.
         """
         from src.helix_ids.models.helix_ids import create_helix_model
-        
+
         model = create_helix_model("nano", input_dim=INPUT_DIM, num_classes=OUTPUT_CLASSES)
         model.eval()
-        
+
         with torch.no_grad():
             output = model(sample_batch_32)
-        
+
         if output is None or (not hasattr(output, 'shape') and not isinstance(output, dict)):
             pytest.skip("Model did not return logits or output shape is invalid.")
         if isinstance(output, dict):
@@ -375,13 +372,13 @@ class TestOutputType:
         Test that output contains no NaN values.
         """
         from src.helix_ids.models.helix_ids import create_helix_model
-        
+
         model = create_helix_model("nano", input_dim=INPUT_DIM, num_classes=OUTPUT_CLASSES)
         model.eval()
-        
+
         with torch.no_grad():
             output = model(sample_batch_32)
-        
+
         if output is None or (not hasattr(output, 'shape') and not isinstance(output, dict)):
             pytest.skip("Model did not return logits or output shape is invalid.")
         if isinstance(output, dict):
@@ -397,13 +394,13 @@ class TestOutputType:
         Test that output contains no infinite values.
         """
         from src.helix_ids.models.helix_ids import create_helix_model
-        
+
         model = create_helix_model("nano", input_dim=INPUT_DIM, num_classes=OUTPUT_CLASSES)
         model.eval()
-        
+
         with torch.no_grad():
             output = model(sample_batch_32)
-        
+
         if output is None or (not hasattr(output, 'shape') and not isinstance(output, dict)):
             pytest.skip("Model did not return logits or output shape is invalid.")
         if isinstance(output, dict):
@@ -419,13 +416,13 @@ class TestOutputType:
         Test that predictions are valid class indices.
         """
         from src.helix_ids.models.helix_ids import create_helix_model
-        
+
         model = create_helix_model("nano", input_dim=INPUT_DIM, num_classes=OUTPUT_CLASSES)
         model.eval()
-        
+
         with torch.no_grad():
             predictions = model.predict(sample_batch_32)
-        
+
         assert (predictions >= 0).all(), "Predictions should be >= 0"
         assert (predictions < OUTPUT_CLASSES).all(), f"Predictions should be < {OUTPUT_CLASSES}"
 
@@ -446,15 +443,15 @@ class TestInferenceSpeed:
         Test single sample inference speed < 1ms.
         """
         from src.helix_ids.models.helix_ids import create_helix_model
-        
+
         model = create_helix_model("nano", input_dim=INPUT_DIM, num_classes=OUTPUT_CLASSES)
         model.eval()
-        
+
         # Warmup
         with torch.no_grad():
             for _ in range(NUM_WARMUP_RUNS):
                 _ = model(sample_batch_single)
-        
+
         # Benchmark
         times = []
         with torch.no_grad():
@@ -463,10 +460,9 @@ class TestInferenceSpeed:
                 _ = model(sample_batch_single)
                 end = time.perf_counter()
                 times.append((end - start) * 1000)  # Convert to ms
-        
+
         mean_time = np.mean(times)
-        p99_time = np.percentile(times, 99)
-        
+
         assert mean_time < INFERENCE_SPEED_THRESHOLD_MS, \
             f"Mean inference time {mean_time:.3f}ms exceeds {INFERENCE_SPEED_THRESHOLD_MS}ms threshold"
 
@@ -478,17 +474,17 @@ class TestInferenceSpeed:
         Test batch inference maintains good throughput.
         """
         from src.helix_ids.models.helix_ids import create_helix_model
-        
+
         model = create_helix_model("nano", input_dim=INPUT_DIM, num_classes=OUTPUT_CLASSES)
         model.eval()
-        
+
         batch_size = sample_batch_32.shape[0]
-        
+
         # Warmup
         with torch.no_grad():
             for _ in range(NUM_WARMUP_RUNS):
                 _ = model(sample_batch_32)
-        
+
         # Benchmark
         times = []
         with torch.no_grad():
@@ -497,10 +493,10 @@ class TestInferenceSpeed:
                 _ = model(sample_batch_32)
                 end = time.perf_counter()
                 times.append((end - start) * 1000)
-        
+
         mean_time = np.mean(times)
         per_sample_time = mean_time / batch_size
-        
+
         # Per-sample time should still be reasonable
         assert per_sample_time < INFERENCE_SPEED_THRESHOLD_MS, \
             f"Per-sample time {per_sample_time:.3f}ms exceeds threshold"
@@ -513,28 +509,28 @@ class TestInferenceSpeed:
         Test inference throughput (samples per second).
         """
         from src.helix_ids.models.helix_ids import create_helix_model
-        
+
         model = create_helix_model("nano", input_dim=INPUT_DIM, num_classes=OUTPUT_CLASSES)
         model.eval()
-        
+
         batch_size = sample_batch_large.shape[0]
-        
+
         # Warmup
         with torch.no_grad():
             for _ in range(NUM_WARMUP_RUNS):
                 _ = model(sample_batch_large)
-        
+
         # Benchmark
         start = time.perf_counter()
         with torch.no_grad():
             for _ in range(NUM_BENCHMARK_RUNS):
                 _ = model(sample_batch_large)
         end = time.perf_counter()
-        
+
         total_samples = batch_size * NUM_BENCHMARK_RUNS
         total_time = end - start
         throughput = total_samples / total_time
-        
+
         # Should achieve at least 10,000 samples/sec on CPU
         assert throughput > 10000, \
             f"Throughput {throughput:.0f} samples/sec is too low"
@@ -548,15 +544,15 @@ class TestInferenceSpeed:
         Test p99 latency for single sample inference.
         """
         from src.helix_ids.models.helix_ids import create_helix_model
-        
+
         model = create_helix_model("nano", input_dim=INPUT_DIM, num_classes=OUTPUT_CLASSES)
         model.eval()
-        
+
         # Warmup
         with torch.no_grad():
             for _ in range(NUM_WARMUP_RUNS):
                 _ = model(sample_batch_single)
-        
+
         # Benchmark
         times = []
         with torch.no_grad():
@@ -565,9 +561,9 @@ class TestInferenceSpeed:
                 _ = model(sample_batch_single)
                 end = time.perf_counter()
                 times.append((end - start) * 1000)
-        
+
         p99_time = np.percentile(times, 99)
-        
+
         # p99 should still be reasonable (< 5ms)
         assert p99_time < 5.0, \
             f"p99 latency {p99_time:.3f}ms is too high"
@@ -586,20 +582,20 @@ class TestModelConsistency:
         Test that inference is deterministic in eval mode.
         """
         from src.helix_ids.models.helix_ids import create_helix_model
-        
+
         model = create_helix_model("nano", input_dim=INPUT_DIM, num_classes=OUTPUT_CLASSES)
         model.eval()
-        
+
         with torch.no_grad():
             output1 = model(sample_batch_32)
             output2 = model(sample_batch_32)
-        
+
         if isinstance(output1, dict):
             logits1 = output1.get("binary_logits", output1.get("logits"))
             logits2 = output2.get("binary_logits", output2.get("logits"))
         else:
             logits1, logits2 = output1, output2
-        
+
         torch.testing.assert_close(logits1, logits2)
 
     def test_model_eval_vs_train_mode(self, sample_batch_32):
@@ -607,9 +603,9 @@ class TestModelConsistency:
         Test that eval and train modes produce different dropout behavior.
         """
         from src.helix_ids.models.helix_ids import create_helix_model
-        
+
         model = create_helix_model("nano", input_dim=INPUT_DIM, num_classes=OUTPUT_CLASSES)
-        
+
         # Train mode (with dropout)
         model.train()
         with torch.no_grad():
@@ -621,7 +617,7 @@ class TestModelConsistency:
                 else:
                     logits = output
                 train_outputs.append(logits.clone())
-        
+
         # Eval mode (no dropout)
         model.eval()
         with torch.no_grad():
@@ -633,7 +629,7 @@ class TestModelConsistency:
                 else:
                     logits = output
                 eval_outputs.append(logits.clone())
-        
+
         # Eval outputs should all be identical
         for i in range(1, len(eval_outputs)):
             torch.testing.assert_close(eval_outputs[0], eval_outputs[i])
@@ -643,23 +639,23 @@ class TestModelConsistency:
         Test model can be transferred to different devices.
         """
         from src.helix_ids.models.helix_ids import create_helix_model
-        
+
         model = create_helix_model("nano", input_dim=INPUT_DIM, num_classes=OUTPUT_CLASSES)
         model = model.to(device)
         model.eval()
-        
+
         x = sample_batch_32.to(device)
-        
+
         with torch.no_grad():
             output = model(x)
-        
+
         if output is None:
             pytest.fail("Model returned None for logits/output. Check model forward implementation.")
         if isinstance(output, dict):
             logits = output.get("binary_logits", output.get("logits"))
         else:
             logits = output
-        
+
         assert logits.device.type == device.type
 
 
@@ -676,20 +672,20 @@ class TestInferenceEdgeCases:
         Test inference with all-zero input.
         """
         from src.helix_ids.models.helix_ids import create_helix_model
-        
+
         model = create_helix_model("nano", input_dim=INPUT_DIM, num_classes=OUTPUT_CLASSES)
         model.eval()
-        
+
         x = torch.zeros(1, INPUT_DIM)
-        
+
         with torch.no_grad():
             output = model(x)
-        
+
         if isinstance(output, dict):
             logits = output.get("binary_logits", output.get("logits"))
         else:
             logits = output
-        
+
         assert not torch.isnan(logits).any()
         assert not torch.isinf(logits).any()
 
@@ -698,20 +694,20 @@ class TestInferenceEdgeCases:
         Test inference with large input values.
         """
         from src.helix_ids.models.helix_ids import create_helix_model
-        
+
         model = create_helix_model("nano", input_dim=INPUT_DIM, num_classes=OUTPUT_CLASSES)
         model.eval()
-        
+
         x = torch.ones(1, INPUT_DIM) * 1000
-        
+
         with torch.no_grad():
             output = model(x)
-        
+
         if isinstance(output, dict):
             logits = output.get("binary_logits", output.get("logits"))
         else:
             logits = output
-        
+
         # Should still produce valid output (may be saturated but not NaN)
         assert not torch.isnan(logits).any()
 
@@ -720,20 +716,20 @@ class TestInferenceEdgeCases:
         Test inference with negative input values.
         """
         from src.helix_ids.models.helix_ids import create_helix_model
-        
+
         model = create_helix_model("nano", input_dim=INPUT_DIM, num_classes=OUTPUT_CLASSES)
         model.eval()
-        
+
         x = torch.ones(1, INPUT_DIM) * -1
-        
+
         with torch.no_grad():
             output = model(x)
-        
+
         if isinstance(output, dict):
             logits = output.get("binary_logits", output.get("logits"))
         else:
             logits = output
-        
+
         assert not torch.isnan(logits).any()
         assert not torch.isinf(logits).any()
 
@@ -742,20 +738,20 @@ class TestInferenceEdgeCases:
         Test inference with mixed magnitude inputs.
         """
         from src.helix_ids.models.helix_ids import create_helix_model
-        
+
         model = create_helix_model("nano", input_dim=INPUT_DIM, num_classes=OUTPUT_CLASSES)
         model.eval()
-        
+
         x = torch.randn(1, INPUT_DIM)
         x[0, 0] = 1e6  # One very large value
         x[0, 1] = 1e-6  # One very small value
-        
+
         with torch.no_grad():
             output = model(x)
-        
+
         if isinstance(output, dict):
             logits = output.get("binary_logits", output.get("logits"))
         else:
             logits = output
-        
+
         assert not torch.isnan(logits).any()

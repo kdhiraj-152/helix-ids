@@ -9,7 +9,7 @@ Implements attack methods and robustness metrics:
 """
 
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, cast
 
 import torch
 import torch.nn as nn
@@ -119,6 +119,7 @@ class AdversarialTester:
             logits = output.get("logits", output.get("output", output))
         else:
             logits = output
+        logits = cast(torch.Tensor, logits)
 
         # Ensure logits are 2D
         if logits.dim() == 1:
@@ -192,6 +193,7 @@ class AdversarialTester:
                 logits = output.get("logits", output.get("output", output))
             else:
                 logits = output
+            logits = cast(torch.Tensor, logits)
 
             # Ensure logits are 2D
             if logits.dim() == 1:
@@ -302,6 +304,7 @@ class AdversarialTester:
                 logits_fgsm = output_fgsm.get("logits", output_fgsm.get("output", output_fgsm))
             else:
                 logits_fgsm = output_fgsm
+            logits_fgsm = cast(torch.Tensor, logits_fgsm)
 
             if logits_fgsm.dim() == 1:
                 logits_fgsm = logits_fgsm.unsqueeze(1)
@@ -319,6 +322,7 @@ class AdversarialTester:
                 logits_pgd = output_pgd.get("logits", output_pgd.get("output", output_pgd))
             else:
                 logits_pgd = output_pgd
+            logits_pgd = cast(torch.Tensor, logits_pgd)
 
             if logits_pgd.dim() == 1:
                 logits_pgd = logits_pgd.unsqueeze(1)
@@ -336,6 +340,7 @@ class AdversarialTester:
                 logits_noise = output_noise.get("logits", output_noise.get("output", output_noise))
             else:
                 logits_noise = output_noise
+            logits_noise = cast(torch.Tensor, logits_noise)
 
             if logits_noise.dim() == 1:
                 logits_noise = logits_noise.unsqueeze(1)

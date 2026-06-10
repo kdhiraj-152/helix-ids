@@ -9,6 +9,14 @@ from .fingerprinting import (
     build_schema_hash_from_frame,
     canonical_json_hash,
 )
+from .orchestrator import DEFAULT_STAGE_SEQUENCE, GateDecision, GateOrchestrator
+from .parameters import DEFAULT_GOVERNANCE_POLICY, GovernancePolicy
+from .promotion import (
+    PromotionConsensus,
+    SeedRunSummary,
+    aggregate_seed_runs,
+    execute_multi_seed_consensus,
+)
 from .provenance import (
     ARTIFACT_MANIFEST_FILENAME,
     ARTIFACT_MANIFEST_KEY,
@@ -18,6 +26,7 @@ from .provenance import (
     build_artifact_manifest,
     build_deployment_manifest,
     build_provenance_chain,
+    canonical_manifest_hash,
     checkpoint_manifest_payload,
     deployment_manifest_path,
     embed_manifest_in_onnx_metadata,
@@ -25,28 +34,21 @@ from .provenance import (
     manifest_from_json,
     manifest_json,
     manifest_without_artifact_sha256,
-    read_embedded_manifest,
+    normalize_manifest,
     read_deployment_manifest,
+    read_embedded_manifest,
     torchscript_extra_files_for_manifest,
     verify_artifact_manifest,
-    verify_ingress_artifact,
     verify_artifact_provenance,
     verify_contract_integrity,
-    verify_provenance_chain,
     verify_export_provenance,
+    verify_ingress_artifact,
+    verify_provenance_chain,
     verify_runtime_compatibility,
     verify_sidecar_set,
     write_artifact_manifest_sidecar,
     write_contract_sidecars,
     write_deployment_manifest,
-)
-from .orchestrator import DEFAULT_STAGE_SEQUENCE, GateDecision, GateOrchestrator
-from .parameters import DEFAULT_GOVERNANCE_POLICY, GovernancePolicy
-from .promotion import (
-    PromotionConsensus,
-    SeedRunSummary,
-    aggregate_seed_runs,
-    execute_multi_seed_consensus,
 )
 from .run_registry import RunRegistry, RunRegistryDecision
 
@@ -86,6 +88,8 @@ __all__ = [
     "manifest_from_json",
     "manifest_json",
     "manifest_without_artifact_sha256",
+    "normalize_manifest",
+    "canonical_manifest_hash",
     "read_embedded_manifest",
     "read_deployment_manifest",
     "torchscript_extra_files_for_manifest",

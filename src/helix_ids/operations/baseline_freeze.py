@@ -4,25 +4,19 @@ import hashlib
 import json
 import os
 import shutil
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
-from typing import cast
+from typing import Any, cast
 
 import numpy as np
 import torch
 
 from helix_ids.contracts.schema_contract import (
-    CANONICAL_BINARY_CLASSES,
-    CANONICAL_FAMILY_CLASSES,
-    CANONICAL_INPUT_DIM,
-    SCHEMA_VERSION,
     assert_runtime_contract,
     runtime_contract_payload,
 )
 from helix_ids.governance import verify_ingress_artifact
-
 
 IMMUTABLE_DIR_MODE = 0o500
 IMMUTABLE_FILE_MODE = 0o400
@@ -167,17 +161,19 @@ def seal_baseline(
             raise RuntimeError(f"Checkpoint sidecar missing during freeze: {sidecar_path}")
         shutil.copy2(sidecar_path, checkpoint_dir / sidecar_path.name)
 
+    deploy_manifest_path = inputs.model_checkpoint.parent / "deployment.manifest.json"
+    deployment_manifest = deploy_manifest_path if deploy_manifest_path.exists() else None
     verify_ingress_artifact(
         inputs.model_checkpoint,
         kind="checkpoint",
         contract=runtime_contract_payload(),
         embedded_manifest=torch.load(inputs.model_checkpoint, map_location="cpu", weights_only=True).get("artifact_manifest"),
-        allow_legacy_local_dev=True,
         sidecars={
             "contract": checkpoint_contract_path,
             "feature_order": checkpoint_feature_order_path,
             "schema_hash": checkpoint_schema_hash_path,
         },
+        deployment_manifest=deployment_manifest,
     )
 
     checkpoint_obj = torch.load(inputs.model_checkpoint, map_location="cpu", weights_only=True)

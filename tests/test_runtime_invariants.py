@@ -13,9 +13,18 @@ from helix_ids.contracts import (
     runtime_contract_payload,
 )
 from helix_ids.data.feature_harmonization import FEATURE_ORDER
+from helix_ids.governance import (
+    ARTIFACT_MANIFEST_KEY,
+    checkpoint_manifest_payload,
+    write_contract_sidecars,
+)
 from helix_ids.models.full import HelixFullConfig, create_helix_full
 from helix_ids.operations.inference_runtime import HelixInferenceRuntime
-
+from helix_ids.utils.export import (
+    build_export_manifest,
+    finalize_export_artifact,
+    verify_export_artifact,
+)
 
 EXPECTED_FEATURE_ORDER = list(FEATURE_ORDER)
 
@@ -54,13 +63,21 @@ def _write_checkpoint(path: Path, *, feature_order: list[str] = EXPECTED_FEATURE
     contract["binary_output_dim"] = CANONICAL_BINARY_CLASSES
     contract["family_output_dim"] = CANONICAL_FAMILY_CLASSES
     payload.update(contract)
+    manifest_base = build_export_manifest(
+        contract=contract,
+        model_architecture=model.__class__.__name__,
+        export_config={"format": "checkpoint", "origin": "test_runtime_invariants"},
+    )
+    payload[ARTIFACT_MANIFEST_KEY] = checkpoint_manifest_payload(manifest_base)
     torch.save(payload, path)
-    # write sidecars for runtime
-    import json
-
-    (path.with_suffix(path.suffix + ".contract.json")).write_text(json.dumps(contract, indent=2), encoding="utf-8")
-    (path.with_suffix(path.suffix + ".feature_order.json")).write_text(json.dumps(contract["feature_order"], indent=2), encoding="utf-8")
-    (path.with_suffix(path.suffix + ".schema_hash.txt")).write_text(str(contract["schema_hash"]) + "\n", encoding="utf-8")
+    sidecars = write_contract_sidecars(path, contract)
+    finalize_export_artifact(path, manifest_base, sidecars=sidecars)
+    verify_export_artifact(
+        path,
+        kind="checkpoint",
+        contract=contract,
+        embedded_manifest=checkpoint_manifest_payload(manifest_base),
+    )
 
 
 
@@ -77,10 +94,8 @@ def test_runtime_accepts_canonical_checkpoint(tmp_path: Path) -> None:
 
 def test_runtime_rejects_reordered_feature_order(tmp_path: Path) -> None:
     checkpoint = tmp_path / "reordered.pt"
-    _write_checkpoint(checkpoint, feature_order=list(reversed(EXPECTED_FEATURE_ORDER)))
-
     with pytest.raises(AssertionError, match="canonical feature order"):
-        HelixInferenceRuntime(checkpoint)
+        _write_checkpoint(checkpoint, feature_order=list(reversed(EXPECTED_FEATURE_ORDER)))
 
 
 

@@ -7,12 +7,12 @@ import math
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Optional, Tuple
+from typing import Any, Callable, cast
 
 from .failure_memory import FailureMemory
 from .parameters import DEFAULT_GOVERNANCE_POLICY, GovernancePolicy
 
-GateFn = Callable[[dict[str, Any]], Tuple[bool, Optional[float], Optional[float], Optional[str]]]
+GateFn = Callable[[dict[str, Any]], tuple[bool, float | None, float | None, str | None]]
 
 DEFAULT_STAGE_SEQUENCE = (
     "preload",
@@ -410,7 +410,7 @@ class GateOrchestrator:
             passed = metric <= threshold
             return passed, metric, threshold, None if passed else fail_reason_code
 
-        setattr(gate, "_metric_key", metric_key)
+        cast(Any, gate)._metric_key = metric_key
         return gate
 
     def _make_gte_gate(
@@ -433,7 +433,7 @@ class GateOrchestrator:
             passed = metric >= threshold
             return passed, metric, threshold, None if passed else fail_reason_code
 
-        setattr(gate, "_metric_key", metric_key)
+        cast(Any, gate)._metric_key = metric_key
         return gate
 
     def _make_gt_gate(
@@ -456,7 +456,7 @@ class GateOrchestrator:
             passed = metric > threshold
             return passed, metric, threshold, None if passed else fail_reason_code
 
-        setattr(gate, "_metric_key", metric_key)
+        cast(Any, gate)._metric_key = metric_key
         return gate
 
     def _gate_run_identity_present(

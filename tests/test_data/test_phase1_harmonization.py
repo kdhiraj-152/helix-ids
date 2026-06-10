@@ -2,36 +2,32 @@
 Unit tests for data harmonization and multi-dataset loading (Phase 1).
 """
 
-import pytest
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from pathlib import Path
-import tempfile
+import pytest
 import torch
 
+from src.helix_ids.contracts import CONTRACT_VERSION, SCHEMA_VERSION
 from src.helix_ids.data.feature_harmonization import (
-    COMMON_FEATURES,
-    INVARIANT_FEATURES,
     ATTACK_TAXONOMY_7CLASS,
-    NSLKDD_TO_7CLASS,
-    UNSW_TO_7CLASS,
-    CICIDS_TO_7CLASS,
-    harmonize_features,
+    COMMON_FEATURES,
+    FEATURE_ORDER,
+    INVARIANT_FEATURES,
+    SchemaDriftError,
+    _derive_connection_state,
+    compute_schema_hash,
+    create_cicids_mapping,
     create_nslkdd_mapping,
     create_unsw_mapping,
-    create_cicids_mapping,
-    FEATURE_ORDER,
-    SchemaDriftError,
     enforce_feature_order,
-    compute_schema_hash,
+    harmonize_features,
     load_artifact,
     normalize_column_name,
     validate_mapping,
-    _derive_connection_state,
 )
-from src.helix_ids.data.multi_dataset_loader import MultiDatasetLoader, UNSW_DISCRETE_PROBE_F1_MIN
-from src.helix_ids.contracts import CONTRACT_VERSION
-from src.helix_ids.contracts import SCHEMA_VERSION
+from src.helix_ids.data.multi_dataset_loader import UNSW_DISCRETE_PROBE_F1_MIN, MultiDatasetLoader
 
 
 class TestFeatureHarmonization:
@@ -40,18 +36,18 @@ class TestFeatureHarmonization:
     @staticmethod
     def _snapshot_path() -> Path:
         return Path(__file__).resolve().parents[1] / "fixtures" / "cicids_snapshot.csv"
-    
+
     def test_common_features_count(self):
         """Verify invariant feature set size."""
         assert len(COMMON_FEATURES) == 17
         assert isinstance(COMMON_FEATURES, list)
-    
+
     def test_attack_taxonomy_7class(self):
         """Verify 7-class attack taxonomy."""
         assert len(ATTACK_TAXONOMY_7CLASS) == 7
         assert 0 in ATTACK_TAXONOMY_7CLASS  # Normal
         assert ATTACK_TAXONOMY_7CLASS[0] == "Normal"
-    
+
     def test_nslkdd_mapping(self):
         """Test NSL-KDD feature mapping."""
         mapping = create_nslkdd_mapping()
@@ -65,21 +61,21 @@ class TestFeatureHarmonization:
         assert payload["protocol"] == "v1"
         assert payload["version"]
         assert "mapping" in payload
-    
+
     def test_unsw_mapping(self):
         """Test UNSW-NB15 feature mapping."""
         mapping = create_unsw_mapping()
         assert mapping.dataset_name == "unsw_nb15"
         for key in ["duration", "src_bytes", "dst_bytes", "protocol", "state"]:
             assert key in mapping.feature_mapping
-    
+
     def test_cicids_mapping(self):
         """Test CICIDS feature mapping."""
         mapping = create_cicids_mapping()
         assert mapping.dataset_name == "cicids"
         for key in ["duration", "src_bytes", "dst_bytes", "protocol", "syn_count", "rst_count"]:
             assert key in mapping.feature_mapping
-    
+
     def test_harmonize_rejects_cicids_messy_columns(self):
         """Corrupted CICIDS inputs must fail at the boundary."""
         df = pd.DataFrame(
@@ -195,19 +191,29 @@ class TestFeatureHarmonization:
         features = harmonized[FEATURE_ORDER].astype(np.float32)
 
         artifact_path = tmp_path / "artifact.pt"
-        torch.save(
-            {
-                "model": {"w": torch.zeros((2, 2))},
-                "schema_version": SCHEMA_VERSION,
-                "schema_hash": compute_schema_hash(features),
-                "feature_order": FEATURE_ORDER,
-                "input_dim": len(FEATURE_ORDER),
-                "binary_output_dim": 2,
-                "family_output_dim": 7,
-                "contract_version": CONTRACT_VERSION,
-            },
-            artifact_path,
+        artifact = {
+            "model": {"w": torch.zeros((2, 2))},
+            "schema_version": SCHEMA_VERSION,
+            "schema_hash": compute_schema_hash(features),
+            "feature_order": FEATURE_ORDER,
+            "input_dim": len(FEATURE_ORDER),
+            "binary_output_dim": 2,
+            "family_output_dim": 7,
+            "contract_version": CONTRACT_VERSION,
+        }
+        torch.save(artifact, artifact_path)
+        from helix_ids.governance import (
+            build_artifact_manifest,
+            checkpoint_manifest_payload,
+            write_contract_sidecars,
         )
+        from helix_ids.utils.export import finalize_export_artifact
+        contract = {key: artifact[key] for key in ("schema_version", "schema_hash", "feature_order", "input_dim", "binary_output_dim", "family_output_dim", "contract_version")}
+        manifest_base = build_artifact_manifest(model_architecture="unit-test", contract=contract)
+        artifact["artifact_manifest"] = checkpoint_manifest_payload(manifest_base)
+        torch.save(artifact, artifact_path)
+        sidecars = write_contract_sidecars(artifact_path, contract)
+        finalize_export_artifact(artifact_path, manifest_base, sidecars=sidecars)
 
         drifted = features.copy()
         drifted["extra_col"] = 1.0
@@ -220,19 +226,29 @@ class TestFeatureHarmonization:
         features = harmonized[FEATURE_ORDER].astype(np.float32)
 
         artifact_path = tmp_path / "artifact.pt"
-        torch.save(
-            {
-                "model": {"w": torch.zeros((2, 2))},
-                "schema_version": SCHEMA_VERSION,
-                "schema_hash": compute_schema_hash(features),
-                "feature_order": FEATURE_ORDER,
-                "input_dim": len(FEATURE_ORDER),
-                "binary_output_dim": 2,
-                "family_output_dim": 7,
-                "contract_version": CONTRACT_VERSION,
-            },
-            artifact_path,
+        artifact = {
+            "model": {"w": torch.zeros((2, 2))},
+            "schema_version": SCHEMA_VERSION,
+            "schema_hash": compute_schema_hash(features),
+            "feature_order": FEATURE_ORDER,
+            "input_dim": len(FEATURE_ORDER),
+            "binary_output_dim": 2,
+            "family_output_dim": 7,
+            "contract_version": CONTRACT_VERSION,
+        }
+        torch.save(artifact, artifact_path)
+        from helix_ids.governance import (
+            build_artifact_manifest,
+            checkpoint_manifest_payload,
+            write_contract_sidecars,
         )
+        from helix_ids.utils.export import finalize_export_artifact
+        contract = {key: artifact[key] for key in ("schema_version", "schema_hash", "feature_order", "input_dim", "binary_output_dim", "family_output_dim", "contract_version")}
+        manifest_base = build_artifact_manifest(model_architecture="unit-test", contract=contract)
+        artifact["artifact_manifest"] = checkpoint_manifest_payload(manifest_base)
+        torch.save(artifact, artifact_path)
+        sidecars = write_contract_sidecars(artifact_path, contract)
+        finalize_export_artifact(artifact_path, manifest_base, sidecars=sidecars)
 
         permuted = features.sample(frac=1, axis=1, random_state=42)
         with pytest.raises(SchemaDriftError):
@@ -255,21 +271,144 @@ class TestFeatureHarmonization:
         features = harmonized[FEATURE_ORDER].astype(np.float32)
 
         artifact_path = tmp_path / "artifact_wrong_version.pt"
-        torch.save(
-            {
-                "model": {"w": torch.zeros((1, 1))},
-                "schema_version": SCHEMA_VERSION,
-                "schema_hash": compute_schema_hash(features),
-                "feature_order": FEATURE_ORDER,
-                "input_dim": len(FEATURE_ORDER),
-                "binary_output_dim": 2,
-                "family_output_dim": 7,
-                "contract_version": "0.0",
-            },
-            artifact_path,
+        artifact = {
+            "model": {"w": torch.zeros((1, 1))},
+            "schema_version": SCHEMA_VERSION,
+            "schema_hash": compute_schema_hash(features),
+            "feature_order": FEATURE_ORDER,
+            "input_dim": len(FEATURE_ORDER),
+            "binary_output_dim": 2,
+            "family_output_dim": 7,
+            "contract_version": "0.0",
+        }
+        torch.save(artifact, artifact_path)
+        from helix_ids.governance import (
+            build_artifact_manifest,
+            checkpoint_manifest_payload,
+            write_contract_sidecars,
         )
+        from helix_ids.utils.export import finalize_export_artifact
+        contract = {key: artifact[key] for key in ("schema_version", "schema_hash", "feature_order", "input_dim", "binary_output_dim", "family_output_dim", "contract_version")}
+        manifest_base = build_artifact_manifest(model_architecture="unit-test", contract=contract)
+        artifact["artifact_manifest"] = checkpoint_manifest_payload(manifest_base)
+        torch.save(artifact, artifact_path)
+        sidecars = write_contract_sidecars(artifact_path, contract)
+        finalize_export_artifact(artifact_path, manifest_base, sidecars=sidecars)
 
-        with pytest.raises(AssertionError, match="Artifact contract version mismatch"):
+        from helix_ids.governance.provenance import ArtifactManifestError
+        with pytest.raises(ArtifactManifestError, match="Manifest contract_version mismatch"):
+            load_artifact(artifact_path, features)
+
+    def test_deployment_manifest_verified_on_artifact_load(self, tmp_path: Path):
+        """Valid deployment.manifest.json beside artifact must not cause load failure."""
+        valid_df = pd.read_csv(self._snapshot_path()).head(2)
+        harmonized = harmonize_features(valid_df, create_cicids_mapping(), label_col="attack_type", mode="strict")
+        features = harmonized[FEATURE_ORDER].astype(np.float32)
+
+        from helix_ids.governance import (
+            build_artifact_manifest,
+            write_contract_sidecars,
+            write_deployment_manifest,
+        )
+        from helix_ids.utils.export import finalize_export_artifact
+        contract = {
+            "schema_version": SCHEMA_VERSION,
+            "schema_hash": compute_schema_hash(features),
+            "feature_order": FEATURE_ORDER,
+            "input_dim": len(FEATURE_ORDER),
+            "binary_output_dim": 2,
+            "family_output_dim": 7,
+            "contract_version": CONTRACT_VERSION,
+            "export_config_hash": "test_export_config",
+        }
+        manifest_base = build_artifact_manifest(
+            model_architecture="unit-test",
+            contract=contract,
+            export_config={},
+            dataset_hash="deadbeef",
+            git_commit="abc1234",
+            exporter_version="1.0.0",
+            runtime_version="1.0.0",
+        )
+        # Build artifact with full manifest (so finalize_export_artifact can read it)
+        artifact = {
+            "model": {"w": torch.zeros((2, 2))},
+            "artifact_manifest": manifest_base,
+            **{k: contract[k] for k in (
+                "schema_version", "schema_hash", "feature_order", "input_dim",
+                "binary_output_dim", "family_output_dim", "contract_version",
+            )},
+        }
+        artifact_path = tmp_path / "artifact_with_deploy.pt"
+        torch.save(artifact, artifact_path)
+        write_contract_sidecars(artifact_path, contract)
+        # Finalize to get artifact_sha256, merge it back into the full manifest
+        finalized = finalize_export_artifact(artifact_path, manifest_base, sidecars={})
+        manifest_for_deploy = {**manifest_base, "artifact_sha256": finalized["artifact_sha256"]}
+        # write_deployment_manifest passes manifest.get("config_hash") to build_deployment_manifest,
+        # but manifest only has export_config_hash. Set config_hash explicitly so the deployment
+        # manifest has the correct field for verify_deployment_manifest.
+        manifest_for_deploy["config_hash"] = manifest_for_deploy["export_config_hash"]
+        write_deployment_manifest(artifact_path, manifest_for_deploy)
+
+        # Must not raise — deployment manifest is present and dataset_hash matches
+        state_dict, loaded_features = load_artifact(artifact_path, features)
+        assert isinstance(state_dict, dict)
+
+    def test_deployment_manifest_tampering_rejected_on_artifact_load(self, tmp_path: Path):
+        """Tampered deployment.manifest.json beside artifact must cause load failure."""
+        valid_df = pd.read_csv(self._snapshot_path()).head(2)
+        harmonized = harmonize_features(valid_df, create_cicids_mapping(), label_col="attack_type", mode="strict")
+        features = harmonized[FEATURE_ORDER].astype(np.float32)
+
+        from helix_ids.governance import (
+            build_artifact_manifest,
+            write_contract_sidecars,
+            write_deployment_manifest,
+        )
+        from helix_ids.utils.export import finalize_export_artifact
+        contract = {
+            "schema_version": SCHEMA_VERSION,
+            "schema_hash": compute_schema_hash(features),
+            "feature_order": FEATURE_ORDER,
+            "input_dim": len(FEATURE_ORDER),
+            "binary_output_dim": 2,
+            "family_output_dim": 7,
+            "contract_version": CONTRACT_VERSION,
+            "export_config_hash": "test_export_config",
+        }
+        manifest_base = build_artifact_manifest(
+            model_architecture="unit-test",
+            contract=contract,
+            export_config={},
+            dataset_hash="deadbeef",
+            git_commit="abc1234",
+            exporter_version="1.0.0",
+            runtime_version="1.0.0",
+        )
+        artifact = {
+            "model": {"w": torch.zeros((2, 2))},
+            "artifact_manifest": manifest_base,
+            **{k: contract[k] for k in (
+                "schema_version", "schema_hash", "feature_order", "input_dim",
+                "binary_output_dim", "family_output_dim", "contract_version",
+            )},
+        }
+        artifact_path = tmp_path / "artifact_with_tampered_deploy.pt"
+        torch.save(artifact, artifact_path)
+        write_contract_sidecars(artifact_path, contract)
+        finalized = finalize_export_artifact(artifact_path, manifest_base, sidecars={})
+        manifest_for_deploy = {**manifest_base, "artifact_sha256": finalized["artifact_sha256"]}
+        manifest_for_deploy["config_hash"] = manifest_for_deploy["export_config_hash"]
+        write_deployment_manifest(artifact_path, manifest_for_deploy)
+
+        # Tamper with the deployment manifest — change dataset_hash
+        tampered = dict(manifest_for_deploy)
+        tampered["dataset_hash"] = "tampered_value"
+        write_deployment_manifest(artifact_path, tampered)
+
+        from helix_ids.governance.provenance import ArtifactManifestError
+        with pytest.raises(ArtifactManifestError):
             load_artifact(artifact_path, features)
 
     def test_normalize_column_name(self):
@@ -609,6 +748,7 @@ class TestFeatureHarmonization:
         pytest.importorskip("hypothesis")
         from hypothesis import given, settings
         from hypothesis import strategies as st
+
         from src.helix_ids.data.feature_harmonization import sanitize_numeric
 
         numeric_value = st.one_of(
@@ -636,13 +776,13 @@ class TestFeatureHarmonization:
 
 class TestMultiDatasetLoader:
     """Test multi-dataset loader."""
-    
+
     def test_loader_initialization(self):
         """Test loader initialization."""
         loader = MultiDatasetLoader()
         assert loader.project_root.exists()
         assert loader.data_dir.exists()
-    
+
     def test_load_nslkdd(self):
         """Test loading NSL-KDD dataset."""
         loader = MultiDatasetLoader()
@@ -653,7 +793,7 @@ class TestMultiDatasetLoader:
             print(f"✅ NSL-KDD loaded: {df.shape}")
         except FileNotFoundError as e:
             print(f"⚠️ NSL-KDD not found: {e}")
-    
+
     def test_load_unsw(self):
         """Test loading UNSW-NB15 dataset."""
         loader = MultiDatasetLoader()
@@ -664,7 +804,7 @@ class TestMultiDatasetLoader:
             print(f"✅ UNSW-NB15 loaded: {df.shape}")
         except FileNotFoundError as e:
             print(f"⚠️ UNSW-NB15 not found: {e}")
-    
+
     def test_harmonize_nslkdd(self):
         """Test NSL-KDD harmonization."""
         loader = MultiDatasetLoader()
@@ -676,7 +816,7 @@ class TestMultiDatasetLoader:
             print(f"✅ NSL-KDD harmonized: {harmonized.shape}")
         except FileNotFoundError:
             pytest.skip("NSL-KDD not found")
-    
+
     def test_create_splits_preserves_unscaled_feature_range(self):
         """Split creation should not normalize features in-loader."""
         rng = np.random.default_rng(42)
@@ -693,7 +833,7 @@ class TestMultiDatasetLoader:
         assert train_x.shape[1] == len(INVARIANT_FEATURES)
         assert np.isfinite(train_x).all()
         assert float(train_x.max()) > 1.0
-    
+
     def test_create_splits(self):
         """Test split creation."""
         # Create synthetic data
@@ -703,17 +843,17 @@ class TestMultiDatasetLoader:
             for feat in COMMON_FEATURES
         })
         df["label"] = rng.integers(0, 7, 100)
-        
+
         loader = MultiDatasetLoader()
         splits = loader.create_splits([df])
-        
+
         assert "X_train" in splits
         assert "y_train" in splits
         assert "X_val" in splits
         assert "y_val" in splits
         assert "X_test_nsl_kdd" in splits
         assert "y_test_nsl_kdd" in splits
-        
+
         # Verify shapes
         assert splits["X_train"].shape[0] > 0
         assert splits["X_train"].shape[1] == len(INVARIANT_FEATURES)
@@ -722,7 +862,7 @@ class TestMultiDatasetLoader:
         assert splits["train_class_weights"].ndim == 1
         assert "X_val_nsl_kdd" in splits
         assert "X_test_nsl_kdd" in splits
-        
+
         print("✅ Splits created correctly")
 
     def test_clean_cicids_frame(self):

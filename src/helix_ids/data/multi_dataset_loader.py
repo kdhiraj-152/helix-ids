@@ -17,27 +17,22 @@ import pandas as pd
 from sklearn.feature_selection import mutual_info_classif
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import f1_score
-from sklearn.model_selection import GroupShuffleSplit, train_test_split
+from sklearn.model_selection import GroupShuffleSplit
 
-from .learnability_contract import (
-    PREPROCESS_THRESHOLDS,
-    build_meta,
-    compute_contract_metrics,
-    compute_schema_hash as compute_preprocess_schema_hash,
-    compute_stage_diagnostics,
-    freeze_snapshot_if_valid,
-    load_reference_profile_bundle,
-    write_meta,
-    write_reference_profile,
+from ..contracts.schema_contract import (
+    CANONICAL_BINARY_CLASSES,
+    CANONICAL_FAMILY_CLASSES,
+    CANONICAL_FEATURE_ORDER,
+    CANONICAL_INPUT_DIM,
+    SCHEMA_VERSION,
+    compute_schema_hash,
+    validate_feature_order,
 )
-
+from .dataset_config import NSL_KDD_ATTACK_MAPPING
 from .feature_harmonization import (
     CICIDS2018_TO_7CLASS,
     CICIDS_TO_7CLASS,
     FEATURE_ORDER,
-    COMMON_FEATURES,
-    INVARIANT_FEATURES,
-    LEAKAGE_PRONE_FEATURES,
     NSLKDD_TO_7CLASS,
     UNSW_TO_7CLASS,
     create_cicids_mapping,
@@ -46,15 +41,15 @@ from .feature_harmonization import (
     harmonize_features,
     normalize_column_name,
 )
-from .dataset_config import NSL_KDD_ATTACK_MAPPING
-from ..contracts.schema_contract import (
-    CANONICAL_BINARY_CLASSES,
-    CANONICAL_FEATURE_ORDER,
-    CANONICAL_FAMILY_CLASSES,
-    CANONICAL_INPUT_DIM,
-    SCHEMA_VERSION,
-    compute_schema_hash,
-    validate_feature_order,
+from .learnability_contract import (
+    PREPROCESS_THRESHOLDS,
+    build_meta,
+    compute_contract_metrics,
+    compute_stage_diagnostics,
+    freeze_snapshot_if_valid,
+    load_reference_profile_bundle,
+    write_meta,
+    write_reference_profile,
 )
 
 logger = logging.getLogger(__name__)
@@ -165,6 +160,49 @@ class MultiDatasetLoader:
 
         logger.info(f"Initialized MultiDatasetLoader with project_root={self.project_root}")
 
+    @staticmethod
+    def _normalize_attack_type_column(df: pd.DataFrame) -> pd.DataFrame:
+        if "attack_type" in df.columns or "label" not in df.columns:
+            return df
+        normalized = df.copy()
+        normalized.rename(columns={"label": "attack_type"}, inplace=True)
+        return normalized
+
+    def _load_nslkdd_frame(self, path: Path) -> pd.DataFrame:
+        logger.info(f"Loading NSL-KDD from {path}")
+        if path.suffix.lower() == ".txt":
+            df = self._read_nslkdd_raw(path)
+        else:
+            df = pd.read_csv(path, low_memory=False)
+        return self._normalize_attack_type_column(df)
+
+    @staticmethod
+    def _resolve_unsw_attack_cat_column(df: pd.DataFrame) -> str | None:
+        normalized_cols = {normalize_column_name(col): col for col in df.columns}
+        for candidate in ("attack_cat", "attack cat"):
+            key = normalize_column_name(candidate)
+            if key in normalized_cols:
+                column_name = normalized_cols[key]
+                if isinstance(column_name, str):
+                    return column_name
+                return str(column_name)
+        return None
+
+    @staticmethod
+    def _normalize_unsw_label_series(labels: pd.Series) -> pd.Series:
+        numeric_labels = pd.to_numeric(labels, errors="coerce")
+        if not numeric_labels.isna().all() and set(numeric_labels.dropna().astype(int).unique()).issubset({0, 1, 2, 3, 4, 5, 6}):
+            if numeric_labels.isna().any():
+                raise ValueError("unsw_nb15 label-space mismatch: non-numeric labels present")
+            return numeric_labels.astype(int)
+
+        source_labels = labels.astype(str).str.strip().str.replace(r"\s+", " ", regex=True).str.title()
+        mapped_labels = source_labels.map(UNSW_TO_7CLASS)
+        unresolved = source_labels[mapped_labels.isna()].unique().tolist()
+        if unresolved:
+            raise ValueError(f"unsw_nb15 label-space mismatch: {sorted(map(str, unresolved))}")
+        return mapped_labels.astype(int)
+
     def load_nslkdd(self) -> pd.DataFrame:
         """Load NSL-KDD dataset.
 
@@ -175,12 +213,9 @@ class MultiDatasetLoader:
         raw_test = self.data_dir / "nsl_kdd" / "raw" / "KDDTest+.txt"
         if raw_train.exists() and raw_test.exists():
             logger.info(f"Loading NSL-KDD full corpus from {raw_train} + {raw_test}")
-            df_train = self._read_nslkdd_raw(raw_train)
-            df_test = self._read_nslkdd_raw(raw_test)
-            df = pd.concat([df_train, df_test], ignore_index=True)
-            if "attack_type" not in df.columns and "label" in df.columns:
-                df.rename(columns={"label": "attack_type"}, inplace=True)
-            return df
+            df_train = self._load_nslkdd_frame(raw_train)
+            df_test = self._load_nslkdd_frame(raw_test)
+            return self._normalize_attack_type_column(pd.concat([df_train, df_test], ignore_index=True))
 
         # Fallback paths (legacy processed snapshots)
         paths = [
@@ -192,16 +227,10 @@ class MultiDatasetLoader:
 
         for path in paths:
             if path.exists():
-                logger.info(f"Loading NSL-KDD from {path}")
-                if path.suffix.lower() == ".txt":
-                    df = self._read_nslkdd_raw(path)
-                else:
-                    df = pd.read_csv(path, low_memory=False)
-                if "attack_type" not in df.columns and "label" in df.columns:
-                    df.rename(columns={"label": "attack_type"}, inplace=True)
-                return df
+                return self._load_nslkdd_frame(path)
 
         raise FileNotFoundError(f"NSL-KDD not found in any of {paths}")
+
     def _read_nslkdd_raw(self, path: Path) -> pd.DataFrame:
         """Read canonical NSL-KDD raw text (KDDTrain+/KDDTest+) with stable column names."""
         preview = pd.read_csv(path, header=None, nrows=1)
@@ -416,40 +445,12 @@ class MultiDatasetLoader:
         harmonized = harmonize_features(df, mapping)
 
         # Map attack types to 7-class
-        normalized_cols = {normalize_column_name(col): col for col in df.columns}
-        attack_cat_col = None
-        for candidate in ("attack_cat", "attack cat"):
-            key = normalize_column_name(candidate)
-            if key in normalized_cols:
-                attack_cat_col = normalized_cols[key]
-                break
+        attack_cat_col = self._resolve_unsw_attack_cat_column(df)
 
         if attack_cat_col is not None:
-            source_labels = (
-                df[attack_cat_col]
-                .astype(str)
-                .str.strip()
-                .str.replace(r"\s+", " ", regex=True)
-                .str.title()
-            )
-            mapped_labels = source_labels.map(UNSW_TO_7CLASS)
-            unresolved = source_labels[mapped_labels.isna()].unique().tolist()
-            if unresolved:
-                raise ValueError(f"unsw_nb15 label-space mismatch: {sorted(map(str, unresolved))}")
-            harmonized["label"] = mapped_labels.astype(int)
+            harmonized["label"] = self._normalize_unsw_label_series(df[attack_cat_col].astype(str))
         elif "label" in harmonized.columns:
-            numeric_labels = pd.to_numeric(harmonized["label"], errors="coerce")
-            if not numeric_labels.isna().all() and set(numeric_labels.dropna().astype(int).unique()).issubset({0, 1, 2, 3, 4, 5, 6}):
-                if numeric_labels.isna().any():
-                    raise ValueError("unsw_nb15 label-space mismatch: non-numeric labels present")
-                harmonized["label"] = numeric_labels.astype(int)
-            else:
-                source_labels = harmonized["label"].astype(str).str.strip().str.title()
-                mapped_labels = source_labels.map(UNSW_TO_7CLASS)
-                unresolved = source_labels[mapped_labels.isna()].unique().tolist()
-                if unresolved:
-                    raise ValueError(f"unsw_nb15 label-space mismatch: {sorted(map(str, unresolved))}")
-                harmonized["label"] = mapped_labels.astype(int)
+            harmonized["label"] = self._normalize_unsw_label_series(harmonized["label"])
 
         return harmonized
 
@@ -1395,29 +1396,29 @@ class MultiDatasetLoader:
         """
         if random_state is None:
             random_state = self.random_state
-            
+
         rng = np.random.default_rng(random_state)
         unique_classes, counts = np.unique(y, return_counts=True)
-        
+
         if len(unique_classes) <= 1:
             return x, y
-            
+
         # Identify majority and minority classes
         majority_class = unique_classes[np.argmax(counts)]
         target_ratio = max_majority_ratio
         total_samples = len(y)
-        
+
         # Calculate how many majority samples we should keep
         majority_mask = y == majority_class
         majority_count = np.sum(majority_mask)
         minority_count = total_samples - majority_count
-        
+
         # We want: majority_count_new / total_new = target_ratio
         # So: majority_count_new / (majority_count_new + minority_count) = target_ratio
         # Solving: majority_count_new = target_ratio * minority_count / (1 - target_ratio)
         target_majority_count = int(target_ratio * minority_count / (1.0 - target_ratio))
         target_majority_count = max(1, min(target_majority_count, majority_count))
-        
+
         # Randomly select which majority samples to keep
         majority_indices = np.nonzero(majority_mask)[0]
         selected_majority_indices = rng.choice(
@@ -1425,12 +1426,12 @@ class MultiDatasetLoader:
             size=target_majority_count,
             replace=False,
         )
-        
+
         # Combine with all minority samples
         minority_indices = np.nonzero(~majority_mask)[0]
         selected_indices = np.concatenate([selected_majority_indices, minority_indices])
         selected_indices = np.sort(selected_indices)  # Maintain order
-        
+
         return x[selected_indices], y[selected_indices]
 
     def _fingerprint_rows(self, x: np.ndarray, y: np.ndarray) -> np.ndarray:
@@ -1447,7 +1448,7 @@ class MultiDatasetLoader:
         """
         # Round to 4 decimal places for numerical stability
         x_rounded = np.round(x, decimals=4)
-        
+
         # Create fingerprints by concatenating rounded features with label
         fingerprints = []
         for i in range(len(x)):
@@ -1456,7 +1457,7 @@ class MultiDatasetLoader:
             # Use Python's hash for a simple fingerprint
             fp = hash(row_tuple)
             fingerprints.append(fp)
-            
+
         return np.array(fingerprints, dtype=np.int64)
 
     def _remove_cross_split_overlap(
@@ -1486,23 +1487,23 @@ class MultiDatasetLoader:
         train_fp = self._fingerprint_rows(x_train, y_train)
         val_fp = self._fingerprint_rows(x_val, y_val)
         test_fp = self._fingerprint_rows(x_test, y_test)
-        
+
         # Find indices in val that don't exist in train
         val_mask = ~np.isin(val_fp, train_fp)
         x_val_clean = x_val[val_mask]
         y_val_clean = y_val[val_mask]
-        
+
         # Find indices in test that don't exist in train or val
         test_mask = ~(np.isin(test_fp, train_fp) | np.isin(test_fp, val_fp[val_mask]))
         x_test_clean = x_test[test_mask]
         y_test_clean = y_test[test_mask]
-        
+
         # Log statistics
         logger.info(
             f"{dataset_name}: Removed {len(y_val) - len(y_val_clean)} val duplicates, "
             f"{len(y_test) - len(y_test_clean)} test duplicates"
         )
-        
+
         return x_train, y_train, x_val_clean, y_val_clean, x_test_clean, y_test_clean
 
     def _build_group_keys(
@@ -1526,13 +1527,13 @@ class MultiDatasetLoader:
         """
         # Coarse fingerprint: round to fewer decimal places
         x_coarse = np.round(x, decimals=1)
-        
+
         group_keys = []
         for i in range(len(x)):
             row_tuple = tuple(x_coarse[i]) + (int(y[i]),) + (int(dataset_code),)
             group_key = hash(row_tuple)
             group_keys.append(group_key)
-            
+
         return np.array(group_keys, dtype=np.int64)
 
 

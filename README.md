@@ -143,3 +143,4 @@ kill $HELIX_PID)
 
 - For reproducible paper runs, keep `PYTHONPATH=src` set for all script invocations.
 - Runtime gating logic is implemented through `scripts/operations/serve_rest.py` metrics and `scripts/operations/staging_gate_check.py`.
+- Governed benchmark orchestration lives in `scripts/evaluation/benchmarks.py` and reads manifests from `config/experiments/*.yaml`.

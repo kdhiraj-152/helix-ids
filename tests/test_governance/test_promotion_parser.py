@@ -8,8 +8,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-
-SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "parse_promotion_gate_logs.py"
+SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "governance" / "parse_promotion_gate_logs.py"
 
 
 def _run_parser(events_path: Path, *, ci: bool) -> subprocess.CompletedProcess[str]:

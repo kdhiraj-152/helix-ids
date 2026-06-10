@@ -11,8 +11,8 @@ Guidance for AI coding agents working in this repository.
 ## Read First
 
 - [README.md](README.md): project status, reproducibility path, staging artifacts.
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): canonical package boundaries and model/runtime scope.
-- [docs/OPERATIONS_DEPLOYMENT_RUNBOOK.md](docs/OPERATIONS_DEPLOYMENT_RUNBOOK.md): deployment gates, metrics, rollout guards.
+- [docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md): canonical package boundaries and model/runtime scope.
+- [docs/operations/OPERATIONS_DEPLOYMENT_RUNBOOK.md](docs/operations/OPERATIONS_DEPLOYMENT_RUNBOOK.md): deployment gates, metrics, rollout guards.
 - [scripts/README.md](scripts/README.md): script-domain layout and wrapper expectations.
 
 ## Environment And Commands

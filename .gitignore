@@ -24,6 +24,7 @@ venv/
 .coverage
 coverage.xml
 htmlcov/
+*.coverage
 
 # OS/editor noise
 .DS_Store
@@ -44,7 +45,9 @@ artifacts/
 # Local agent/tooling state
 .opencode.json
 .mcp.json
-.coverage
+
+# Recycle bin for proven-dead code (archived, not active)
+src/helix_ids/_unused/
 
 # Large/local datasets
 # Keep dataset manifests/docs in git if needed, ignore bulk files.
@@ -58,3 +61,15 @@ data/**/*.parquet
 # Logs
 *.log
 logs/
+session_logs/
+
+# Temporary build artifacts
+tmp_artifact/
+
+# Transient artifacts (not committed)
+exported_model.pt
+exported_model.pt.*
+finding-structured.json
+
+# Cleanup reports (one-time)
+CLEANUP_REPORT.md
