@@ -17,10 +17,10 @@ jobs:
       PYTHONPATH: src
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
 
@@ -55,7 +55,7 @@ jobs:
 
       - name: Upload checks junit report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: checks-junit-report
           path: results/junit/checks-report.xml
@@ -70,10 +70,10 @@ jobs:
       PYTHONPATH: src
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
 
@@ -95,10 +95,10 @@ jobs:
       HELIX_ALLOW_LEGACY_MANIFEST: "0"
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
 
@@ -115,7 +115,7 @@ jobs:
 
       - name: Upload contract lifecycle junit report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: contract-lifecycle-junit-report
           path: results/junit/contract_lifecycle-report.xml
@@ -127,10 +127,10 @@ jobs:
       PYTHONPATH: src
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v6
       with:
         python-version: '3.11'
 
@@ -153,7 +153,7 @@ jobs:
         python scripts/ci/validate_governance_consistency.py
 
     - name: Upload governance gate artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: governance-gate-results
         path: |
@@ -168,10 +168,10 @@ jobs:
       PYTHONPATH: src
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
 
@@ -210,7 +210,7 @@ jobs:
 
       - name: Upload benchmark junit report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: benchmark-junit-report
           path: results/junit/benchmark_enforcement-report.xml
@@ -227,7 +227,7 @@ jobs:
           PYTHONPATH=src:. python scripts/ci/validate_benchmark_outputs.py
 
       - name: Upload benchmark artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: benchmark-results
           path: |

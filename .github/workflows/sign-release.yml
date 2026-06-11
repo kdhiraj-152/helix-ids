@@ -22,10 +22,10 @@ jobs:
       PYTHONPATH: src
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
           cache: pip
@@ -40,7 +40,7 @@ jobs:
           pip install cyclonedx-bom pip-licenses
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@v3.8.1
+        uses: sigstore/cosign-installer@v4.1.2
 
       - name: Generate SBOM
         run: |
@@ -122,7 +122,7 @@ jobs:
           echo "CONTAINER VERIFIED: ghcr.io/${{ github.repository }}:${{ github.ref_name }}"
 
       - name: Upload signing artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-signatures
           path: |
