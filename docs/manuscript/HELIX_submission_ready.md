@@ -95,7 +95,7 @@ where $y = \arg\max_k z_k$ and all parameters are as defined in Section III.B.
 
 **Figure 1** shows the full inference-time pipeline, from raw logits through margin computation to the dual-gate threshold check and override decision.
 
-![Figure 1. HELIX inference-time control pipeline. The dual-gate threshold check (fixed: $m < 70{,}000$; adaptive: $z_{	ext{norm}} < 	au_a$) evaluates an OR condition on every class-4 top prediction.](docs/fig_revamp/fig1.png)
+![Figure 1. HELIX inference-time control pipeline. The dual-gate threshold check (fixed: $m < 70{,}000$; adaptive: $z_{	ext{norm}} < 	au_a$) evaluates an OR condition on every class-4 top prediction.](docs/figures/fig1.png)
 
 The control layer is logically well-formed; inactivity under *online_hybrid* is not a logic error — it is gate failure from null-threshold propagation, as established in Section IV.
 
@@ -217,7 +217,7 @@ This is a property of the coupled online estimation architecture, not of the spe
 
 **Figure 2** shows the causal chain side by side: the collapse path (left, red) and the restoration path (right, green).
 
-![Figure 2. Causal mechanism of control collapse (left) and restoration by frozen-threshold decoupling (right).](docs/fig_revamp/fig2.png)
+![Figure 2. Causal mechanism of control collapse (left) and restoration by frozen-threshold decoupling (right).](docs/figures/fig2.png)
 
 Left: online percentile estimation produces a null $	au_a$ at evaluation; the gate fails silently and $D_{	ext{KL}} = 0$. Right: freezing $	au_a^{	ext{frozen}}$ at calibration provides a stable reference; gates activate and $D_{	ext{KL}} > 10$.
 
@@ -231,7 +231,7 @@ Freezing $\tau_a$ at calibration eliminates the feedback loop. The threshold bec
 
 **Figure 4 (right panel)** shows the decoupled threshold sitting fixed at 81,921 while the evaluation batch margins move freely above and below it, enabling violation detection. The left panel shows the coupled case: $\tau_{\text{adaptive}}$ chases the distribution, and the gap between threshold and mean margin collapses.
 
-![Figure 4. Threshold and class-4 margin evolution across evaluation batches for coupled (*online_hybrid*) and decoupled (*frozen_z_hybrid*) operation.](docs/fig_revamp/fig4.png)
+![Figure 4. Threshold and class-4 margin evolution across evaluation batches for coupled (*online_hybrid*) and decoupled (*frozen_z_hybrid*) operation.](docs/figures/fig4.png)
 
 In the coupled case, the adaptive threshold tracks the mean margin. In the decoupled case, $	au_a^{	ext{frozen}} = 81{,}921$ remains fixed, allowing genuine margin-threshold crossings.
 
@@ -239,13 +239,13 @@ In the coupled case, the adaptive threshold tracks the mean margin. In the decou
 
 **Figure 5** shows per-batch override counts across both methods and datasets. The left panel (*online\_hybrid*) is uniformly zero. The right (*frozen\_z\_hybrid*) shows consistent non-zero activation across all batches, totaling 2,491 overrides on UNSW and 8,430 on NSL.
 
-![Figure 5. Per-batch override activation counts for *online_hybrid* and *frozen_z_hybrid* on UNSW and NSL.](docs/fig_revamp/fig5.png)
+![Figure 5. Per-batch override activation counts for *online_hybrid* and *frozen_z_hybrid* on UNSW and NSL.](docs/figures/fig5.png)
 
 *online_hybrid* produces zero overrides in every batch on both datasets, while *frozen_z_hybrid* exhibits stable non-zero activation.
 
 **Figure 3 (right panels)** shows the distributional consequence: the post-override class-4 margin distribution is rightward-shifted in the active configuration ($D_{\text{KL}} = 10.218$ on UNSW, $D_{\text{KL}} = 22.922$ on NSL).
 
-![Figure 3. Class-4 logit margin distributions (pre vs. post override) for collapsed and active regimes on UNSW and NSL.](docs/fig_revamp/fig3.png)
+![Figure 3. Class-4 logit margin distributions (pre vs. post override) for collapsed and active regimes on UNSW and NSL.](docs/figures/fig3.png)
 
 For *online_hybrid*, pre and post distributions are identical ($D_{	ext{KL}} = 0$). For *frozen_z_hybrid*, post distributions shift substantially ($D_{	ext{KL}} = 10.218$ on UNSW, 22.922 on NSL).
 
@@ -314,7 +314,7 @@ Exact bootstrap CIs are available for override\_rate (sample-level metric). Macr
 
 **Figure 6** plots the override rate CIs for all four evaluated configurations.
 
-![Figure 6. Bootstrap confidence intervals for override rate (95%, n=1,000) across collapsed and active configurations.](docs/fig_revamp/fig6.png)
+![Figure 6. Bootstrap confidence intervals for override rate (95%, n=1,000) across collapsed and active configurations.](docs/figures/fig6.png)
 
 Collapsed configurations map to a point mass at zero (zero width, zero variance). Active configurations have strictly non-overlapping non-zero intervals.
 

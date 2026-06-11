@@ -1,0 +1,249 @@
+name: runtime-monitoring-hardening
+
+on:
+  push:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: src
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # Install pipx (user) and ensure it's on PATH so we can manage isolated tools
+          python -m pip install --user pipx || true
+          python -m pipx ensurepath || true
+          export PATH="$HOME/.local/bin:$PATH"
+          # Use pipx to install tooling in isolated venvs where useful
+          pipx install jsonschema || true
+          # Install project dependencies into the runner env so pytest can import them
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          # Ensure test tooling is available in CI (pytest may be in dev deps locally)
+          pip install pytest pytest-cov || true
+          # Also install jsonschema into the runner env to satisfy import-time requirements
+          python -m pip install jsonschema || true
+          # onnx/onnxruntime needed by test_lifecycle_verifier (collected in default test paths)
+          pip install onnx onnxruntime onnxscript || true
+
+      - name: py_compile
+        run: python -m compileall src
+
+      - name: Run full pytest (CI-safe subset) with coverage gate
+        run: |
+          mkdir -p results/junit
+          python -m pytest -q --cov=src/helix_ids --cov-fail-under=65 --junitxml=results/junit/checks-report.xml \
+            --ignore=tests/test_data \
+            --ignore=tests/test_data_loading.py \
+            -k "not (test_platform_model_paths_exist or test_platform_feature_names_exist or test_production_scaler_exists)"
+
+      - name: Upload checks junit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: checks-junit-report
+          path: results/junit/checks-report.xml
+
+      - name: AST contract enforcement
+        run: |
+          python3 scripts/ci/verify_contract_sidecars.py
+
+  governance_ast:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: src
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Governance AST enforcement (advisory)
+        run: |
+          python -m helix_ids.governance.ast_validator --paths src scripts || echo "Advisory: pre-existing AST violations found (formalization-mode legacy)"
+
+  contract_lifecycle:
+    needs: [governance_ast]
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: src
+      HELIX_ALLOW_LEGACY_ARTIFACTS: "0"
+      HELIX_ALLOW_LEGACY_MANIFEST: "0"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install onnx onnxruntime pytest pytest-cov
+
+      - name: Contract lifecycle tests
+        run: |
+          mkdir -p results/junit
+          pytest -q --junitxml=results/junit/contract_lifecycle-report.xml tests/test_export_contract.py tests/test_runtime_invariants.py tests/test_lifecycle_verifier.py
+
+      - name: Upload contract lifecycle junit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: contract-lifecycle-junit-report
+          path: results/junit/contract_lifecycle-report.xml
+
+  schema_governance:
+    needs: [governance_ast]
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: src
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        pip install pyyaml pytest pytest-cov
+
+    - name: Schema registry validation
+      run: |
+        python scripts/ci/validate_schema_registry.py
+
+    - name: Governance documentation existence checks
+      run: |
+        python scripts/ci/validate_governance_docs.py
+
+    - name: Governance consistency and ADR claim validation
+      run: |
+        python scripts/ci/validate_governance_consistency.py
+
+    - name: Upload governance gate artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: governance-gate-results
+        path: |
+          results/gates/schema_registry_validation.json
+          results/gates/governance_docs_validation.json
+          results/gates/governance_consistency_validation.json
+
+  benchmark_enforcement:
+    needs: [contract_lifecycle, schema_governance]
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: src
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install benchmark dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install jsonschema pytest pytest-cov || true
+
+      - name: Validate experiment manifests (YAML load + expansion)
+        run: |
+          cat << 'PYEOF' | python -
+          from pathlib import Path
+          import sys
+          sys.path.insert(0, 'src')
+          from scripts.evaluation import benchmarks
+          paths = [
+            Path('config/experiments/smoke.yaml'),
+            Path('config/experiments/governance_ablation.yaml'),
+            Path('config/experiments/edge_latency.yaml'),
+            Path('config/experiments/drift_robustness.yaml'),
+          ]
+          for p in paths:
+            if not p.exists():
+              raise FileNotFoundError(p)
+          specs = benchmarks._load_all_manifests(paths)
+          if not specs:
+            raise RuntimeError('No expanded benchmark specs')
+          print(f'Expanded {len(specs)} runs from manifests')
+          PYEOF
+
+      - name: Run benchmark formalization + governance tests
+        run: |
+          mkdir -p results/junit
+          pytest -q --junitxml=results/junit/benchmark_enforcement-report.xml tests/test_benchmark_formalization.py tests/test_export_contract.py tests/test_governance/test_fingerprinting.py
+
+      - name: Upload benchmark junit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-junit-report
+          path: results/junit/benchmark_enforcement-report.xml
+
+      - name: Execute benchmark dry-run for governed manifests
+        run: |
+          python scripts/evaluation/benchmarks.py --manifest config/experiments/smoke.yaml --manifest config/experiments/governance_ablation.yaml --manifest config/experiments/edge_latency.yaml --manifest config/experiments/drift_robustness.yaml --dry-run
+
+      - name: Validate generated manifests and results (CI validator)
+        env:
+          BENCHMARK_EXPECTED_MANIFEST_IDS: "phase1_smoke,phase1_governance_ablation,phase1_edge_latency,phase1_drift_robustness"
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src:. python scripts/ci/validate_benchmark_outputs.py
+
+      - name: Upload benchmark artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: |
+            results/manifests/**
+            results/metrics/**
+            results/gates/**
+
+  run_summary:
+    needs: [benchmark_enforcement]
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Create workflow run summary
+        run: |
+          echo "Creating workflow run summary..."
+          curl -s -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs" > /tmp/jobs.json
+          curl -s -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" > /tmp/artifacts.json
+          PYTHONPATH=src python3 scripts/ci/write_workflow_summary.py

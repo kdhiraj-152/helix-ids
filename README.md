@@ -67,7 +67,7 @@ reproduce them verbatim.
 | Coverage override rate | 0.0 |
 | Degraded state | 0 |
 
-Artifacts live in `docs/results/` and `docs/figures/`.
+Artifacts live in `docs/reports/` and `docs/figures/`.
 
 ## One-shot reproduce
 
@@ -129,7 +129,7 @@ for _ in range(3000):
 metrics_text = get_metrics()
 metrics = parse_metrics(metrics_text)
 Path('docs/results').mkdir(parents=True, exist_ok=True)
-Path('docs/results/staging_validation.json').write_text(
+Path('docs/reports/staging_validation.json').write_text(
     json.dumps(
         {
             'total_requests': int(metrics.get('helix_requests_total', 0.0)),
@@ -173,7 +173,7 @@ docs/
 ## Manuscript and figures
 
 - Manuscript: `docs/manuscript/HELIX_submission_ready.md`
-- Figures: `docs/fig/` and `docs/fig_revamp/`
+- Figures: `docs/fig/` and `docs/figures/`
 
 ## A few notes if you're poking around
 

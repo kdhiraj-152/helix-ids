@@ -1,0 +1,174 @@
+name: Test Reliability
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Every Monday at 06:00 UTC
+    - cron: "0 6 * * 1"
+
+env:
+  PYTHONPATH: src
+
+jobs:
+  reliability_check:
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11"]
+      fail-fast: false
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: |
+            requirements-lock.txt
+            pyproject.toml
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements-lock.txt ]; then pip install -r requirements-lock.txt; fi
+          pip install cosmic-ray bandit
+
+      - name: 1. Run pytest with coverage
+        run: |
+          mkdir -p results/junit
+          python -m pytest -q --cov=src/helix_ids --cov-report=term-missing --cov-fail-under=65 --junitxml=results/junit/checks-report.xml
+
+      - name: 2. Coverage report
+        run: |
+          python -m coverage report --format=markdown
+          python -m coverage xml -o results/coverage.xml
+          echo "COVERAGE=$(python -m coverage report --format=total | tail -1)" >> $GITHUB_ENV
+
+      - name: 3. Skip-count validation
+        if: always()
+        run: |
+          python3 scripts/ci/enforce_skip_governance.py
+
+      - name: 4. Mutation testing pilot — metrics.py
+        if: matrix.python-version == '3.11'
+        continue-on-error: true
+        timeout-minutes: 20
+        run: |
+          mkdir -p results/mutation
+          cosmic-ray init config/mutation/cosmic-ray-pilot-metrics.toml /tmp/cr-metrics.sqlite
+          cosmic-ray exec config/mutation/cosmic-ray-pilot-metrics.toml /tmp/cr-metrics.sqlite 2>&1 | tee results/mutation/cr-metrics.log
+          python3 scripts/ci/analyze_mutation_results.py /tmp/cr-metrics.sqlite | tee results/mutation/cr-metrics-summary.txt
+
+      - name: 5. Mutation testing pilot — loss.py
+        if: matrix.python-version == '3.11'
+        continue-on-error: true
+        timeout-minutes: 20
+        run: |
+          cosmic-ray init config/mutation/cosmic-ray-pilot-loss.toml /tmp/cr-loss.sqlite
+          cosmic-ray exec config/mutation/cosmic-ray-pilot-loss.toml /tmp/cr-loss.sqlite 2>&1 | tee results/mutation/cr-loss.log
+          python3 scripts/ci/analyze_mutation_results.py /tmp/cr-loss.sqlite | tee results/mutation/cr-loss-summary.txt
+
+      - name: 6. Mutation testing pilot — coral_loss.py
+        if: matrix.python-version == '3.11'
+        continue-on-error: true
+        timeout-minutes: 20
+        run: |
+          cosmic-ray init config/mutation/cosmic-ray-pilot-coral.toml /tmp/cr-coral.sqlite
+          cosmic-ray exec config/mutation/cosmic-ray-pilot-coral.toml /tmp/cr-coral.sqlite 2>&1 | tee results/mutation/cr-coral.log
+          python3 scripts/ci/analyze_mutation_results.py /tmp/cr-coral.sqlite | tee results/mutation/cr-coral-summary.txt
+
+      - name: 7. Expanded mutation — lifecycle_verifier.py
+        if: matrix.python-version == '3.11'
+        continue-on-error: true
+        timeout-minutes: 30
+        run: |
+          cosmic-ray init config/mutation/cosmic-ray-lifecycle-verifier.toml /tmp/cr-lifecycle-verifier.sqlite 2>&1 | tee results/mutation/cr-lifecycle-verifier-init.log
+          cosmic-ray exec config/mutation/cosmic-ray-lifecycle-verifier.toml /tmp/cr-lifecycle-verifier.sqlite 2>&1 | tee results/mutation/cr-lifecycle-verifier.log
+          python3 scripts/ci/analyze_mutation_results.py /tmp/cr-lifecycle-verifier.sqlite | tee results/mutation/cr-lifecycle-verifier-summary.txt
+
+      - name: 8. Expanded mutation — provenance.py
+        if: matrix.python-version == '3.11'
+        continue-on-error: true
+        timeout-minutes: 30
+        run: |
+          cosmic-ray init config/mutation/cosmic-ray-provenance.toml /tmp/cr-provenance.sqlite 2>&1 | tee results/mutation/cr-provenance-init.log
+          cosmic-ray exec config/mutation/cosmic-ray-provenance.toml /tmp/cr-provenance.sqlite 2>&1 | tee results/mutation/cr-provenance.log
+          python3 scripts/ci/analyze_mutation_results.py /tmp/cr-provenance.sqlite | tee results/mutation/cr-provenance-summary.txt
+
+      - name: 9. Expanded mutation — export.py
+        if: matrix.python-version == '3.11'
+        continue-on-error: true
+        timeout-minutes: 30
+        run: |
+          cosmic-ray init config/mutation/cosmic-ray-export.toml /tmp/cr-export.sqlite 2>&1 | tee results/mutation/cr-export-init.log
+          cosmic-ray exec config/mutation/cosmic-ray-export.toml /tmp/cr-export.sqlite 2>&1 | tee results/mutation/cr-export.log
+          python3 scripts/ci/analyze_mutation_results.py /tmp/cr-export.sqlite | tee results/mutation/cr-export-summary.txt
+
+      - name: 10. Expanded mutation — ast_validator.py
+        if: matrix.python-version == '3.11'
+        continue-on-error: true
+        timeout-minutes: 30
+        run: |
+          cosmic-ray init config/mutation/cosmic-ray-ast-validator.toml /tmp/cr-ast-validator.sqlite 2>&1 | tee results/mutation/cr-ast-validator-init.log
+          cosmic-ray exec config/mutation/cosmic-ray-ast-validator.toml /tmp/cr-ast-validator.sqlite 2>&1 | tee results/mutation/cr-ast-validator.log
+          python3 scripts/ci/analyze_mutation_results.py /tmp/cr-ast-validator.sqlite | tee results/mutation/cr-ast-validator-summary.txt
+
+      - name: 11. Expanded mutation — diagnostic_contract.py
+        if: matrix.python-version == '3.11'
+        continue-on-error: true
+        timeout-minutes: 30
+        run: |
+          cosmic-ray init config/mutation/cosmic-ray-diagnostic-contract.toml /tmp/cr-diagnostic-contract.sqlite 2>&1 | tee results/mutation/cr-diagnostic-contract-init.log
+          cosmic-ray exec config/mutation/cosmic-ray-diagnostic-contract.toml /tmp/cr-diagnostic-contract.sqlite 2>&1 | tee results/mutation/cr-diagnostic-contract.log
+          python3 scripts/ci/analyze_mutation_results.py /tmp/cr-diagnostic-contract.sqlite | tee results/mutation/cr-diagnostic-contract-summary.txt
+
+      - name: 12. Expanded mutation — schema_contract.py
+        if: matrix.python-version == '3.11'
+        continue-on-error: true
+        timeout-minutes: 30
+        run: |
+          cosmic-ray init config/mutation/cosmic-ray-schema-contract.toml /tmp/cr-schema-contract.sqlite 2>&1 | tee results/mutation/cr-schema-contract-init.log
+          cosmic-ray exec config/mutation/cosmic-ray-schema-contract.toml /tmp/cr-schema-contract.sqlite 2>&1 | tee results/mutation/cr-schema-contract.log
+          python3 scripts/ci/analyze_mutation_results.py /tmp/cr-schema-contract.sqlite | tee results/mutation/cr-schema-contract-summary.txt
+
+      - name: 13. Assertion audit validation
+        if: always()
+        run: |
+          if [ -f docs/testing/ASSERTION_AUDIT.md ]; then
+            echo "ASSERTION_AUDIT: PRESENT"
+            echo "Audit sections:"
+            grep '^## ' docs/testing/ASSERTION_AUDIT.md
+          else
+            echo "ASSERTION_AUDIT: MISSING"
+            exit 1
+          fi
+
+      - name: 14. Compile reliability summary score
+        if: always()
+        run: |
+          python3 scripts/ci/compute_reliability_score.py | tee results/reliability-score.txt
+
+      - name: Upload mutation results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-results-${{ matrix.python-version }}
+          path: |
+            results/mutation/**
+            results/reliability-score.txt
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-${{ matrix.python-version }}
+          path: results/coverage.xml
+
+      - name: Upload junit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reliability-junit-report-${{ matrix.python-version }}
+          path: results/junit/checks-report.xml

@@ -14,7 +14,7 @@ HELIX-IDS tracks artifact integrity through SHA-256 hashes at every pipeline sta
 
 1. **Single hash algorithm** — SHA-256 throughout; no algorithm flexibility.
 2. **Canonical JSON encoding** — `sort_keys=True`, `separators=(",",":")`, UTF-8 for all JSON hash inputs.
-3. **Hash types** (defined in `hash_authority.md`):
+3. **Hash types** (defined in `HASH_AUTHORITY.md`):
    - `raw_hash`: authoritative source `build_dataset_manifest_hash`
    - `processed_hash`: authoritative source `feature_harmonization` writer
    - `split_hash`: authoritative source `multi_dataset_loader` split writer

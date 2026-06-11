@@ -1,0 +1,51 @@
+# Python cache and build artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual environments
+.venv/
+.venv*/
+venv/
+
+# Tool caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Coverage and reports
+.coverage
+coverage.xml
+htmlcov/
+*.coverage
+
+# OS/editor noise
+.DS_Store
+*.swp
+*.swo
+*~
+
+# IDE
+.idea/
+.vscode/
+*.code-workspace
+
+# Test results and CI artifacts (not needed in container)
+results/
+
+# Documentation source (not needed at runtime)
+docs/
+
+# Configuration files not needed at runtime
+cosmic-ray-*.toml
+pyrightconfig.json
+
+# Git
+.git/
+.gitignore
+.gitattributes

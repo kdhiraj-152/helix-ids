@@ -1,0 +1,136 @@
+name: sign-release
+#
+# Phase 10B — Extended signing: artifact signing + SLSA provenance + container signing
+#
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  id-token: write   # needed for OIDC-based Sigstore signing
+  contents: write   # needed to upload signing artifacts as release assets
+  packages: write   # needed to push and sign container images
+
+jobs:
+  sign:
+    name: Sigstore / Cosign keyless signing
+    runs-on: ubuntu-24.04
+    env:
+      PYTHONPATH: src
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: |
+            requirements-lock.txt
+            pyproject.toml
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements-lock.txt ]; then pip install -r requirements-lock.txt; fi
+          pip install cyclonedx-bom pip-licenses
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.8.1
+
+      - name: Generate SBOM
+        run: |
+          mkdir -p results/sbom
+          cyclonedx-py requirements \
+            requirements-lock.txt \
+            --output-reproducible \
+            --output-file results/sbom/sbom.json \
+            --output-format JSON \
+            --no-validate 2>&1
+          echo "SBOM generated: $(wc -c < results/sbom/sbom.json) bytes"
+
+      - name: Generate license inventory
+        run: |
+          mkdir -p results/licenses
+          pip-licenses --format=json --output-file=results/licenses/licenses.json
+          pip-licenses --format=csv --output-file=results/licenses/licenses.csv
+          echo "License inventory generated"
+
+      - name: Generate SLSA provenance
+        run: |
+          python3 scripts/ci/generate_slsa_provenance.py release results/provenance
+          echo "SLSA provenance generated"
+
+      - name: Generate checksums
+        run: |
+          sha256sum requirements-lock.txt > results/checksums.sha256
+          if [ -f results/sbom/sbom.json ]; then sha256sum results/sbom/sbom.json >> results/checksums.sha256; fi
+          if [ -f results/licenses/licenses.json ]; then sha256sum results/licenses/licenses.json >> results/checksums.sha256; fi
+          if [ -f results/provenance/slsa-attestation.json ]; then sha256sum results/provenance/slsa-attestation.json >> results/checksums.sha256; fi
+          echo "Checksums:"
+          cat results/checksums.sha256
+
+      - name: Sign artifacts (keyless)
+        run: |
+          mkdir -p results/signatures
+          for ARTIFACT in requirements-lock.txt results/sbom/sbom.json results/checksums.sha256 results/provenance/slsa-attestation.json results/licenses/licenses.json; do
+            if [ -f "$ARTIFACT" ]; then
+              cosign sign-blob \
+                --yes \
+                --bundle "results/signatures/$(basename $ARTIFACT).bundle" \
+                --output-signature "results/signatures/$(basename $ARTIFACT).sig" \
+                "$ARTIFACT" 2>&1
+              echo "SIGNED: $ARTIFACT"
+            fi
+          done
+
+      - name: Verify signatures
+        run: |
+          for ARTIFACT in requirements-lock.txt results/sbom/sbom.json results/checksums.sha256 results/provenance/slsa-attestation.json results/licenses/licenses.json; do
+            BASE=$(basename $ARTIFACT)
+            if [ -f "results/signatures/$BASE.sig" ]; then
+              cosign verify-blob \
+                --bundle "results/signatures/$BASE.bundle" \
+                --signature "results/signatures/$BASE.sig" \
+                "$ARTIFACT" 2>&1
+              echo "VERIFIED: $ARTIFACT"
+            fi
+          done
+          echo "All signatures verified successfully."
+
+      - name: Build and sign container (Cosign keyless)
+        run: |
+          # Build the production container
+          docker build --target production -t ghcr.io/${{ github.repository }}:${{ github.ref_name }} .
+          echo "Container built: ghcr.io/${{ github.repository }}:${{ github.ref_name }}"
+          
+          # Sign the container image
+          cosign sign --yes \
+            ghcr.io/${{ github.repository }}:${{ github.ref_name }} 2>&1
+          echo "CONTAINER SIGNED: ghcr.io/${{ github.repository }}:${{ github.ref_name }}"
+
+      - name: Verify container signature
+        run: |
+          cosign verify \
+            --certificate-identity-regexp "https://github.com/${{ github.repository }}/.github/workflows/sign-release.yml" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            ghcr.io/${{ github.repository }}:${{ github.ref_name }} 2>&1
+          echo "CONTAINER VERIFIED: ghcr.io/${{ github.repository }}:${{ github.ref_name }}"
+
+      - name: Upload signing artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-signatures
+          path: |
+            results/signatures/*.sig
+            results/signatures/*.bundle
+            results/checksums.sha256
+            results/sbom/sbom.json
+            results/licenses/licenses.json
+            results/licenses/licenses.csv
+            results/provenance/slsa-attestation.json
+            results/provenance/slsa-attestation-compact.json

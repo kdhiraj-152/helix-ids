@@ -524,8 +524,8 @@ def _validate_sidecar_manifest(
     sidecar_manifest: Mapping[str, Any],
     contract: Mapping[str, Any],
 ) -> None:
-    _validate_manifest_contract_projection(path=path, manifest=sidecar_manifest, contract=contract)
     _validate_manifest_required_fields(path=path, manifest=sidecar_manifest)
+    _validate_manifest_contract_projection(path=path, manifest=sidecar_manifest, contract=contract)
 
 
 def _hash_file(path: Path) -> str:

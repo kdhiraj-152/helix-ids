@@ -103,7 +103,10 @@ class TestModelExport:
         path = tmp_dir / "model.onnx"
         dummy = torch.randn(1, 10)
         torch.onnx.export(simple_model, dummy, str(path),
-                         input_names=["input"], output_names=["output"])
+                         input_names=["input"], output_names=["output"],
+                         opset_version=18,
+                         dynamic_axes={"input": {0: "batch_size"},
+                                       "output": {0: "batch_size"}})
 
         session = ort.InferenceSession(str(path))
         rng = np.random.default_rng(seed=42)

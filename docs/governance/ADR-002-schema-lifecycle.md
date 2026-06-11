@@ -8,7 +8,7 @@
 
 ## Context
 
-HELIX-IDS manages two primary schemas: the **runtime feature schema** (immutable, enforced by `IMMUTABLE_SCHEMA_CONTRACT.md`) and the **manifest/result schema** (versioned, governed by `schema_registry.yaml` and `manifest_schema_governance.md` / `result_schema_governance.md`).
+HELIX-IDS manages two primary schemas: the **runtime feature schema** (immutable, enforced by `IMMUTABLE_SCHEMA_CONTRACT.md`) and the **manifest/result schema** (versioned, governed by `schema_registry.yaml` and `MANIFEST_SCHEMA_GOVERNANCE.md` / `RESULT_SCHEMA_GOVERNANCE.md`).
 
 This ADR defines how schema changes are handled without breaking existing artifacts.
 

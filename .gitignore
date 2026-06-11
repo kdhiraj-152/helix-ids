@@ -66,6 +66,16 @@ session_logs/
 # Temporary build artifacts
 tmp_artifact/
 
+# Generated database files (cosmic-ray mutation test sessions)
+*.db
+
+# Hypothesis test cache
+.hypothesis/
+
+# Cleanup analysis artifacts (one-time outputs)
+docs/DUPLICATE_AND_SUPERSEDED_ANALYSIS.md
+naming_consistency_assessment.md
+
 # Transient artifacts (not committed)
 exported_model.pt
 exported_model.pt.*
@@ -73,3 +83,15 @@ finding-structured.json
 
 # Cleanup reports (one-time)
 CLEANUP_REPORT.md
+
+# Cosmic-ray baseline session cache
+baseline-freeze-session
+
+# Generated binary artifacts (never commit)
+*.pdf
+*.docx
+*.pptx
+
+# Top-level/binary model checkpoints (prevent accidental commits)
+*.pt
+*.pth

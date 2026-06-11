@@ -448,9 +448,9 @@ class TestGovernanceDocsValidation:
     def test_actual_project_docs_exist(self) -> None:
         """Verify that the actual project governance documents exist."""
         gov_dir = PROJECT_ROOT / "docs" / "governance"
-        for doc in ("manifest_schema_governance.md",
-                     "result_schema_governance.md",
-                     "hash_authority.md"):
+        for doc in ("ADR-001-governance-philosophy.md",
+                     "ADR-002-schema-lifecycle.md",
+                     "ADR-003-hash-authority.md"):
             doc_path = gov_dir / doc
             assert doc_path.exists(), f"Required governance document missing: {doc}"
             content = doc_path.read_text(encoding="utf-8")

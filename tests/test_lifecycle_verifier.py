@@ -102,14 +102,14 @@ def test_lifecycle_rejects_corrupted_artifact_hash(lifecycle_artifacts, tamper_w
 def test_lifecycle_rejects_exporter_version_mismatch(lifecycle_artifacts, tamper_workspace: Path) -> None:
     artifacts = _clone(lifecycle_artifacts, tamper_workspace)
     tamper_exporter_version(artifacts, kind="checkpoint")
-    with pytest.raises(RuntimeError, match="exporter_version mismatch"):
+    with pytest.raises(ArtifactManifestError, match="Provenance chain artifact checksum mismatch"):
         verify_lifecycle_artifacts(artifacts, require_onnx=True)
 
 
 def test_lifecycle_rejects_mutated_provenance_chain(lifecycle_artifacts, tamper_workspace: Path) -> None:
     artifacts = _clone(lifecycle_artifacts, tamper_workspace)
     tamper_provenance_chain(artifacts, kind="checkpoint")
-    with pytest.raises(ArtifactManifestError, match="Provenance chain checksum mismatch"):
+    with pytest.raises(ArtifactManifestError, match="Provenance chain manifest checksum mismatch"):
         verify_lifecycle_artifacts(artifacts, require_onnx=True)
 
 
@@ -130,7 +130,7 @@ def test_lifecycle_rejects_sidecar_only_mismatch(lifecycle_artifacts, tamper_wor
 def test_lifecycle_rejects_embedded_and_sidecar_divergence(lifecycle_artifacts, tamper_workspace: Path) -> None:
     artifacts = _clone(lifecycle_artifacts, tamper_workspace)
     tamper_embedded_and_sidecar_mismatch(artifacts, kind="checkpoint")
-    with pytest.raises(ArtifactManifestError, match="Embedded manifest mismatch"):
+    with pytest.raises(ArtifactManifestError, match="Artifact checksum mismatch"):
         verify_lifecycle_artifacts(artifacts, require_onnx=True)
 
 
@@ -151,5 +151,5 @@ def test_lifecycle_rejects_extra_feature(lifecycle_artifacts, tamper_workspace: 
 def test_lifecycle_rejects_manifest_replay(lifecycle_artifacts, tamper_workspace: Path) -> None:
     artifacts = _clone(lifecycle_artifacts, tamper_workspace)
     tamper_manifest_replay(artifacts, kind="checkpoint")
-    with pytest.raises(ArtifactManifestError, match="git_commit mismatch"):
+    with pytest.raises(ArtifactManifestError, match="Artifact checksum mismatch"):
         verify_lifecycle_artifacts(artifacts, require_onnx=True)

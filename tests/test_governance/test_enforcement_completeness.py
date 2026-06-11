@@ -19,9 +19,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 # ---------------------------------------------------------------------------
 
 GOVERNANCE_DOCS = {
-    "manifest_schema_governance.md",
-    "result_schema_governance.md",
-    "hash_authority.md",
+    "ADR-001-governance-philosophy.md",
+    "ADR-002-schema-lifecycle.md",
+    "ADR-003-hash-authority.md",
+    "ADR-004-enforcement-pipeline.md",
     "IMMUTABLE_SCHEMA_CONTRACT.md",
 }
 
@@ -43,19 +44,23 @@ def test_all_governance_docs_exist() -> None:
 # Maps each governance doc to the validator(s) / CI gate(s) that enforce it.
 # Format: doc_name -> list of (validator_identifier, enforcement_type)
 DOC_TO_VALIDATOR: dict[str, list[tuple[str, str]]] = {
-    "manifest_schema_governance.md": [
+    "ADR-001-governance-philosophy.md": [
+        ("scripts/ci/validate_governance_docs.py", "CI doc existence"),
+        ("scripts/ci/validate_benchmark_outputs.py", "CI payload validation"),
+    ],
+    "ADR-002-schema-lifecycle.md": [
         ("scripts/ci/validate_governance_docs.py", "CI doc existence"),
         ("scripts/ci/validate_benchmark_outputs.py", "CI payload validation"),
         ("scripts/ci/validate_schema_registry.py", "CI registry entry"),
     ],
-    "result_schema_governance.md": [
-        ("scripts/ci/validate_governance_docs.py", "CI doc existence"),
-        ("scripts/ci/validate_benchmark_outputs.py", "CI payload validation"),
-        ("scripts/ci/validate_schema_registry.py", "CI registry entry"),
-    ],
-    "hash_authority.md": [
+    "ADR-003-hash-authority.md": [
         ("scripts/ci/validate_governance_docs.py", "CI doc existence"),
         ("scripts/ci/validate_benchmark_outputs.py", "CI hash field validation"),
+    ],
+    "ADR-004-enforcement-pipeline.md": [
+        ("scripts/ci/validate_governance_docs.py", "CI doc existence"),
+        ("scripts/ci/validate_benchmark_outputs.py", "CI payload validation"),
+        ("scripts/ci/validate_schema_registry.py", "CI registry entry"),
     ],
     "IMMUTABLE_SCHEMA_CONTRACT.md": [
         ("scripts/ci/validate_governance_docs.py", "CI doc existence"),
@@ -99,7 +104,7 @@ def test_validator_files_exist() -> None:
 
 def test_schema_registry_exists() -> None:
     """schema_registry.yaml must exist."""
-    registry = PROJECT_ROOT / "schema_registry.yaml"
+    registry = PROJECT_ROOT / "config/schema_registry.yaml"
     assert registry.exists(), "schema_registry.yaml not found"
 
 
@@ -107,7 +112,7 @@ def test_schema_registry_has_required_entries() -> None:
     """Registry must have manifest_schema and benchmark_result_schema entries."""
     import yaml
 
-    registry = PROJECT_ROOT / "schema_registry.yaml"
+    registry = PROJECT_ROOT / "config/schema_registry.yaml"
     with registry.open("r", encoding="utf-8") as fh:
         data = yaml.safe_load(fh)
 
@@ -132,7 +137,7 @@ def test_schema_registry_entries_have_required_fields() -> None:
     }
     VALID_STATUSES = {"active", "deprecated", "retired"}
 
-    registry = PROJECT_ROOT / "schema_registry.yaml"
+    registry = PROJECT_ROOT / "config/schema_registry.yaml"
     with registry.open("r", encoding="utf-8") as fh:
         data = yaml.safe_load(fh)
 
@@ -206,13 +211,13 @@ def test_all_adrs_exist() -> None:
 
 def test_phase4a_coverage_audit_exists() -> None:
     """Governance coverage audit document must exist."""
-    audit_path = PROJECT_ROOT / "docs" / "governance" / "phase4a_governance_coverage_audit.md"
+    audit_path = PROJECT_ROOT / "docs" / "governance" / "PHASE_4A_GOVERNANCE_COVERAGE_AUDIT.md"
     assert audit_path.exists(), "phase4a_governance_coverage_audit.md not found"
 
 
 def test_reproducibility_gap_analysis_exists() -> None:
     """Reproducibility gap analysis document must exist."""
-    gap_path = PROJECT_ROOT / "docs" / "governance" / "reproducibility_gap_analysis.md"
+    gap_path = PROJECT_ROOT / "docs" / "governance" / "REPRODUCIBILITY_GAP.md"
     assert gap_path.exists(), "reproducibility_gap_analysis.md not found"
 
 
@@ -228,7 +233,7 @@ def test_ci_workflow_references_all_validators() -> None:
     """
     import yaml
 
-    wf_path = PROJECT_ROOT / ".github" / "workflows" / "runtime-monitoring-hardening-ci.yml"
+    wf_path = PROJECT_ROOT / ".github" / "workflows" / "runtime-monitoring-hardening.yml"
     with wf_path.open("r", encoding="utf-8") as fh:
         wf = yaml.safe_load(fh)
 
@@ -334,7 +339,7 @@ def test_all_referenced_test_files_exist() -> None:
 
 def test_phase4b_assumption_elimination_doc_exists() -> None:
     """Phase 4B assumption elimination audit doc must exist."""
-    path = PROJECT_ROOT / "docs" / "governance" / "phase4b_assumption_elimination.md"
+    path = PROJECT_ROOT / "docs" / "governance" / "PHASE_4B_ASSUMPTION_ELIMINATION.md"
     assert path.exists(), "phase4b_assumption_elimination.md not found"
     content = path.read_text(encoding="utf-8")
     assert content.strip(), "phase4b_assumption_elimination.md is empty"
@@ -374,7 +379,7 @@ def test_ci_workflow_references_consistency_validator() -> None:
     """CI workflow must invoke the governance consistency validator."""
     import yaml
 
-    wf_path = PROJECT_ROOT / ".github" / "workflows" / "runtime-monitoring-hardening-ci.yml"
+    wf_path = PROJECT_ROOT / ".github" / "workflows" / "runtime-monitoring-hardening.yml"
     with wf_path.open("r", encoding="utf-8") as fh:
         wf = yaml.safe_load(fh)
 
@@ -393,7 +398,7 @@ def test_ci_workflow_references_schema_chronology_validator() -> None:
     """CI workflow must invoke the schema registry validator (chronology enforcement)."""
     import yaml
 
-    wf_path = PROJECT_ROOT / ".github" / "workflows" / "runtime-monitoring-hardening-ci.yml"
+    wf_path = PROJECT_ROOT / ".github" / "workflows" / "runtime-monitoring-hardening.yml"
     with wf_path.open("r", encoding="utf-8") as fh:
         wf = yaml.safe_load(fh)
 

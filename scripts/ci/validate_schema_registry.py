@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-REGISTRY_PATH = PROJECT_ROOT / "schema_registry.yaml"
+REGISTRY_PATH = PROJECT_ROOT / "config/schema_registry.yaml"
 REPORT_PATH = PROJECT_ROOT / "results" / "gates" / "schema_registry_validation.json"
 
 REQUIRED_ENTRY_FIELDS = {

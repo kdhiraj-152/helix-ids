@@ -21,13 +21,13 @@ docs/
 │   ├── ADR-002-schema-lifecycle.md
 │   ├── ADR-003-hash-authority.md
 │   ├── ADR-004-enforcement-pipeline.md
-│   ├── hash_authority.md
+│   ├── HASH_AUTHORITY.md
 │   ├── IMMUTABLE_SCHEMA_CONTRACT.md
-│   ├── manifest_schema_governance.md
-│   ├── phase4a_governance_coverage_audit.md
-│   ├── phase4b_assumption_elimination.md
-│   ├── reproducibility_gap_analysis.md
-│   └── result_schema_governance.md
+│   ├── MANIFEST_SCHEMA_GOVERNANCE.md
+│   ├── PHASE_4A_GOVERNANCE_COVERAGE_AUDIT.md
+│   ├── PHASE_4B_ASSUMPTION_ELIMINATION.md
+│   ├── REPRODUCIBILITY_GAP.md
+│   └── RESULT_SCHEMA_GOVERNANCE.md
 ├── operations/                # Deployment runbooks, checkpoint audit
 │   ├── OPERATIONS_DEPLOYMENT_RUNBOOK.md
 │   └── CHECKPOINT_AUDIT.md

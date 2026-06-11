@@ -1,0 +1,17 @@
+[cosmic-ray]
+module-path = "src/helix_ids/data/feature_harmonization.py"
+timeout = 120
+excluded-modules = []
+test-command = "python -m pytest -x --tb=short -p no:cov tests/test_feature_harmonization.py"
+
+[cosmic-ray.distributor]
+name = "local"
+
+[cosmic-ray.operators]
+operators = [
+    "core/NumberReplacer",
+    "core/ReplaceComparisonOperator_Eq_NotEq",
+    "core/ReplaceComparisonOperator_Gt_Lt",
+    "core/ReplaceAndWithOr",
+    "core/AddNot",
+]

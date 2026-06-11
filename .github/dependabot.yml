@@ -1,0 +1,68 @@
+# Dependabot configuration
+# See: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates:
+  # Python (pip) ecosystem — lockfile-driven dependency updates
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/New_York"
+    # Open at most 5 PRs at once to avoid flooding
+    open-pull-requests-limit: 5
+    # Group related dependency updates into single PRs
+    groups:
+      ml-core:
+        patterns:
+          - "torch"
+          - "numpy"
+          - "scipy"
+          - "scikit-learn"
+          - "pandas"
+        update-types:
+          - "minor"
+          - "patch"
+      data-pipeline:
+        patterns:
+          - "datasets"
+          - "huggingface-hub"
+          - "imbalanced-learn"
+      mlflow-optuna:
+        patterns:
+          - "mlflow*"
+          - "optuna"
+      testing:
+        patterns:
+          - "pytest*"
+          - "ruff"
+          - "mypy"
+      misc:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    # Labels help track supply-chain PRs
+    labels:
+      - "dependencies"
+      - "supply-chain"
+
+  # GitHub Actions ecosystem — track action version updates
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 5
+    groups:
+      actions:
+        patterns:
+          - "*"
+    labels:
+      - "dependencies"
+      - "ci"

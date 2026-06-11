@@ -24,7 +24,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 REPORT_PATH = PROJECT_ROOT / "results" / "gates" / "governance_consistency_validation.json"
 
 # Schema names listed in schema_registry.yaml (source of truth)
-REGISTRY_PATH = PROJECT_ROOT / "schema_registry.yaml"
+REGISTRY_PATH = PROJECT_ROOT / "config/schema_registry.yaml"
 
 # Governance documents to scan
 GOVERNANCE_DOCS_DIR = PROJECT_ROOT / "docs" / "governance"
