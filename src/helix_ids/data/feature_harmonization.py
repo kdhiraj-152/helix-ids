@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 import torch
 
-from ..contracts import CONTRACT_VERSION
+from ..contracts import ATTACK_TAXONOMY_7CLASS, CONTRACT_VERSION
 from ..contracts.schema_contract import (
     CANONICAL_FEATURE_ORDER,
     SCHEMA_VERSION,
@@ -263,69 +263,10 @@ def normalize_per_dataset(X):
 
 # ============================================================================
 # Attack Taxonomy: 7-class mapping
+# Imported from helix_ids.contracts.attack_taxonomy — see that module for
+# definitions: ATTACK_TAXONOMY_7CLASS, NSLKDD_TO_7CLASS, UNSW_TO_7CLASS,
+# CICIDS_TO_7CLASS, CICIDS2018_TO_7CLASS.
 # ============================================================================
-
-ATTACK_TAXONOMY_7CLASS = {
-    0: "Normal",
-    1: "DoS",
-    2: "Probe",
-    3: "R2L",
-    4: "U2R",
-    5: "Generic",
-    6: "Backdoor",
-}
-
-NSLKDD_TO_7CLASS = {
-    "Normal": 0,
-    "DoS": 1,
-    "Probe": 2,
-    "R2L": 3,
-    "U2R": 4,
-}
-
-UNSW_TO_7CLASS = {
-    "Normal": 0,
-    "Analysis": 2,
-    "Backdoors": 6,
-    "DoS": 1,
-    "Exploits": 3,
-    "Fuzzers": 2,
-    "Generic": 5,
-    "Reconnaissance": 2,
-    "Shellcode": 4,
-    "Worms": 6,
-}
-
-CICIDS_TO_7CLASS = {
-    "BENIGN": 0,
-    "DDoS": 1,
-    "DoS GoldenEye": 1,
-    "DoS Hulk": 1,
-    "DoS slowloris": 1,
-    "DoS Slowhttptest": 1,
-    "PortScan": 2,
-    "Bot": 5,
-    "Infiltration": 5,
-    "Web Attack - Brute Force": 3,
-    "Web Attack - XSS": 3,
-    "Web Attack - Sql Injection": 3,
-    "FTP-Patator": 3,
-    "SSH-Patator": 3,
-    "Heartbleed": 4,
-}
-
-CICIDS2018_TO_7CLASS = {
-    "BENIGN": 0,
-    "DDoS": 1,
-    "DoS": 1,
-    "PortScan": 2,
-    "Bot": 5,
-    "Infiltration": 5,
-    "Brute Force": 3,
-    "SQL Injection": 3,
-    "SSH-Patator": 3,
-    "FTP-Patator": 3,
-}
 
 
 # ============================================================================

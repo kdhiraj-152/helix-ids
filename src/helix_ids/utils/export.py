@@ -27,6 +27,10 @@ from helix_ids.contracts import (
     CANONICAL_FAMILY_CLASSES,
     CANONICAL_INPUT_DIM,
 )
+from helix_ids.contracts.attack_taxonomy import (
+    HELIX_CLASSES,
+    SEVEN_CLASS_THREAT_WEIGHTS,
+)
 from helix_ids.contracts.schema_contract import runtime_contract_payload
 from helix_ids.governance import (
     build_artifact_manifest,
@@ -62,17 +66,11 @@ HELIX_VARIANT_SIZES = {
     "full": 2000,  # KB
 }
 
-HELIX_CLASSES = ["Normal", "DoS", "Probe", "R2L", "U2R", "Generic", "Backdoor"]
+# Re-exported from canonical; keep local name for backward compat
+HELIX_CLASSES = HELIX_CLASSES
 
-DEFAULT_THREAT_WEIGHTS = {
-    "Normal": 1.0,
-    "DoS": 2.0,
-    "Probe": 2.5,
-    "R2L": 4.0,
-    "U2R": 5.0,
-    "Generic": 3.5,
-    "Backdoor": 5.5,
-}
+# 7-class threat weights for export metadata
+DEFAULT_THREAT_WEIGHTS = SEVEN_CLASS_THREAT_WEIGHTS
 
 
 @dataclass

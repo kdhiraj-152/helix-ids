@@ -21,16 +21,8 @@ from sklearn.metrics import (
     recall_score,
 )
 
+from helix_ids.contracts.attack_taxonomy import THREAT_WEIGHTS
 from helix_ids.governance.parameters import DEFAULT_GOVERNANCE_POLICY
-
-# Default threat weights from research
-THREAT_WEIGHTS = {
-    "Normal": 1.0,
-    "DoS": 1.5,
-    "Probe": 2.0,
-    "R2L": 8.0,
-    "U2R": 10.0,
-}
 
 
 @dataclass

@@ -19,6 +19,13 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import f1_score
 from sklearn.model_selection import GroupShuffleSplit
 
+from ..contracts.attack_taxonomy import (
+    CICIDS2018_TO_7CLASS,
+    CICIDS_TO_7CLASS,
+    NSL_KDD_ATTACK_MAPPING,
+    NSLKDD_TO_7CLASS,
+    UNSW_TO_7CLASS,
+)
 from ..contracts.schema_contract import (
     CANONICAL_BINARY_CLASSES,
     CANONICAL_FAMILY_CLASSES,
@@ -28,13 +35,8 @@ from ..contracts.schema_contract import (
     compute_schema_hash,
     validate_feature_order,
 )
-from .dataset_config import NSL_KDD_ATTACK_MAPPING
 from .feature_harmonization import (
-    CICIDS2018_TO_7CLASS,
-    CICIDS_TO_7CLASS,
     FEATURE_ORDER,
-    NSLKDD_TO_7CLASS,
-    UNSW_TO_7CLASS,
     create_cicids_mapping,
     create_nslkdd_mapping,
     create_unsw_mapping,

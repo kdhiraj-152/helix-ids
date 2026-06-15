@@ -11,13 +11,16 @@ from typing import Optional
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
 
-from .dataset_config import (
-    CICIDS_2018_LABEL_MAPPING,
-    CICIDS_LABEL_MAPPING,
+from helix_ids.contracts.attack_taxonomy import (
     CICIDS_TO_UNIFIED_5CLASS,
     NSL_KDD_ATTACK_MAPPING,
     UNIFIED_5CLASS,
     UNSW_TO_UNIFIED_5CLASS,
+)
+
+from .dataset_config import (
+    CICIDS_2018_LABEL_MAPPING,
+    CICIDS_LABEL_MAPPING,
     WEBATTACK_BRUTEFORCE,
     WEBATTACK_SQLINJECTION,
     WEBATTACK_XSS,

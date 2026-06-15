@@ -24,20 +24,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
 
-# Threat severity weights based on attack impact
-# FIXED: Conservative weights prevent gradient vanishing/explosion
-# U2R (User-to-Root) and R2L (Remote-to-Local) are rare but critical
-THREAT_WEIGHTS: dict[str, float] = {
-    "Normal": 1.0,
-    "DoS": 1.2,  # Denial of Service - high volume, moderate severity
-    "Probe": 1.5,  # Reconnaissance - precursor to attacks
-    "R2L": 3.0,  # Remote-to-Local - serious unauthorized access
-    "U2R": 4.0,  # User-to-Root - most critical privilege escalation
-}
+from helix_ids.contracts.attack_taxonomy import (
+    threat_weight_tensor,
+)
 
 # Default threat weight tensor (indexed by class)
 # Order: Normal=0, DoS=1, Probe=2, R2L=3, U2R=4
-DEFAULT_THREAT_WEIGHTS = torch.tensor([1.0, 1.2, 1.5, 3.0, 4.0])
+DEFAULT_THREAT_WEIGHTS = threat_weight_tensor()
 
 
 def get_class_weights(

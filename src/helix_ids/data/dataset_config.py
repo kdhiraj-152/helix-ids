@@ -3,14 +3,27 @@ Dataset configurations and attack-type label mappings for HELIX-IDS.
 
 Extracted from unified_loader.py (was >1230 lines).
 This module owns all dataset metadata — paths, class names, column names.
+
+Canonical attack taxonomy mappings are imported from
+:mod:`helix_ids.contracts.attack_taxonomy` and re-exported for backward
+compatibility.
 """
 
 from dataclasses import dataclass, field
 from pathlib import Path
 
-# ============================================================================
-# Project Paths
-# ============================================================================
+from helix_ids.contracts.attack_taxonomy import (
+    CICIDS_TO_UNIFIED_5CLASS,
+    NSL_KDD_ATTACK_MAPPING,
+    UNIFIED_5CLASS,
+    UNSW_TO_UNIFIED_5CLASS,
+)
+
+# Backward-compatible re-exports (originally defined here, now canonical)
+UNIFIED_5CLASS: list[str] = UNIFIED_5CLASS
+NSL_KDD_ATTACK_MAPPING: dict[str, str] = NSL_KDD_ATTACK_MAPPING
+UNSW_TO_UNIFIED_5CLASS: dict[str, str] = UNSW_TO_UNIFIED_5CLASS
+CICIDS_TO_UNIFIED_5CLASS: dict[str, str] = CICIDS_TO_UNIFIED_5CLASS
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent  # src/helix_ids/data -> RP-2
 DATA_DIR = PROJECT_ROOT / "data"
@@ -28,57 +41,10 @@ CICIDS_EXCLUDE_COLUMNS = {"Flow ID", "Src IP", "Dst IP", "Src Port"}
 CSV_PATTERN = "*.csv"
 
 # ============================================================================
-# Attack-type label mappings
+# Attack-type label mappings (imported from canonical)
 # ============================================================================
 
-_GUESS_PASSWORD_ATTACK = "".join(["guess_", "pass", "wd"])
-
-NSL_KDD_ATTACK_MAPPING: dict[str, str] = {
-    "normal": "Normal",
-    # DoS
-    "back": "DoS",
-    "land": "DoS",
-    "neptune": "DoS",
-    "pod": "DoS",
-    "smurf": "DoS",
-    "teardrop": "DoS",
-    "mailbomb": "DoS",
-    "apache2": "DoS",
-    "processtable": "DoS",
-    "udpstorm": "DoS",
-    # Probe
-    "ipsweep": "Probe",
-    "nmap": "Probe",
-    "portsweep": "Probe",
-    "satan": "Probe",
-    "mscan": "Probe",
-    "saint": "Probe",
-    # R2L
-    "ftp_write": "R2L",
-    _GUESS_PASSWORD_ATTACK: "R2L",
-    "imap": "R2L",
-    "multihop": "R2L",
-    "phf": "R2L",
-    "spy": "R2L",
-    "warezclient": "R2L",
-    "warezmaster": "R2L",
-    "sendmail": "R2L",
-    "named": "R2L",
-    "snmpgetattack": "R2L",
-    "snmpguess": "R2L",
-    "xlock": "R2L",
-    "xsnoop": "R2L",
-    "worm": "R2L",
-    # U2R
-    "buffer_overflow": "U2R",
-    "loadmodule": "U2R",
-    "perl": "U2R",
-    "rootkit": "U2R",
-    "httptunnel": "U2R",
-    "ps": "U2R",
-    "sqlattack": "U2R",
-    "xterm": "U2R",
-}
+# ── CICIDS constants used by the mappings below ───────────────────────────
 
 WEBATTACK_BRUTEFORCE = "Web Attack - Brute Force"
 WEBATTACK_XSS = "Web Attack - XSS"
@@ -126,39 +92,6 @@ CICIDS_2018_LABEL_MAPPING: dict[str, str] = {
     "bot": "Bot",
     "infilteration": "Infiltration",
     "infiltration": "Infiltration",
-}
-
-UNIFIED_5CLASS = ["Normal", "DoS", "Probe", "R2L", "U2R"]
-
-UNSW_TO_UNIFIED_5CLASS: dict[str, str] = {
-    "normal": "Normal",
-    "analysis": "Probe",
-    "backdoor": "R2L",
-    "dos": "DoS",
-    "exploits": "R2L",
-    "fuzzers": "Probe",
-    "generic": "DoS",
-    "reconnaissance": "Probe",
-    "shellcode": "U2R",
-    "worms": "R2L",
-}
-
-CICIDS_TO_UNIFIED_5CLASS: dict[str, str] = {
-    "benign": "Normal",
-    "ddos": "DoS",
-    DOS_GOLDENEYE.lower(): "DoS",
-    DOS_HULK.lower(): "DoS",
-    DOS_SLOWHTTPTEST.lower(): "DoS",
-    DOS_SLOWLORIS.lower(): "DoS",
-    "portscan": "Probe",
-    "bot": "R2L",
-    "ftp-patator": "R2L",
-    "ssh-patator": "R2L",
-    "infiltration": "R2L",
-    "heartbleed": "R2L",
-    WEBATTACK_BRUTEFORCE.lower(): "R2L",
-    WEBATTACK_SQLINJECTION.lower(): "R2L",
-    WEBATTACK_XSS.lower(): "R2L",
 }
 
 # ============================================================================

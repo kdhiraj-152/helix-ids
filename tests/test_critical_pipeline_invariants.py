@@ -27,6 +27,16 @@ def _make_trainer() -> train_mod.HelixFullTrainer:
     trainer = train_mod.HelixFullTrainer.__new__(train_mod.HelixFullTrainer)
     trainer.model = _NoopModel()
     trainer.logger = logging.getLogger("critical_invariance_tests")
+    # Phase 12B-6: evaluator delegation bridge
+    from scripts.training.evaluation import HelixFullEvaluator
+    trainer._evaluator = HelixFullEvaluator(
+        model=None, device="cpu", loss_fn=None, logger=trainer.logger,
+    )
+    trainer._evaluator.model = _NoopModel()  # required by validate() which calls self.model.eval()
+    # Attributes read by delegation wrappers before forwarding to evaluator
+    trainer.active_family_class_ids = None
+    trainer.class4_logit_shift = 0.0
+    trainer.class4_logit_shift_class_id = 0
     return trainer
 
 
@@ -81,10 +91,11 @@ def test_validate_uses_per_dataset_worst_case_not_averaging() -> None:
         "unsw_nb15": "loader_unsw",
         "cicids": "loader_cicids",
     })
+    # Patch on the evaluator (Phase 12B-6: validate delegates to HelixFullEvaluator)
     object.__setattr__(
-        trainer,
+        trainer._evaluator,
         "_evaluate_loader",
-        lambda loader, dataset_name="unknown": metrics_by_loader[loader],
+        lambda loader, dataset_name="unknown", **kwargs: metrics_by_loader[loader],
     )
 
     aggregated = train_mod.HelixFullTrainer.validate(trainer)
@@ -123,7 +134,11 @@ def test_evaluate_per_dataset_is_independent() -> None:
         "test_unsw": {"family_macro_f1": 0.61},
         "test_cicids": {"family_macro_f1": 0.73},
     }
-    object.__setattr__(trainer, "_evaluate_test_loader", lambda loader: per_loader[loader])
+    # Patch on the evaluator (Phase 12B-6: evaluate_per_dataset delegates)
+    object.__setattr__(
+        trainer._evaluator, "_evaluate_test_loader",
+        lambda loader, **kwargs: per_loader[loader],
+    )
 
     results = train_mod.HelixFullTrainer.evaluate_per_dataset(trainer)
 
