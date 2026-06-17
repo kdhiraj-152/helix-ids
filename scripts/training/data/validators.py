@@ -1,64 +1,28 @@
-"""
-Pure validation and helper functions for HELIX-IDS full training pipeline.
+"""Pure validation and helper functions for HELIX-IDS full training pipeline.
 
 Extracted from scripts/training/train_helix_ids_full.py — Phase 12B-3.
 No behavioral changes. These functions have no model state, optimizer,
 or trainer lifecycle dependencies.
 """
+from __future__ import annotations
 
-import math
 from typing import Any, Optional
 
 import numpy as np
 
+# Canonical implementations live in scripts/training/governance/ (Phase 13A-5).
+# Compatibility aliases preserve the private-name public API.
+from scripts.training.governance import (  # noqa: F401
+    coerce_finite_float as _coerce_finite_float,
+)
+from scripts.training.governance.ab_testing import (  # noqa: F401
+    detect_cluster_mode_collapse as _detect_cluster_mode_collapse,
+)
+from scripts.training.governance.orchestrator import (  # noqa: F401
+    normalize_metrics_payload as _normalize_metrics_payload,
+)
+
 from .dataset_builder import _chunk_finite_check, _sample_rows
-
-# ============================================================================
-# Normalized entropy and cluster diagnostics
-# ============================================================================
-
-
-def _normalized_entropy_from_counts(counts: list[int]) -> float:
-    """Compute normalized entropy in [0, 1] for cluster-size distribution."""
-    arr = np.asarray(counts, dtype=np.float64)
-    total = float(arr.sum())
-    if total <= 0.0 or int(arr.shape[0]) <= 1:
-        return 0.0
-    probs = np.clip(arr / total, 1e-12, 1.0)
-    entropy = float(-np.sum(probs * np.log(probs)) / math.log(float(arr.shape[0])))
-    return float(np.clip(entropy, 0.0, 1.0))
-
-
-def _detect_cluster_mode_collapse(
-    cluster_sizes: list[int],
-    *,
-    min_entropy: float = 0.30,
-    max_dominance: float = 0.85,
-) -> tuple[bool, dict[str, float]]:
-    """Detect cluster mode collapse using entropy and dominant-cluster share."""
-    counts = [max(0, int(v)) for v in cluster_sizes]
-    total = int(sum(counts))
-    if total <= 0:
-        return True, {
-            "cluster_size_entropy": 0.0,
-            "dominant_cluster_fraction": 1.0,
-            "active_cluster_count": 0.0,
-        }
-
-    entropy = _normalized_entropy_from_counts(counts)
-    dominant_fraction = float(max(counts) / max(1, total))
-    active_cluster_count = int(sum(1 for count in counts if count > 0))
-    collapse = (
-        active_cluster_count < 2
-        or dominant_fraction >= float(max_dominance)
-        or entropy < float(min_entropy)
-    )
-    return collapse, {
-        "cluster_size_entropy": float(entropy),
-        "dominant_cluster_fraction": float(dominant_fraction),
-        "active_cluster_count": float(active_cluster_count),
-    }
-
 
 # ============================================================================
 # Label manipulation helpers
@@ -399,46 +363,3 @@ def _assert_feature_sanity_for_dataset(
         scale_ratio,
         integer_like_count,
     )
-
-
-# ============================================================================
-# Metrics normalization
-# ============================================================================
-
-
-def _coerce_finite_float(value: Any, *, field: str) -> float:
-    numeric = float(value)
-    if not np.isfinite(numeric):
-        raise ValueError(f"{field} must be finite, got {value!r}")
-    return float(numeric)
-
-
-def _normalize_metrics_payload(metrics: dict[str, Any]) -> dict[str, Any]:
-    """Normalize metric aliases into strict external contract keys."""
-    normalized_metrics = {
-        "macro_f1": _coerce_finite_float(
-            metrics.get("macro_f1", metrics.get("family_macro_f1", metrics.get("family_f1", 0.0))),
-            field="macro_f1",
-        ),
-        "class4_precision": _coerce_finite_float(
-            metrics.get("class4_precision", metrics.get("family_class4_precision", 0.0)),
-            field="class4_precision",
-        ),
-        "class4_recall": _coerce_finite_float(
-            metrics.get("class4_recall", metrics.get("family_class4_recall", metrics.get("family_minority_recall_min", 0.0))),
-            field="class4_recall",
-        ),
-        "entropy": _coerce_finite_float(
-            metrics.get("mean_entropy", metrics.get("family_entropy", 0.0)),
-            field="entropy",
-        ),
-        "zero_prediction_classes": int(
-            metrics.get(
-                "zero_prediction_classes",
-                metrics.get("family_zero_prediction_classes", 0),
-            )
-        ),
-    }
-    if normalized_metrics["zero_prediction_classes"] < 0:
-        raise ValueError("zero_prediction_classes must be >= 0")
-    return normalized_metrics

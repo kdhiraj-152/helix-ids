@@ -166,7 +166,7 @@ def detect_batch_composition_risk(
         Risk diagnostics dict
     """
     unique_predicted = len(np.unique(predicted_classes))
-    missing_classes = num_expected_classes - unique_predicted
+    missing_classes = max(0, num_expected_classes - unique_predicted)
 
     return {
         "unique_classes_predicted": unique_predicted,

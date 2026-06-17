@@ -51,12 +51,15 @@ src/helix_ids/_unused/
 
 # Large/local datasets
 # Keep dataset manifests/docs in git if needed, ignore bulk files.
+data/processed/
 data/**/raw/
 data/**/raw
 data/**/*.csv
 data/**/*.npy
 data/**/*.npz
 data/**/*.parquet
+data/**/*.pkl
+data/splits/
 
 # Logs
 *.log
@@ -91,6 +94,12 @@ baseline-freeze-session
 *.pdf
 *.docx
 *.pptx
+docs/figures/*.png
+
+# Benchmark run outputs (gitignored; baseline.reference.json is tracked instead)
+/benchmarks/baseline.json
+/benchmarks/load_test_results.json
+/benchmarks/_tmp/
 
 # Top-level/binary model checkpoints (prevent accidental commits)
 *.pt

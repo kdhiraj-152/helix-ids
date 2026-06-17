@@ -62,8 +62,11 @@ deployment = [
     "onnx>=1.14.0",
     "onnxruntime>=1.15.0",
 ]
+monitoring = [
+    "psutil>=5.8.0",
+]
 all = [
-    "helix-ids[dev,training,deployment]",
+    "helix-ids[dev,training,deployment,monitoring]",
 ]
 
 [project.urls]

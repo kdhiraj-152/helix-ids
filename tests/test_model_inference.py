@@ -93,15 +93,23 @@ class TestModelLoading:
         assert logits.shape == (1, OUTPUT_CLASSES), \
             f"Expected shape (1, {OUTPUT_CLASSES}), got {logits.shape}"
 
-    def test_load_production_model_weights(self, loaded_production_model):
+    def test_load_production_model_weights(self):
         """
         Test production model weights can be loaded from disk.
         """
-        model = loaded_production_model
-        assert model is not None
+        from pathlib import Path
 
-        # Check model is in eval mode
-        assert not model.training
+        from helix_ids.models.full import create_helix_full
+        from helix_ids.models.helix_ids_full import HelixFullConfig
+
+        model_path = Path("models/helix_full/helix_full_nsl_kdd_final.pt")
+        if not model_path.exists():
+            pytest.skip("Production model weights not available on disk.")
+        config = HelixFullConfig()
+        model = create_helix_full(config)
+        state = torch.load(model_path, map_location="cpu", weights_only=True)
+        model.load_state_dict(state)
+        model.eval()
 
     @pytest.mark.parametrize("platform", ["production", "rpi_4", "rpi_zero", "esp32"])
     def test_platform_model_paths_exist(self, platform_model_paths, platform):

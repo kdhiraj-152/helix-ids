@@ -1,5 +1,19 @@
 """Data-building utilities for HELIX-IDS full training pipeline."""
 
+# Canonical implementations live in governance/ (Phase 13A-5 deduplication).
+from scripts.training.governance.ab_testing import (  # noqa: F401  -- re-export alias
+    detect_cluster_mode_collapse as _detect_cluster_mode_collapse,
+)
+from scripts.training.governance.ab_testing import (
+    normalized_entropy_from_counts as _normalized_entropy_from_counts,
+)
+from scripts.training.governance.orchestrator import (  # noqa: F401  -- re-export alias
+    coerce_finite_float as _coerce_finite_float,
+)
+from scripts.training.governance.orchestrator import (
+    normalize_metrics_payload as _normalize_metrics_payload,
+)
+
 from .dataset_builder import (
     MultiTaskNumpyDataset,
     _build_stratified_subset_indices,
@@ -23,13 +37,9 @@ from .validators import (
     _assert_feature_dimensions,
     _assert_feature_sanity_for_dataset,
     _assert_numeric_finite_and_variance,
-    _coerce_finite_float,
     _compute_class4_metrics,
     _compute_multiclass_confusion,
-    _detect_cluster_mode_collapse,
     _normalize_engineered_feature_block,
-    _normalize_metrics_payload,
-    _normalized_entropy_from_counts,
     _summarize_prediction_coverage,
 )
 

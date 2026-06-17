@@ -6,13 +6,27 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 from pathlib import Path
 from typing import Any, cast
 
 import pandas as pd
 
-from scripts.training.data import _coerce_finite_float
+from scripts.training.governance import (  # noqa: F401
+    coerce_finite_float as _coerce_finite_float,
+)
+from scripts.training.governance import (
+    materialize_phase8_artifacts as _materialize_phase8_artifacts,
+)
+from scripts.training.governance import (
+    normalize_calibration_block as _normalize_calibration_block,
+)
+
+__all__ = [
+    "_atomic_write_json",
+    "_emit_calibration_artifacts",
+    "_materialize_phase8_artifacts",
+    "_normalize_calibration_block",
+]
 
 
 def _atomic_write_json(path: Path, payload: Any) -> None:
@@ -145,47 +159,3 @@ def _emit_calibration_artifacts(
         "confusion_matrices_json": str(confusion_json_path),
         "ablation_json": str(ablation_json_path),
     }
-
-
-def _materialize_phase8_artifacts(calibration_artifacts: dict[str, str]) -> dict[str, str]:
-    """Create canonical artifact filenames required by strict completion contract."""
-    required_artifacts = {
-        "before_after_csv": "before_after.csv",
-        "before_after_json": "before_after.json",
-        "pr_curve_csv": "pr_curve.csv",
-        "confusion_matrices_json": "confusion_matrices.json",
-        "ablation_json": "ablation.json",
-    }
-    canonical: dict[str, str] = {}
-    for source_key, canonical_name in required_artifacts.items():
-        source_value = calibration_artifacts.get(source_key)
-        if not source_value:
-            raise ValueError(f"Missing required calibration artifact key: {source_key}")
-        source_path = Path(source_value)
-        if not source_path.exists():
-            raise FileNotFoundError(f"Missing required calibration artifact: {source_path}")
-        canonical_path = source_path.parent / canonical_name
-        if source_path.resolve() != canonical_path.resolve():
-            shutil.copyfile(source_path, canonical_path)
-        canonical[source_key] = str(canonical_path)
-    return canonical
-
-
-def _normalize_calibration_block(
-    *,
-    calibration_payload: dict[str, Any],
-    calibration_artifacts: dict[str, str],
-) -> dict[str, Any]:
-    """Normalize calibration outputs into strict contract schema with required paths."""
-    normalized_calibration = {
-        "temperature": _coerce_finite_float(calibration_payload.get("temperature", 1.0), field="temperature"),
-        "tau_4": _coerce_finite_float(calibration_payload.get("tau_4", 0.5), field="tau_4"),
-        "pr_curve_path": str(calibration_artifacts["pr_curve_csv"]),
-        "confusion_matrix_path": str(calibration_artifacts["confusion_matrices_json"]),
-        "ablation_path": str(calibration_artifacts["ablation_json"]),
-    }
-    for key in ("pr_curve_path", "confusion_matrix_path", "ablation_path"):
-        path = Path(str(normalized_calibration[key]))
-        if not path.exists():
-            raise FileNotFoundError(f"Required calibration artifact missing: {path}")
-    return normalized_calibration

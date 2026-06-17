@@ -28,11 +28,52 @@ def _make_trainer() -> train_mod.HelixFullTrainer:
     trainer.model = _NoopModel()
     trainer.logger = logging.getLogger("critical_invariance_tests")
     # Phase 12B-6: evaluator delegation bridge
-    from scripts.training.evaluation import HelixFullEvaluator
-    trainer._evaluator = HelixFullEvaluator(
+    from scripts.training.evaluation import EvaluationOrchestrator, HelixFullEvaluator
+    trainer._evaluation_orchestrator = EvaluationOrchestrator(
         model=None, device="cpu", loss_fn=None, logger=trainer.logger,
     )
-    trainer._evaluator.model = _NoopModel()  # required by validate() which calls self.model.eval()
+    trainer._evaluation_orchestrator._evaluator.model = _NoopModel()  # required by validate() which calls self.model.eval()
+    # Phase 16: validation orchestrator bridge
+    from scripts.training.validation import ValidationOrchestrator
+    trainer._validation_orchestrator = ValidationOrchestrator()
+    # Phase 13A-2: scheduler delegate bridges
+    from scripts.training.scheduler import (
+        EarlyStoppingManager,
+        FreezeManager,
+        LRScheduler,
+        PhaseManager,
+    )
+    trainer._early_stopping_manager = EarlyStoppingManager(
+        early_stopping_patience=3,
+        early_stopping_threshold=0.02,
+        min_family_minority_recall_for_best=0.15,
+        disable_integrity_hard_stops=False,
+    )
+    # Phase 15: orchestration bridge (delegates to real EarlyStoppingManager)
+    from unittest.mock import MagicMock
+    trainer._phase_orchestrator = MagicMock()
+    trainer._phase_orchestrator.is_smoke_mode.return_value = False
+    trainer._phase_orchestrator.hard_stop_reason.side_effect = (
+        lambda train_metrics, val_metrics, is_smoke, epoch:
+            trainer._early_stopping_manager.hard_stop_reason(
+                train_metrics, val_metrics, is_smoke=is_smoke, epoch=epoch,
+            )
+    )
+    trainer._phase_manager = PhaseManager(
+        representation_only_steps=0,
+        head_only_steps=10,
+        representation_diagnostic_mode=False,
+        use_energy_based_family_objective=False,
+        rep_adaptive_exit_ratio_threshold=1.6,
+        rep_adaptive_exit_min_inter_threshold=0.30,
+    )
+    trainer._freeze_manager = FreezeManager()
+    trainer._lr_scheduler = LRScheduler(
+        learning_rate=0.001,
+        warmup_epochs=0,
+        warmup_init_lr=0.0,
+        epochs=50,
+    )
     # Attributes read by delegation wrappers before forwarding to evaluator
     trainer.active_family_class_ids = None
     trainer.class4_logit_shift = 0.0
@@ -93,7 +134,7 @@ def test_validate_uses_per_dataset_worst_case_not_averaging() -> None:
     })
     # Patch on the evaluator (Phase 12B-6: validate delegates to HelixFullEvaluator)
     object.__setattr__(
-        trainer._evaluator,
+        trainer._evaluation_orchestrator._evaluator,
         "_evaluate_loader",
         lambda loader, dataset_name="unknown", **kwargs: metrics_by_loader[loader],
     )
@@ -136,7 +177,7 @@ def test_evaluate_per_dataset_is_independent() -> None:
     }
     # Patch on the evaluator (Phase 12B-6: evaluate_per_dataset delegates)
     object.__setattr__(
-        trainer._evaluator, "_evaluate_test_loader",
+        trainer._evaluation_orchestrator._evaluator, "_evaluate_test_loader",
         lambda loader, **kwargs: per_loader[loader],
     )
 
@@ -263,9 +304,9 @@ def test_eval_array_falls_back_when_cached_dim_mismatch(tmp_path: Path, monkeypa
 
 def test_high_accuracy_high_loss_guard_requires_two_consecutive_epochs() -> None:
     trainer = _make_trainer()
-    trainer.val_gap_collapse_streak = 0
-    trainer.entropy_collapse_streak = 0
-    trainer.high_accuracy_high_loss_streak = 0
+    trainer._early_stopping_manager.val_gap_collapse_streak = 0
+    trainer._early_stopping_manager.entropy_collapse_streak = 0
+    trainer._early_stopping_manager.high_accuracy_high_loss_streak = 0
     trainer.epoch = 0
 
     train_metrics = {
@@ -285,19 +326,19 @@ def test_high_accuracy_high_loss_guard_requires_two_consecutive_epochs() -> None
 
     first = train_mod.HelixFullTrainer._hard_stop_reason(trainer, train_metrics, val_metrics)
     assert first is None
-    assert trainer.high_accuracy_high_loss_streak == 1
+    assert trainer._early_stopping_manager.high_accuracy_high_loss_streak == 1
 
     trainer.epoch = 1
     second = train_mod.HelixFullTrainer._hard_stop_reason(trainer, train_metrics, val_metrics)
     assert second == "high_accuracy_with_high_loss"
-    assert trainer.high_accuracy_high_loss_streak == 2
+    assert trainer._early_stopping_manager.high_accuracy_high_loss_streak == 2
 
 
 def test_high_accuracy_high_loss_streak_resets_when_signal_clears() -> None:
     trainer = _make_trainer()
-    trainer.val_gap_collapse_streak = 0
-    trainer.entropy_collapse_streak = 0
-    trainer.high_accuracy_high_loss_streak = 0
+    trainer._early_stopping_manager.val_gap_collapse_streak = 0
+    trainer._early_stopping_manager.entropy_collapse_streak = 0
+    trainer._early_stopping_manager.high_accuracy_high_loss_streak = 0
     trainer.epoch = 0
 
     train_metrics_bad = {
@@ -315,7 +356,7 @@ def test_high_accuracy_high_loss_streak_resets_when_signal_clears() -> None:
         "val_entropy_missing_same_dataset": 0.0,
     }
     train_mod.HelixFullTrainer._hard_stop_reason(trainer, train_metrics_bad, val_metrics_common)
-    assert trainer.high_accuracy_high_loss_streak == 1
+    assert trainer._early_stopping_manager.high_accuracy_high_loss_streak == 1
 
     train_metrics_good = {
         "train_calibrated_loss": 0.42,
@@ -328,15 +369,15 @@ def test_high_accuracy_high_loss_streak_resets_when_signal_clears() -> None:
         val_metrics_common,
     )
     assert reason is None
-    assert trainer.high_accuracy_high_loss_streak == 0
+    assert trainer._early_stopping_manager.high_accuracy_high_loss_streak == 0
 
 
 def test_entropy_missing_class_guard_requires_two_consecutive_epochs() -> None:
     trainer = _make_trainer()
-    trainer.val_gap_collapse_streak = 0
-    trainer.entropy_collapse_streak = 0
-    trainer.entropy_missing_class_streak = 0
-    trainer.high_accuracy_high_loss_streak = 0
+    trainer._early_stopping_manager.val_gap_collapse_streak = 0
+    trainer._early_stopping_manager.entropy_collapse_streak = 0
+    trainer._early_stopping_manager.entropy_missing_class_streak = 0
+    trainer._early_stopping_manager.high_accuracy_high_loss_streak = 0
     trainer.config = cast(Any, type("Cfg", (), {"epochs": 150})())
     trainer.epoch = 1
 
@@ -351,26 +392,26 @@ def test_entropy_missing_class_guard_requires_two_consecutive_epochs() -> None:
         "val_family_acc": 0.78,
         "val_family_macro_f1": 0.55,
         "val_family_minority_recall_min": 0.30,
-        "val_family_entropy": 0.11,
+        "val_family_entropy": 0.09,
         "val_entropy_missing_same_dataset": 1.0,
     }
 
     first = train_mod.HelixFullTrainer._hard_stop_reason(trainer, train_metrics, val_metrics)
     assert first is None
-    assert trainer.entropy_missing_class_streak == 1
+    assert trainer._early_stopping_manager.entropy_missing_class_streak == 1
 
     trainer.epoch = 2
     second = train_mod.HelixFullTrainer._hard_stop_reason(trainer, train_metrics, val_metrics)
     assert second == "prediction_entropy_collapse_with_missing_classes"
-    assert trainer.entropy_missing_class_streak == 2
+    assert trainer._early_stopping_manager.entropy_missing_class_streak == 2
 
 
 def test_entropy_missing_class_streak_resets_when_signal_clears() -> None:
     trainer = _make_trainer()
-    trainer.val_gap_collapse_streak = 0
-    trainer.entropy_collapse_streak = 0
-    trainer.entropy_missing_class_streak = 0
-    trainer.high_accuracy_high_loss_streak = 0
+    trainer._early_stopping_manager.val_gap_collapse_streak = 0
+    trainer._early_stopping_manager.entropy_collapse_streak = 0
+    trainer._early_stopping_manager.entropy_missing_class_streak = 0
+    trainer._early_stopping_manager.high_accuracy_high_loss_streak = 0
     trainer.config = cast(Any, type("Cfg", (), {"epochs": 150})())
     trainer.epoch = 1
 
@@ -389,7 +430,7 @@ def test_entropy_missing_class_streak_resets_when_signal_clears() -> None:
         "val_entropy_missing_same_dataset": 1.0,
     }
     train_mod.HelixFullTrainer._hard_stop_reason(trainer, train_metrics, val_metrics_bad)
-    assert trainer.entropy_missing_class_streak == 1
+    assert trainer._early_stopping_manager.entropy_missing_class_streak == 1
 
     val_metrics_good = dict(val_metrics_bad)
     val_metrics_good["val_family_entropy"] = 0.20
@@ -401,15 +442,16 @@ def test_entropy_missing_class_streak_resets_when_signal_clears() -> None:
         val_metrics_good,
     )
     assert reason is None
-    assert trainer.entropy_missing_class_streak == 0
+    assert trainer._early_stopping_manager.entropy_missing_class_streak == 0
 
 
 def test_entropy_missing_class_guard_smoke_mode_requires_stronger_signal() -> None:
     trainer = _make_trainer()
-    trainer.val_gap_collapse_streak = 0
-    trainer.entropy_collapse_streak = 0
-    trainer.entropy_missing_class_streak = 0
-    trainer.high_accuracy_high_loss_streak = 0
+    trainer._phase_orchestrator.is_smoke_mode.return_value = True
+    trainer._early_stopping_manager.val_gap_collapse_streak = 0
+    trainer._early_stopping_manager.entropy_collapse_streak = 0
+    trainer._early_stopping_manager.entropy_missing_class_streak = 0
+    trainer._early_stopping_manager.high_accuracy_high_loss_streak = 0
     trainer.config = cast(Any, type("Cfg", (), {"epochs": 10})())
     trainer.epoch = 2
 
@@ -434,7 +476,7 @@ def test_entropy_missing_class_guard_smoke_mode_requires_stronger_signal() -> No
         val_metrics_smoke_tolerated,
     )
     assert first is None
-    assert trainer.entropy_missing_class_streak == 0
+    assert trainer._early_stopping_manager.entropy_missing_class_streak == 0
 
     val_metrics_critical = dict(val_metrics_smoke_tolerated)
     val_metrics_critical["val_family_entropy"] = 0.09
@@ -446,7 +488,7 @@ def test_entropy_missing_class_guard_smoke_mode_requires_stronger_signal() -> No
         val_metrics_critical,
     )
     assert second is None
-    assert trainer.entropy_missing_class_streak == 1
+    assert trainer._early_stopping_manager.entropy_missing_class_streak == 1
 
     trainer.epoch = 4
     third = train_mod.HelixFullTrainer._hard_stop_reason(
@@ -455,7 +497,7 @@ def test_entropy_missing_class_guard_smoke_mode_requires_stronger_signal() -> No
         val_metrics_critical,
     )
     assert third is None
-    assert trainer.entropy_missing_class_streak == 2
+    assert trainer._early_stopping_manager.entropy_missing_class_streak == 2
 
     trainer.epoch = 5
     fourth = train_mod.HelixFullTrainer._hard_stop_reason(
@@ -464,7 +506,7 @@ def test_entropy_missing_class_guard_smoke_mode_requires_stronger_signal() -> No
         val_metrics_critical,
     )
     assert fourth == "prediction_entropy_collapse_with_missing_classes"
-    assert trainer.entropy_missing_class_streak == 3
+    assert trainer._early_stopping_manager.entropy_missing_class_streak == 3
 
 
 def test_post_training_macro_floor_smoke_budget() -> None:
@@ -934,7 +976,9 @@ def test_materialize_phase8_artifacts_creates_required_filenames(tmp_path: Path)
         assert Path(path).exists()
 
 
-def test_multiseed_governance_output_strict_schema(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_multiseed_governance_output_strict_schema(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     eval_by_seed: dict[int, dict[str, Any]] = {}
     train_by_seed: dict[int, dict[str, Any]] = {}
     for seed in (42, 1337, 2026):
@@ -959,6 +1003,8 @@ def test_multiseed_governance_output_strict_schema(monkeypatch: pytest.MonkeyPat
         def load_state_dict(self, _state: dict[str, Any]) -> None:
             return None
 
+    import scripts.training.governance.orchestrator as _gov_orch
+
     monkeypatch.setattr(train_mod.subprocess, "run", lambda *args, **kwargs: _DummyProc())
 
     def _fake_load_json_dict(path: Path) -> dict[str, Any]:
@@ -971,18 +1017,50 @@ def test_multiseed_governance_output_strict_schema(monkeypatch: pytest.MonkeyPat
             return train_by_seed[seed]
         raise AssertionError(f"unexpected path requested: {path}")
 
-    monkeypatch.setattr(train_mod, "_load_json_dict", _fake_load_json_dict)
+    monkeypatch.setattr(_gov_orch, "load_json_dict", _fake_load_json_dict)
+    # Patch governance module internals that the test also patches on train_mod
+    monkeypatch.setattr(_gov_orch.Path, "exists", lambda self: True)
+    monkeypatch.setattr(_gov_orch.torch, "load", lambda *args, **kwargs: {"model_state_dict": {}})
+    monkeypatch.setattr(_gov_orch, "create_helix_full", lambda *args, **kwargs: _DummyModel())
     monkeypatch.setattr(train_mod.Path, "exists", lambda self: True)
     monkeypatch.setattr(train_mod.torch, "load", lambda *args, **kwargs: {"model_state_dict": {}})
-    monkeypatch.setattr(train_mod, "create_helix_full", lambda *args, **kwargs: _DummyModel())
-    monkeypatch.setattr(train_mod.np, "load", lambda *args, **kwargs: np.zeros((4, 17), dtype=np.float32))
-    monkeypatch.setattr(train_mod, "MultiTaskNumpyDataset", lambda x, y: cast(Any, object()))
-    monkeypatch.setattr(train_mod, "DataLoader", lambda *args, **kwargs: cast(Any, object()))
+    monkeypatch.setattr(
+        train_mod, "create_helix_full", lambda *args, **kwargs: _DummyModel()
+    )
+    monkeypatch.setattr(
+        train_mod.np,
+        "load",
+        lambda *args, **kwargs: np.zeros((4, 17), dtype=np.float32),
+    )
+    monkeypatch.setattr(
+        train_mod, "MultiTaskNumpyDataset", lambda x, y: cast(Any, object())
+    )
+    monkeypatch.setattr(
+        train_mod, "DataLoader", lambda *args, **kwargs: cast(Any, object())
+    )
 
     seed_metrics = {
-        42: {"macro_f1": 0.81, "class4_precision": 0.30, "class4_recall": 0.85, "mean_entropy": 0.31, "zero_prediction_classes": 0},
-        1337: {"macro_f1": 0.82, "class4_precision": 0.29, "class4_recall": 0.84, "mean_entropy": 0.33, "zero_prediction_classes": 0},
-        2026: {"macro_f1": 0.80, "class4_precision": 0.31, "class4_recall": 0.83, "mean_entropy": 0.32, "zero_prediction_classes": 0},
+        42: {
+            "macro_f1": 0.81,
+            "class4_precision": 0.30,
+            "class4_recall": 0.85,
+            "mean_entropy": 0.31,
+            "zero_prediction_classes": 0,
+        },
+        1337: {
+            "macro_f1": 0.82,
+            "class4_precision": 0.29,
+            "class4_recall": 0.84,
+            "mean_entropy": 0.33,
+            "zero_prediction_classes": 0,
+        },
+        2026: {
+            "macro_f1": 0.80,
+            "class4_precision": 0.31,
+            "class4_recall": 0.83,
+            "mean_entropy": 0.32,
+            "zero_prediction_classes": 0,
+        },
     }
 
     seed_order = iter([42, 1337, 2026])

@@ -1,0 +1,4827 @@
+{
+  "nodes": {
+    "src/__init__.py": {
+      "path": "src/__init__.py",
+      "category": "src",
+      "package": "src.helix_ids.src"
+    },
+    "src/helix_ids/__init__.py": {
+      "path": "src/helix_ids/__init__.py",
+      "category": "src",
+      "package": "src.helix_ids"
+    },
+    "src/helix_ids/adaptation/__init__.py": {
+      "path": "src/helix_ids/adaptation/__init__.py",
+      "category": "src",
+      "package": "src.helix_ids.adaptation"
+    },
+    "src/helix_ids/adaptation/feature_harmonization.py": {
+      "path": "src/helix_ids/adaptation/feature_harmonization.py",
+      "category": "src",
+      "package": "src.helix_ids.adaptation"
+    },
+    "src/helix_ids/adaptation/online_finetune.py": {
+      "path": "src/helix_ids/adaptation/online_finetune.py",
+      "category": "src",
+      "package": "src.helix_ids.adaptation"
+    },
+    "src/helix_ids/cli.py": {
+      "path": "src/helix_ids/cli.py",
+      "category": "src",
+      "package": "src.helix_ids"
+    },
+    "src/helix_ids/config/__init__.py": {
+      "path": "src/helix_ids/config/__init__.py",
+      "category": "src",
+      "package": "src.helix_ids.config"
+    },
+    "src/helix_ids/config/helix_full_config.py": {
+      "path": "src/helix_ids/config/helix_full_config.py",
+      "category": "src",
+      "package": "src.helix_ids.config"
+    },
+    "src/helix_ids/config/platform_loader.py": {
+      "path": "src/helix_ids/config/platform_loader.py",
+      "category": "src",
+      "package": "src.helix_ids.config"
+    },
+    "src/helix_ids/contracts/__init__.py": {
+      "path": "src/helix_ids/contracts/__init__.py",
+      "category": "src",
+      "package": "src.helix_ids.contracts"
+    },
+    "src/helix_ids/contracts/attack_taxonomy.py": {
+      "path": "src/helix_ids/contracts/attack_taxonomy.py",
+      "category": "src",
+      "package": "src.helix_ids.contracts"
+    },
+    "src/helix_ids/contracts/diagnostic_contract.py": {
+      "path": "src/helix_ids/contracts/diagnostic_contract.py",
+      "category": "src",
+      "package": "src.helix_ids.contracts"
+    },
+    "src/helix_ids/contracts/immutable_constants.py": {
+      "path": "src/helix_ids/contracts/immutable_constants.py",
+      "category": "src",
+      "package": "src.helix_ids.contracts"
+    },
+    "src/helix_ids/contracts/schema_contract.py": {
+      "path": "src/helix_ids/contracts/schema_contract.py",
+      "category": "src",
+      "package": "src.helix_ids.contracts"
+    },
+    "src/helix_ids/data/__init__.py": {
+      "path": "src/helix_ids/data/__init__.py",
+      "category": "src",
+      "package": "src.helix_ids.data"
+    },
+    "src/helix_ids/data/augmentation.py": {
+      "path": "src/helix_ids/data/augmentation.py",
+      "category": "src",
+      "package": "src.helix_ids.data"
+    },
+    "src/helix_ids/data/data_audit.py": {
+      "path": "src/helix_ids/data/data_audit.py",
+      "category": "src",
+      "package": "src.helix_ids.data"
+    },
+    "src/helix_ids/data/dataset_config.py": {
+      "path": "src/helix_ids/data/dataset_config.py",
+      "category": "src",
+      "package": "src.helix_ids.data"
+    },
+    "src/helix_ids/data/feature_engineering.py": {
+      "path": "src/helix_ids/data/feature_engineering.py",
+      "category": "src",
+      "package": "src.helix_ids.data"
+    },
+    "src/helix_ids/data/feature_harmonization.py": {
+      "path": "src/helix_ids/data/feature_harmonization.py",
+      "category": "src",
+      "package": "src.helix_ids.data"
+    },
+    "src/helix_ids/data/feature_io.py": {
+      "path": "src/helix_ids/data/feature_io.py",
+      "category": "src",
+      "package": "src.helix_ids.data"
+    },
+    "src/helix_ids/data/geometric_representation_fixes.py": {
+      "path": "src/helix_ids/data/geometric_representation_fixes.py",
+      "category": "src",
+      "package": "src.helix_ids.data"
+    },
+    "src/helix_ids/data/label_mapping.py": {
+      "path": "src/helix_ids/data/label_mapping.py",
+      "category": "src",
+      "package": "src.helix_ids.data"
+    },
+    "src/helix_ids/data/learnability_contract.py": {
+      "path": "src/helix_ids/data/learnability_contract.py",
+      "category": "src",
+      "package": "src.helix_ids.data"
+    },
+    "src/helix_ids/data/loader_core.py": {
+      "path": "src/helix_ids/data/loader_core.py",
+      "category": "src",
+      "package": "src.helix_ids.data"
+    },
+    "src/helix_ids/data/multi_dataset_loader.py": {
+      "path": "src/helix_ids/data/multi_dataset_loader.py",
+      "category": "src",
+      "package": "src.helix_ids.data"
+    },
+    "src/helix_ids/data/preprocessing.py": {
+      "path": "src/helix_ids/data/preprocessing.py",
+      "category": "src",
+      "package": "src.helix_ids.data"
+    },
+    "src/helix_ids/data/unified_loader.py": {
+      "path": "src/helix_ids/data/unified_loader.py",
+      "category": "src",
+      "package": "src.helix_ids.data"
+    },
+    "src/helix_ids/governance/__init__.py": {
+      "path": "src/helix_ids/governance/__init__.py",
+      "category": "src",
+      "package": "src.helix_ids.governance"
+    },
+    "src/helix_ids/governance/ast_validator.py": {
+      "path": "src/helix_ids/governance/ast_validator.py",
+      "category": "src",
+      "package": "src.helix_ids.governance"
+    },
+    "src/helix_ids/governance/determinism.py": {
+      "path": "src/helix_ids/governance/determinism.py",
+      "category": "src",
+      "package": "src.helix_ids.governance"
+    },
+    "src/helix_ids/governance/entrypoint.py": {
+      "path": "src/helix_ids/governance/entrypoint.py",
+      "category": "src",
+      "package": "src.helix_ids.governance"
+    },
+    "src/helix_ids/governance/failure_memory.py": {
+      "path": "src/helix_ids/governance/failure_memory.py",
+      "category": "src",
+      "package": "src.helix_ids.governance"
+    },
+    "src/helix_ids/governance/fingerprinting.py": {
+      "path": "src/helix_ids/governance/fingerprinting.py",
+      "category": "src",
+      "package": "src.helix_ids.governance"
+    },
+    "src/helix_ids/governance/lifecycle_verifier.py": {
+      "path": "src/helix_ids/governance/lifecycle_verifier.py",
+      "category": "src",
+      "package": "src.helix_ids.governance"
+    },
+    "src/helix_ids/governance/orchestrator.py": {
+      "path": "src/helix_ids/governance/orchestrator.py",
+      "category": "src",
+      "package": "src.helix_ids.governance"
+    },
+    "src/helix_ids/governance/parameters.py": {
+      "path": "src/helix_ids/governance/parameters.py",
+      "category": "src",
+      "package": "src.helix_ids.governance"
+    },
+    "src/helix_ids/governance/promotion.py": {
+      "path": "src/helix_ids/governance/promotion.py",
+      "category": "src",
+      "package": "src.helix_ids.governance"
+    },
+    "src/helix_ids/governance/provenance.py": {
+      "path": "src/helix_ids/governance/provenance.py",
+      "category": "src",
+      "package": "src.helix_ids.governance"
+    },
+    "src/helix_ids/governance/run_registry.py": {
+      "path": "src/helix_ids/governance/run_registry.py",
+      "category": "src",
+      "package": "src.helix_ids.governance"
+    },
+    "src/helix_ids/metrics/__init__.py": {
+      "path": "src/helix_ids/metrics/__init__.py",
+      "category": "src",
+      "package": "src.helix_ids.metrics"
+    },
+    "src/helix_ids/metrics/adversarial_test.py": {
+      "path": "src/helix_ids/metrics/adversarial_test.py",
+      "category": "src",
+      "package": "src.helix_ids.metrics"
+    },
+    "src/helix_ids/metrics/fn_tracker.py": {
+      "path": "src/helix_ids/metrics/fn_tracker.py",
+      "category": "src",
+      "package": "src.helix_ids.metrics"
+    },
+    "src/helix_ids/metrics/per_class_metrics.py": {
+      "path": "src/helix_ids/metrics/per_class_metrics.py",
+      "category": "src",
+      "package": "src.helix_ids.metrics"
+    },
+    "src/helix_ids/models/__init__.py": {
+      "path": "src/helix_ids/models/__init__.py",
+      "category": "src",
+      "package": "src.helix_ids.models"
+    },
+    "src/helix_ids/models/adaptation/__init__.py": {
+      "path": "src/helix_ids/models/adaptation/__init__.py",
+      "category": "src",
+      "package": "src.helix_ids.models.adaptation"
+    },
+    "src/helix_ids/models/adaptation/combined_da.py": {
+      "path": "src/helix_ids/models/adaptation/combined_da.py",
+      "category": "src",
+      "package": "src.helix_ids.models.adaptation"
+    },
+    "src/helix_ids/models/adaptation/coral_loss.py": {
+      "path": "src/helix_ids/models/adaptation/coral_loss.py",
+      "category": "src",
+      "package": "src.helix_ids.models.adaptation"
+    },
+    "src/helix_ids/models/adaptation/dann.py": {
+      "path": "src/helix_ids/models/adaptation/dann.py",
+      "category": "src",
+      "package": "src.helix_ids.models.adaptation"
+    },
+    "src/helix_ids/models/adaptation/label_aware_da.py": {
+      "path": "src/helix_ids/models/adaptation/label_aware_da.py",
+      "category": "src",
+      "package": "src.helix_ids.models.adaptation"
+    },
+    "src/helix_ids/models/adaptation/mmd_loss.py": {
+      "path": "src/helix_ids/models/adaptation/mmd_loss.py",
+      "category": "src",
+      "package": "src.helix_ids.models.adaptation"
+    },
+    "src/helix_ids/models/adaptation/transfer_learning.py": {
+      "path": "src/helix_ids/models/adaptation/transfer_learning.py",
+      "category": "src",
+      "package": "src.helix_ids.models.adaptation"
+    },
+    "src/helix_ids/models/attention.py": {
+      "path": "src/helix_ids/models/attention.py",
+      "category": "src",
+      "package": "src.helix_ids.models"
+    },
+    "src/helix_ids/models/classifier.py": {
+      "path": "src/helix_ids/models/classifier.py",
+      "category": "src",
+      "package": "src.helix_ids.models"
+    },
+    "src/helix_ids/models/core.py": {
+      "path": "src/helix_ids/models/core.py",
+      "category": "src",
+      "package": "src.helix_ids.models"
+    },
+    "src/helix_ids/models/full.py": {
+      "path": "src/helix_ids/models/full.py",
+      "category": "src",
+      "package": "src.helix_ids.models"
+    },
+    "src/helix_ids/models/helix_ids.py": {
+      "path": "src/helix_ids/models/helix_ids.py",
+      "category": "src",
+      "package": "src.helix_ids.models"
+    },
+    "src/helix_ids/models/helix_ids_full.py": {
+      "path": "src/helix_ids/models/helix_ids_full.py",
+      "category": "src",
+      "package": "src.helix_ids.models"
+    },
+    "src/helix_ids/models/loss.py": {
+      "path": "src/helix_ids/models/loss.py",
+      "category": "src",
+      "package": "src.helix_ids.models"
+    },
+    "src/helix_ids/operations/__init__.py": {
+      "path": "src/helix_ids/operations/__init__.py",
+      "category": "src",
+      "package": "src.helix_ids.operations"
+    },
+    "src/helix_ids/operations/baseline_freeze.py": {
+      "path": "src/helix_ids/operations/baseline_freeze.py",
+      "category": "src",
+      "package": "src.helix_ids.operations"
+    },
+    "src/helix_ids/operations/inference_runtime.py": {
+      "path": "src/helix_ids/operations/inference_runtime.py",
+      "category": "src",
+      "package": "src.helix_ids.operations"
+    },
+    "src/helix_ids/operations/monitoring.py": {
+      "path": "src/helix_ids/operations/monitoring.py",
+      "category": "src",
+      "package": "src.helix_ids.operations"
+    },
+    "src/helix_ids/utils/__init__.py": {
+      "path": "src/helix_ids/utils/__init__.py",
+      "category": "src",
+      "package": "src.helix_ids.utils"
+    },
+    "src/helix_ids/utils/callbacks.py": {
+      "path": "src/helix_ids/utils/callbacks.py",
+      "category": "src",
+      "package": "src.helix_ids.utils"
+    },
+    "src/helix_ids/utils/entropy_diagnostics.py": {
+      "path": "src/helix_ids/utils/entropy_diagnostics.py",
+      "category": "src",
+      "package": "src.helix_ids.utils"
+    },
+    "src/helix_ids/utils/export.py": {
+      "path": "src/helix_ids/utils/export.py",
+      "category": "src",
+      "package": "src.helix_ids.utils"
+    },
+    "src/helix_ids/utils/metrics.py": {
+      "path": "src/helix_ids/utils/metrics.py",
+      "category": "src",
+      "package": "src.helix_ids.utils"
+    },
+    "scripts/ci/analyze_mutation_results.py": {
+      "path": "scripts/ci/analyze_mutation_results.py",
+      "category": "scripts",
+      "package": "scripts.ci"
+    },
+    "scripts/ci/check_licenses_v2.py": {
+      "path": "scripts/ci/check_licenses_v2.py",
+      "category": "scripts",
+      "package": "scripts.ci"
+    },
+    "scripts/ci/compute_reliability_score.py": {
+      "path": "scripts/ci/compute_reliability_score.py",
+      "category": "scripts",
+      "package": "scripts.ci"
+    },
+    "scripts/ci/enforce_skip_governance.py": {
+      "path": "scripts/ci/enforce_skip_governance.py",
+      "category": "scripts",
+      "package": "scripts.ci"
+    },
+    "scripts/ci/generate_slsa_provenance.py": {
+      "path": "scripts/ci/generate_slsa_provenance.py",
+      "category": "scripts",
+      "package": "scripts.ci"
+    },
+    "scripts/ci/generate_trust_report.py": {
+      "path": "scripts/ci/generate_trust_report.py",
+      "category": "scripts",
+      "package": "scripts.ci"
+    },
+    "scripts/ci/validate_benchmark_outputs.py": {
+      "path": "scripts/ci/validate_benchmark_outputs.py",
+      "category": "scripts",
+      "package": "scripts.ci"
+    },
+    "scripts/ci/validate_governance_consistency.py": {
+      "path": "scripts/ci/validate_governance_consistency.py",
+      "category": "scripts",
+      "package": "scripts.ci"
+    },
+    "scripts/ci/validate_governance_docs.py": {
+      "path": "scripts/ci/validate_governance_docs.py",
+      "category": "scripts",
+      "package": "scripts.ci"
+    },
+    "scripts/ci/validate_schema_registry.py": {
+      "path": "scripts/ci/validate_schema_registry.py",
+      "category": "scripts",
+      "package": "scripts.ci"
+    },
+    "scripts/ci/verify_contract_sidecars.py": {
+      "path": "scripts/ci/verify_contract_sidecars.py",
+      "category": "scripts",
+      "package": "scripts.ci"
+    },
+    "scripts/ci/verify_slsa_provenance.py": {
+      "path": "scripts/ci/verify_slsa_provenance.py",
+      "category": "scripts",
+      "package": "scripts.ci"
+    },
+    "scripts/ci/write_workflow_summary.py": {
+      "path": "scripts/ci/write_workflow_summary.py",
+      "category": "scripts",
+      "package": "scripts.ci"
+    },
+    "scripts/data/download_datasets.py": {
+      "path": "scripts/data/download_datasets.py",
+      "category": "scripts",
+      "package": "scripts.data"
+    },
+    "scripts/data/process_cicids.py": {
+      "path": "scripts/data/process_cicids.py",
+      "category": "scripts",
+      "package": "scripts.data"
+    },
+    "scripts/data/process_nsl_kdd.py": {
+      "path": "scripts/data/process_nsl_kdd.py",
+      "category": "scripts",
+      "package": "scripts.data"
+    },
+    "scripts/data/process_unsw_nb15.py": {
+      "path": "scripts/data/process_unsw_nb15.py",
+      "category": "scripts",
+      "package": "scripts.data"
+    },
+    "scripts/deployment/deploy.py": {
+      "path": "scripts/deployment/deploy.py",
+      "category": "scripts",
+      "package": "scripts.deployment"
+    },
+    "scripts/evaluation/benchmark_e2e_v2_fixed.py": {
+      "path": "scripts/evaluation/benchmark_e2e_v2_fixed.py",
+      "category": "scripts",
+      "package": "scripts.evaluation"
+    },
+    "scripts/evaluation/benchmarks.py": {
+      "path": "scripts/evaluation/benchmarks.py",
+      "category": "scripts",
+      "package": "scripts.evaluation"
+    },
+    "scripts/evaluation/holdout_evaluation_v2.py": {
+      "path": "scripts/evaluation/holdout_evaluation_v2.py",
+      "category": "scripts",
+      "package": "scripts.evaluation"
+    },
+    "scripts/evaluation/test_phase3_smoke.py": {
+      "path": "scripts/evaluation/test_phase3_smoke.py",
+      "category": "scripts",
+      "package": "scripts.evaluation"
+    },
+    "scripts/governance/parse_promotion_gate_logs.py": {
+      "path": "scripts/governance/parse_promotion_gate_logs.py",
+      "category": "scripts",
+      "package": "scripts.governance"
+    },
+    "scripts/operations/export_inference_bundle.py": {
+      "path": "scripts/operations/export_inference_bundle.py",
+      "category": "scripts",
+      "package": "scripts.operations"
+    },
+    "scripts/operations/freeze_baseline.py": {
+      "path": "scripts/operations/freeze_baseline.py",
+      "category": "scripts",
+      "package": "scripts.operations"
+    },
+    "scripts/operations/serve_rest.py": {
+      "path": "scripts/operations/serve_rest.py",
+      "category": "scripts",
+      "package": "scripts.operations"
+    },
+    "scripts/operations/staging_gate_check.py": {
+      "path": "scripts/operations/staging_gate_check.py",
+      "category": "scripts",
+      "package": "scripts.operations"
+    },
+    "scripts/operations/stress_validate_baseline.py": {
+      "path": "scripts/operations/stress_validate_baseline.py",
+      "category": "scripts",
+      "package": "scripts.operations"
+    },
+    "scripts/operations/traffic_expansion_guard.py": {
+      "path": "scripts/operations/traffic_expansion_guard.py",
+      "category": "scripts",
+      "package": "scripts.operations"
+    },
+    "scripts/operations/visualize_helix_demo.py": {
+      "path": "scripts/operations/visualize_helix_demo.py",
+      "category": "scripts",
+      "package": "scripts.operations"
+    },
+    "scripts/smoke_save_checkpoint.py": {
+      "path": "scripts/smoke_save_checkpoint.py",
+      "category": "scripts",
+      "package": "scripts"
+    },
+    "scripts/training/_rewrite_main.py": {
+      "path": "scripts/training/_rewrite_main.py",
+      "category": "scripts",
+      "package": "scripts.training"
+    },
+    "scripts/training/adversarial_training_v2.py": {
+      "path": "scripts/training/adversarial_training_v2.py",
+      "category": "scripts",
+      "package": "scripts.training"
+    },
+    "scripts/training/core/__init__.py": {
+      "path": "scripts/training/core/__init__.py",
+      "category": "scripts",
+      "package": "scripts.training.core"
+    },
+    "scripts/training/core/recovery_manager.py": {
+      "path": "scripts/training/core/recovery_manager.py",
+      "category": "scripts",
+      "package": "scripts.training.core"
+    },
+    "scripts/training/core/trainer_facade.py": {
+      "path": "scripts/training/core/trainer_facade.py",
+      "category": "scripts",
+      "package": "scripts.training.core"
+    },
+    "scripts/training/core/trainer_factory.py": {
+      "path": "scripts/training/core/trainer_factory.py",
+      "category": "scripts",
+      "package": "scripts.training.core"
+    },
+    "scripts/training/core/trainer_state.py": {
+      "path": "scripts/training/core/trainer_state.py",
+      "category": "scripts",
+      "package": "scripts.training.core"
+    },
+    "scripts/training/data/__init__.py": {
+      "path": "scripts/training/data/__init__.py",
+      "category": "scripts",
+      "package": "scripts.training.data"
+    },
+    "scripts/training/data/dataset_builder.py": {
+      "path": "scripts/training/data/dataset_builder.py",
+      "category": "scripts",
+      "package": "scripts.training.data"
+    },
+    "scripts/training/data/samplers.py": {
+      "path": "scripts/training/data/samplers.py",
+      "category": "scripts",
+      "package": "scripts.training.data"
+    },
+    "scripts/training/data/validators.py": {
+      "path": "scripts/training/data/validators.py",
+      "category": "scripts",
+      "package": "scripts.training.data"
+    },
+    "scripts/training/diagnostics/__init__.py": {
+      "path": "scripts/training/diagnostics/__init__.py",
+      "category": "scripts",
+      "package": "scripts.training.diagnostics"
+    },
+    "scripts/training/diagnostics/cluster_analyzer.py": {
+      "path": "scripts/training/diagnostics/cluster_analyzer.py",
+      "category": "scripts",
+      "package": "scripts.training.diagnostics"
+    },
+    "scripts/training/diagnostics/geometry_analyzer.py": {
+      "path": "scripts/training/diagnostics/geometry_analyzer.py",
+      "category": "scripts",
+      "package": "scripts.training.diagnostics"
+    },
+    "scripts/training/diagnostics/rep_diagnostics.py": {
+      "path": "scripts/training/diagnostics/rep_diagnostics.py",
+      "category": "scripts",
+      "package": "scripts.training.diagnostics"
+    },
+    "scripts/training/evaluation/__init__.py": {
+      "path": "scripts/training/evaluation/__init__.py",
+      "category": "scripts",
+      "package": "scripts.training.evaluation"
+    },
+    "scripts/training/evaluation/evaluation_orchestrator.py": {
+      "path": "scripts/training/evaluation/evaluation_orchestrator.py",
+      "category": "scripts",
+      "package": "scripts.training.evaluation"
+    },
+    "scripts/training/evaluation/evaluator.py": {
+      "path": "scripts/training/evaluation/evaluator.py",
+      "category": "scripts",
+      "package": "scripts.training.evaluation"
+    },
+    "scripts/training/execution/__init__.py": {
+      "path": "scripts/training/execution/__init__.py",
+      "category": "scripts",
+      "package": "scripts.training.execution"
+    },
+    "scripts/training/execution/batch_processor.py": {
+      "path": "scripts/training/execution/batch_processor.py",
+      "category": "scripts",
+      "package": "scripts.training.execution"
+    },
+    "scripts/training/execution/epoch_runner.py": {
+      "path": "scripts/training/execution/epoch_runner.py",
+      "category": "scripts",
+      "package": "scripts.training.execution"
+    },
+    "scripts/training/execution/training_orchestrator.py": {
+      "path": "scripts/training/execution/training_orchestrator.py",
+      "category": "scripts",
+      "package": "scripts.training.execution"
+    },
+    "scripts/training/execution/warmup_manager.py": {
+      "path": "scripts/training/execution/warmup_manager.py",
+      "category": "scripts",
+      "package": "scripts.training.execution"
+    },
+    "scripts/training/governance/__init__.py": {
+      "path": "scripts/training/governance/__init__.py",
+      "category": "scripts",
+      "package": "scripts.training.governance"
+    },
+    "scripts/training/governance/ab_testing.py": {
+      "path": "scripts/training/governance/ab_testing.py",
+      "category": "scripts",
+      "package": "scripts.training.governance"
+    },
+    "scripts/training/governance/orchestrator.py": {
+      "path": "scripts/training/governance/orchestrator.py",
+      "category": "scripts",
+      "package": "scripts.training.governance"
+    },
+    "scripts/training/governance/promotion.py": {
+      "path": "scripts/training/governance/promotion.py",
+      "category": "scripts",
+      "package": "scripts.training.governance"
+    },
+    "scripts/training/governance/reporting.py": {
+      "path": "scripts/training/governance/reporting.py",
+      "category": "scripts",
+      "package": "scripts.training.governance"
+    },
+    "scripts/training/losses/__init__.py": {
+      "path": "scripts/training/losses/__init__.py",
+      "category": "scripts",
+      "package": "scripts.training.losses"
+    },
+    "scripts/training/losses/contrastive_losses.py": {
+      "path": "scripts/training/losses/contrastive_losses.py",
+      "category": "scripts",
+      "package": "scripts.training.losses"
+    },
+    "scripts/training/losses/energy_losses.py": {
+      "path": "scripts/training/losses/energy_losses.py",
+      "category": "scripts",
+      "package": "scripts.training.losses"
+    },
+    "scripts/training/losses/loss_registry.py": {
+      "path": "scripts/training/losses/loss_registry.py",
+      "category": "scripts",
+      "package": "scripts.training.losses"
+    },
+    "scripts/training/losses/regularization_losses.py": {
+      "path": "scripts/training/losses/regularization_losses.py",
+      "category": "scripts",
+      "package": "scripts.training.losses"
+    },
+    "scripts/training/orchestration/__init__.py": {
+      "path": "scripts/training/orchestration/__init__.py",
+      "category": "scripts",
+      "package": "scripts.training.orchestration"
+    },
+    "scripts/training/orchestration/config_parser.py": {
+      "path": "scripts/training/orchestration/config_parser.py",
+      "category": "scripts",
+      "package": "scripts.training.orchestration"
+    },
+    "scripts/training/orchestration/governance_pipeline.py": {
+      "path": "scripts/training/orchestration/governance_pipeline.py",
+      "category": "scripts",
+      "package": "scripts.training.orchestration"
+    },
+    "scripts/training/orchestration/run_orchestrator.py": {
+      "path": "scripts/training/orchestration/run_orchestrator.py",
+      "category": "scripts",
+      "package": "scripts.training.orchestration"
+    },
+    "scripts/training/prepare_canonical_artifacts.py": {
+      "path": "scripts/training/prepare_canonical_artifacts.py",
+      "category": "scripts",
+      "package": "scripts.training"
+    },
+    "scripts/training/representation/__init__.py": {
+      "path": "scripts/training/representation/__init__.py",
+      "category": "scripts",
+      "package": "scripts.training.representation"
+    },
+    "scripts/training/representation/centroid_manager.py": {
+      "path": "scripts/training/representation/centroid_manager.py",
+      "category": "scripts",
+      "package": "scripts.training.representation"
+    },
+    "scripts/training/representation/representation_coordinator.py": {
+      "path": "scripts/training/representation/representation_coordinator.py",
+      "category": "scripts",
+      "package": "scripts.training.representation"
+    },
+    "scripts/training/scheduler/__init__.py": {
+      "path": "scripts/training/scheduler/__init__.py",
+      "category": "scripts",
+      "package": "scripts.training.scheduler"
+    },
+    "scripts/training/scheduler/early_stopping.py": {
+      "path": "scripts/training/scheduler/early_stopping.py",
+      "category": "scripts",
+      "package": "scripts.training.scheduler"
+    },
+    "scripts/training/scheduler/freeze_manager.py": {
+      "path": "scripts/training/scheduler/freeze_manager.py",
+      "category": "scripts",
+      "package": "scripts.training.scheduler"
+    },
+    "scripts/training/scheduler/lr_scheduler.py": {
+      "path": "scripts/training/scheduler/lr_scheduler.py",
+      "category": "scripts",
+      "package": "scripts.training.scheduler"
+    },
+    "scripts/training/scheduler/phase_manager.py": {
+      "path": "scripts/training/scheduler/phase_manager.py",
+      "category": "scripts",
+      "package": "scripts.training.scheduler"
+    },
+    "scripts/training/scheduler/phase_orchestrator.py": {
+      "path": "scripts/training/scheduler/phase_orchestrator.py",
+      "category": "scripts",
+      "package": "scripts.training.scheduler"
+    },
+    "scripts/training/train_edge_models.py": {
+      "path": "scripts/training/train_edge_models.py",
+      "category": "scripts",
+      "package": "scripts.training"
+    },
+    "scripts/training/train_helix_ids_full.py": {
+      "path": "scripts/training/train_helix_ids_full.py",
+      "category": "scripts",
+      "package": "scripts.training"
+    },
+    "scripts/training/train_multidataset_v2_fixed.py": {
+      "path": "scripts/training/train_multidataset_v2_fixed.py",
+      "category": "scripts",
+      "package": "scripts.training"
+    },
+    "scripts/training/train_unified_rebalanced.py": {
+      "path": "scripts/training/train_unified_rebalanced.py",
+      "category": "scripts",
+      "package": "scripts.training"
+    },
+    "scripts/training/train_unsw_only_cleaned.py": {
+      "path": "scripts/training/train_unsw_only_cleaned.py",
+      "category": "scripts",
+      "package": "scripts.training"
+    },
+    "scripts/training/validation/__init__.py": {
+      "path": "scripts/training/validation/__init__.py",
+      "category": "scripts",
+      "package": "scripts.training.validation"
+    },
+    "scripts/training/validation/artifacts.py": {
+      "path": "scripts/training/validation/artifacts.py",
+      "category": "scripts",
+      "package": "scripts.training.validation"
+    },
+    "scripts/training/validation/calibrator.py": {
+      "path": "scripts/training/validation/calibrator.py",
+      "category": "scripts",
+      "package": "scripts.training.validation"
+    },
+    "scripts/training/validation/evaluator.py": {
+      "path": "scripts/training/validation/evaluator.py",
+      "category": "scripts",
+      "package": "scripts.training.validation"
+    },
+    "scripts/training/validation/validation_orchestrator.py": {
+      "path": "scripts/training/validation/validation_orchestrator.py",
+      "category": "scripts",
+      "package": "scripts.training.validation"
+    },
+    "tests/__init__.py": {
+      "path": "tests/__init__.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/architecture/__init__.py": {
+      "path": "tests/architecture/__init__.py",
+      "category": "tests",
+      "package": "tests.architecture"
+    },
+    "tests/architecture/test_dependency_cycles.py": {
+      "path": "tests/architecture/test_dependency_cycles.py",
+      "category": "tests",
+      "package": "tests.architecture"
+    },
+    "tests/architecture/test_no_reverse_dependencies.py": {
+      "path": "tests/architecture/test_no_reverse_dependencies.py",
+      "category": "tests",
+      "package": "tests.architecture"
+    },
+    "tests/architecture/test_trainer_boundary.py": {
+      "path": "tests/architecture/test_trainer_boundary.py",
+      "category": "tests",
+      "package": "tests.architecture"
+    },
+    "tests/conftest.py": {
+      "path": "tests/conftest.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_adversarial_robustness.py": {
+      "path": "tests/test_adversarial_robustness.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_benchmark_formalization.py": {
+      "path": "tests/test_benchmark_formalization.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_benchmark_output_validator.py": {
+      "path": "tests/test_benchmark_output_validator.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_callbacks.py": {
+      "path": "tests/test_callbacks.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_checkpoint_contracts.py": {
+      "path": "tests/test_checkpoint_contracts.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_classifier.py": {
+      "path": "tests/test_classifier.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_combined_da.py": {
+      "path": "tests/test_combined_da.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_coral_loss.py": {
+      "path": "tests/test_coral_loss.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_critical_pipeline_invariants.py": {
+      "path": "tests/test_critical_pipeline_invariants.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_data/__init__.py": {
+      "path": "tests/test_data/__init__.py",
+      "category": "tests",
+      "package": "tests.test_data"
+    },
+    "tests/test_data/test_diagnostic_contract.py": {
+      "path": "tests/test_data/test_diagnostic_contract.py",
+      "category": "tests",
+      "package": "tests.test_data"
+    },
+    "tests/test_data/test_phase1_harmonization.py": {
+      "path": "tests/test_data/test_phase1_harmonization.py",
+      "category": "tests",
+      "package": "tests.test_data"
+    },
+    "tests/test_data/test_root_cause_reducer.py": {
+      "path": "tests/test_data/test_root_cause_reducer.py",
+      "category": "tests",
+      "package": "tests.test_data"
+    },
+    "tests/test_data/test_unified_loader.py": {
+      "path": "tests/test_data/test_unified_loader.py",
+      "category": "tests",
+      "package": "tests.test_data"
+    },
+    "tests/test_data/test_unsw_learnability_contract.py": {
+      "path": "tests/test_data/test_unsw_learnability_contract.py",
+      "category": "tests",
+      "package": "tests.test_data"
+    },
+    "tests/test_data_integrity_guards.py": {
+      "path": "tests/test_data_integrity_guards.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_data_loading.py": {
+      "path": "tests/test_data_loading.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_e2e_smoke.py": {
+      "path": "tests/test_e2e_smoke.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_entropy_deployment_validation.py": {
+      "path": "tests/test_entropy_deployment_validation.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_export.py": {
+      "path": "tests/test_export.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_export_contract.py": {
+      "path": "tests/test_export_contract.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_export_quantization_deployment.py": {
+      "path": "tests/test_export_quantization_deployment.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_export_unit.py": {
+      "path": "tests/test_export_unit.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_feature_engineering.py": {
+      "path": "tests/test_feature_engineering.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_feature_harmonization.py": {
+      "path": "tests/test_feature_harmonization.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_fn_tracker.py": {
+      "path": "tests/test_fn_tracker.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_governance/__init__.py": {
+      "path": "tests/test_governance/__init__.py",
+      "category": "tests",
+      "package": "tests.test_governance"
+    },
+    "tests/test_governance/test_ast_validator.py": {
+      "path": "tests/test_governance/test_ast_validator.py",
+      "category": "tests",
+      "package": "tests.test_governance"
+    },
+    "tests/test_governance/test_enforcement_completeness.py": {
+      "path": "tests/test_governance/test_enforcement_completeness.py",
+      "category": "tests",
+      "package": "tests.test_governance"
+    },
+    "tests/test_governance/test_fingerprinting.py": {
+      "path": "tests/test_governance/test_fingerprinting.py",
+      "category": "tests",
+      "package": "tests.test_governance"
+    },
+    "tests/test_governance/test_integration_enforcement.py": {
+      "path": "tests/test_governance/test_integration_enforcement.py",
+      "category": "tests",
+      "package": "tests.test_governance"
+    },
+    "tests/test_governance/test_legacy_policy.py": {
+      "path": "tests/test_governance/test_legacy_policy.py",
+      "category": "tests",
+      "package": "tests.test_governance"
+    },
+    "tests/test_governance/test_metrics_contract.py": {
+      "path": "tests/test_governance/test_metrics_contract.py",
+      "category": "tests",
+      "package": "tests.test_governance"
+    },
+    "tests/test_governance/test_nested_schema_validation.py": {
+      "path": "tests/test_governance/test_nested_schema_validation.py",
+      "category": "tests",
+      "package": "tests.test_governance"
+    },
+    "tests/test_governance/test_orchestrator_runtime.py": {
+      "path": "tests/test_governance/test_orchestrator_runtime.py",
+      "category": "tests",
+      "package": "tests.test_governance"
+    },
+    "tests/test_governance/test_promotion.py": {
+      "path": "tests/test_governance/test_promotion.py",
+      "category": "tests",
+      "package": "tests.test_governance"
+    },
+    "tests/test_governance/test_promotion_parser.py": {
+      "path": "tests/test_governance/test_promotion_parser.py",
+      "category": "tests",
+      "package": "tests.test_governance"
+    },
+    "tests/test_governance/test_run_registry.py": {
+      "path": "tests/test_governance/test_run_registry.py",
+      "category": "tests",
+      "package": "tests.test_governance"
+    },
+    "tests/test_governance/test_validate_schema_registry.py": {
+      "path": "tests/test_governance/test_validate_schema_registry.py",
+      "category": "tests",
+      "package": "tests.test_governance"
+    },
+    "tests/test_helix_ids_unit.py": {
+      "path": "tests/test_helix_ids_unit.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_label_aware_da.py": {
+      "path": "tests/test_label_aware_da.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_lifecycle_verifier.py": {
+      "path": "tests/test_lifecycle_verifier.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_loss_unit.py": {
+      "path": "tests/test_loss_unit.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_mmd_loss.py": {
+      "path": "tests/test_mmd_loss.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_model_inference.py": {
+      "path": "tests/test_model_inference.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_models/__init__.py": {
+      "path": "tests/test_models/__init__.py",
+      "category": "tests",
+      "package": "tests.test_models"
+    },
+    "tests/test_models/test_helix_full.py": {
+      "path": "tests/test_models/test_helix_full.py",
+      "category": "tests",
+      "package": "tests.test_models"
+    },
+    "tests/test_models/test_helix_ids.py": {
+      "path": "tests/test_models/test_helix_ids.py",
+      "category": "tests",
+      "package": "tests.test_models"
+    },
+    "tests/test_models/test_loss.py": {
+      "path": "tests/test_models/test_loss.py",
+      "category": "tests",
+      "package": "tests.test_models"
+    },
+    "tests/test_operations/__init__.py": {
+      "path": "tests/test_operations/__init__.py",
+      "category": "tests",
+      "package": "tests.test_operations"
+    },
+    "tests/test_operations/test_baseline_freeze.py": {
+      "path": "tests/test_operations/test_baseline_freeze.py",
+      "category": "tests",
+      "package": "tests.test_operations"
+    },
+    "tests/test_operations/test_deployment_manifest_injection.py": {
+      "path": "tests/test_operations/test_deployment_manifest_injection.py",
+      "category": "tests",
+      "package": "tests.test_operations"
+    },
+    "tests/test_operations/test_inference_runtime.py": {
+      "path": "tests/test_operations/test_inference_runtime.py",
+      "category": "tests",
+      "package": "tests.test_operations"
+    },
+    "tests/test_operations/test_monitoring.py": {
+      "path": "tests/test_operations/test_monitoring.py",
+      "category": "tests",
+      "package": "tests.test_operations"
+    },
+    "tests/test_operations/test_serve_rest_metrics.py": {
+      "path": "tests/test_operations/test_serve_rest_metrics.py",
+      "category": "tests",
+      "package": "tests.test_operations"
+    },
+    "tests/test_operations/test_staging_gate_check.py": {
+      "path": "tests/test_operations/test_staging_gate_check.py",
+      "category": "tests",
+      "package": "tests.test_operations"
+    },
+    "tests/test_operations/test_traffic_expansion_guard.py": {
+      "path": "tests/test_operations/test_traffic_expansion_guard.py",
+      "category": "tests",
+      "package": "tests.test_operations"
+    },
+    "tests/test_per_class_metrics.py": {
+      "path": "tests/test_per_class_metrics.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_prepare_canonical_artifacts.py": {
+      "path": "tests/test_prepare_canonical_artifacts.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_preprocessing.py": {
+      "path": "tests/test_preprocessing.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_provenance.py": {
+      "path": "tests/test_provenance.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_regression_taxonomy_contracts.py": {
+      "path": "tests/test_regression_taxonomy_contracts.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_regression_threat_weights.py": {
+      "path": "tests/test_regression_threat_weights.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_runtime_invariants.py": {
+      "path": "tests/test_runtime_invariants.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_runtime_monitoring_hardening.py": {
+      "path": "tests/test_runtime_monitoring_hardening.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_schema_contract.py": {
+      "path": "tests/test_schema_contract.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_schema_registry_validation.py": {
+      "path": "tests/test_schema_registry_validation.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_training/test_extracted_data_components.py": {
+      "path": "tests/test_training/test_extracted_data_components.py",
+      "category": "tests",
+      "package": "tests.test_training"
+    },
+    "tests/test_training/test_extracted_evaluation.py": {
+      "path": "tests/test_training/test_extracted_evaluation.py",
+      "category": "tests",
+      "package": "tests.test_training"
+    },
+    "tests/test_training_direct_adaptation_eval.py": {
+      "path": "tests/test_training_direct_adaptation_eval.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_training_pipeline_v2.py": {
+      "path": "tests/test_training_pipeline_v2.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_transfer_learning_da_schedule.py": {
+      "path": "tests/test_transfer_learning_da_schedule.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_utils/__init__.py": {
+      "path": "tests/test_utils/__init__.py",
+      "category": "tests",
+      "package": "tests.test_utils"
+    },
+    "tests/test_utils/test_metrics.py": {
+      "path": "tests/test_utils/test_metrics.py",
+      "category": "tests",
+      "package": "tests.test_utils"
+    },
+    "tests/test_validation_artifacts.py": {
+      "path": "tests/test_validation_artifacts.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_validation_calibrator.py": {
+      "path": "tests/test_validation_calibrator.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/test_validation_evaluator.py": {
+      "path": "tests/test_validation_evaluator.py",
+      "category": "tests",
+      "package": "tests"
+    },
+    "tests/training/test_evaluation_orchestrator.py": {
+      "path": "tests/training/test_evaluation_orchestrator.py",
+      "category": "tests",
+      "package": "tests.training"
+    },
+    "tests/training/test_execution_batch_processor.py": {
+      "path": "tests/training/test_execution_batch_processor.py",
+      "category": "tests",
+      "package": "tests.training"
+    },
+    "tests/training/test_execution_epoch_runner.py": {
+      "path": "tests/training/test_execution_epoch_runner.py",
+      "category": "tests",
+      "package": "tests.training"
+    },
+    "tests/training/test_execution_orchestrator.py": {
+      "path": "tests/training/test_execution_orchestrator.py",
+      "category": "tests",
+      "package": "tests.training"
+    },
+    "tests/training/test_execution_warmup_manager.py": {
+      "path": "tests/training/test_execution_warmup_manager.py",
+      "category": "tests",
+      "package": "tests.training"
+    },
+    "tests/training/test_extracted_diagnostics.py": {
+      "path": "tests/training/test_extracted_diagnostics.py",
+      "category": "tests",
+      "package": "tests.training"
+    },
+    "tests/training/test_extracted_governance.py": {
+      "path": "tests/training/test_extracted_governance.py",
+      "category": "tests",
+      "package": "tests.training"
+    },
+    "tests/training/test_extracted_losses.py": {
+      "path": "tests/training/test_extracted_losses.py",
+      "category": "tests",
+      "package": "tests.training"
+    },
+    "tests/training/test_extracted_orchestration.py": {
+      "path": "tests/training/test_extracted_orchestration.py",
+      "category": "tests",
+      "package": "tests.training"
+    },
+    "tests/training/test_extracted_phase_orchestration.py": {
+      "path": "tests/training/test_extracted_phase_orchestration.py",
+      "category": "tests",
+      "package": "tests.training"
+    },
+    "tests/training/test_extracted_representation.py": {
+      "path": "tests/training/test_extracted_representation.py",
+      "category": "tests",
+      "package": "tests.training"
+    },
+    "tests/training/test_extracted_scheduler.py": {
+      "path": "tests/training/test_extracted_scheduler.py",
+      "category": "tests",
+      "package": "tests.training"
+    },
+    "tests/training/test_recovery_manager.py": {
+      "path": "tests/training/test_recovery_manager.py",
+      "category": "tests",
+      "package": "tests.training"
+    },
+    "tests/training/test_trainer_facade.py": {
+      "path": "tests/training/test_trainer_facade.py",
+      "category": "tests",
+      "package": "tests.training"
+    },
+    "tests/training/test_trainer_state.py": {
+      "path": "tests/training/test_trainer_state.py",
+      "category": "tests",
+      "package": "tests.training"
+    },
+    "tests/training/test_validation_orchestrator.py": {
+      "path": "tests/training/test_validation_orchestrator.py",
+      "category": "tests",
+      "package": "tests.training"
+    },
+    "tests/training/test_wrapper_removal.py": {
+      "path": "tests/training/test_wrapper_removal.py",
+      "category": "tests",
+      "package": "tests.training"
+    }
+  },
+  "edges": [
+    {
+      "source": "src/helix_ids/config/__init__.py",
+      "target_module": "helix_ids.config.platform_loader",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/contracts/immutable_constants.py",
+      "target_module": "helix_ids.contracts.schema_contract",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/contracts/schema_contract.py",
+      "target_module": "helix_ids.contracts.immutable_constants",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/data/dataset_config.py",
+      "target_module": "helix_ids.contracts.attack_taxonomy",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/data/feature_harmonization.py",
+      "target_module": "helix_ids.governance",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/data/label_mapping.py",
+      "target_module": "helix_ids.contracts.attack_taxonomy",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/governance/lifecycle_verifier.py",
+      "target_module": "helix_ids",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/governance/lifecycle_verifier.py",
+      "target_module": "helix_ids.contracts",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/governance/lifecycle_verifier.py",
+      "target_module": "helix_ids.governance.parameters",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/governance/lifecycle_verifier.py",
+      "target_module": "helix_ids.governance.provenance",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/governance/lifecycle_verifier.py",
+      "target_module": "helix_ids.governance.provenance",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/governance/lifecycle_verifier.py",
+      "target_module": "helix_ids.governance.provenance",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/governance/provenance.py",
+      "target_module": "helix_ids",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/governance/provenance.py",
+      "target_module": "helix_ids.contracts",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/governance/provenance.py",
+      "target_module": "helix_ids.contracts.schema_contract",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/governance/provenance.py",
+      "target_module": "helix_ids.governance.fingerprinting",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/governance/provenance.py",
+      "target_module": "helix_ids.governance.parameters",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/models/adaptation/transfer_learning.py",
+      "target_module": "helix_ids.data.unified_loader",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/models/adaptation/transfer_learning.py",
+      "target_module": "helix_ids.governance",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/models/adaptation/transfer_learning.py",
+      "target_module": "helix_ids.governance.provenance",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/models/adaptation/transfer_learning.py",
+      "target_module": "helix_ids.models.adaptation.combined_da",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/models/adaptation/transfer_learning.py",
+      "target_module": "helix_ids.models.adaptation.coral_loss",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/models/adaptation/transfer_learning.py",
+      "target_module": "helix_ids.models.adaptation.dann",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/models/adaptation/transfer_learning.py",
+      "target_module": "helix_ids.models.adaptation.label_aware_da",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/models/adaptation/transfer_learning.py",
+      "target_module": "helix_ids.models.adaptation.mmd_loss",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/models/adaptation/transfer_learning.py",
+      "target_module": "helix_ids.utils.export",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/models/adaptation/transfer_learning.py",
+      "target_module": "helix_ids.contracts.schema_contract",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/models/core.py",
+      "target_module": "helix_ids",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/models/full.py",
+      "target_module": "helix_ids_full",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/models/loss.py",
+      "target_module": "helix_ids.contracts.attack_taxonomy",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/operations/baseline_freeze.py",
+      "target_module": "helix_ids.contracts.schema_contract",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/operations/baseline_freeze.py",
+      "target_module": "helix_ids.governance",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/operations/inference_runtime.py",
+      "target_module": "helix_ids.contracts",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/operations/inference_runtime.py",
+      "target_module": "helix_ids.contracts.schema_contract",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/operations/inference_runtime.py",
+      "target_module": "helix_ids.governance",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/operations/inference_runtime.py",
+      "target_module": "helix_ids.models.full",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/operations/inference_runtime.py",
+      "target_module": "helix_ids.utils.export",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/operations/inference_runtime.py",
+      "target_module": "helix_ids.governance.provenance",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/operations/inference_runtime.py",
+      "target_module": "helix_ids.governance.provenance",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/operations/inference_runtime.py",
+      "target_module": "helix_ids.governance.provenance",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/utils/export.py",
+      "target_module": "helix_ids",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/utils/export.py",
+      "target_module": "helix_ids.contracts",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/utils/export.py",
+      "target_module": "helix_ids.contracts.attack_taxonomy",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/utils/export.py",
+      "target_module": "helix_ids.contracts.schema_contract",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/utils/export.py",
+      "target_module": "helix_ids.governance",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/utils/export.py",
+      "target_module": "helix_ids.governance.provenance",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/utils/metrics.py",
+      "target_module": "helix_ids.contracts.attack_taxonomy",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "src/helix_ids/utils/metrics.py",
+      "target_module": "helix_ids.governance.parameters",
+      "source_category": "src",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/ci/validate_benchmark_outputs.py",
+      "target_module": "scripts.evaluation",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/data/process_cicids.py",
+      "target_module": "helix_ids.data.feature_harmonization",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/data/process_cicids.py",
+      "target_module": "helix_ids.data.learnability_contract",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/data/process_cicids.py",
+      "target_module": "helix_ids.data.multi_dataset_loader",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/data/process_cicids.py",
+      "target_module": "helix_ids.data.unified_loader",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/data/process_nsl_kdd.py",
+      "target_module": "helix_ids.data.feature_harmonization",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/data/process_nsl_kdd.py",
+      "target_module": "helix_ids.data.learnability_contract",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/data/process_nsl_kdd.py",
+      "target_module": "helix_ids.data.multi_dataset_loader",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/data/process_unsw_nb15.py",
+      "target_module": "helix_ids.data.feature_harmonization",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/data/process_unsw_nb15.py",
+      "target_module": "helix_ids.data.learnability_contract",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/data/process_unsw_nb15.py",
+      "target_module": "helix_ids.data.multi_dataset_loader",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/evaluation/benchmark_e2e_v2_fixed.py",
+      "target_module": "helix_ids.governance.determinism",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/evaluation/benchmark_e2e_v2_fixed.py",
+      "target_module": "helix_ids.governance.entrypoint",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/evaluation/benchmark_e2e_v2_fixed.py",
+      "target_module": "helix_ids.governance.parameters",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/evaluation/benchmark_e2e_v2_fixed.py",
+      "target_module": "helix_ids.governance.promotion",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/evaluation/benchmark_e2e_v2_fixed.py",
+      "target_module": "helix_ids.governance.run_registry",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/evaluation/benchmark_e2e_v2_fixed.py",
+      "target_module": "helix_ids.utils.metrics",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/evaluation/benchmark_e2e_v2_fixed.py",
+      "target_module": "scripts.training.train_multidataset_v2_fixed",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/evaluation/benchmarks.py",
+      "target_module": "helix_ids.contracts",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/evaluation/benchmarks.py",
+      "target_module": "helix_ids.data.feature_harmonization",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/evaluation/benchmarks.py",
+      "target_module": "helix_ids.governance",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/evaluation/benchmarks.py",
+      "target_module": "helix_ids.governance.ast_validator",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/evaluation/benchmarks.py",
+      "target_module": "helix_ids.governance.lifecycle_verifier",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/evaluation/benchmarks.py",
+      "target_module": "helix_ids.governance.parameters",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/evaluation/benchmarks.py",
+      "target_module": "helix_ids.governance.provenance",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/evaluation/holdout_evaluation_v2.py",
+      "target_module": "helix_ids.governance.determinism",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/evaluation/holdout_evaluation_v2.py",
+      "target_module": "helix_ids.governance.entrypoint",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/evaluation/holdout_evaluation_v2.py",
+      "target_module": "helix_ids.governance.parameters",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/evaluation/holdout_evaluation_v2.py",
+      "target_module": "helix_ids.governance.promotion",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/evaluation/holdout_evaluation_v2.py",
+      "target_module": "helix_ids.governance.run_registry",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/evaluation/holdout_evaluation_v2.py",
+      "target_module": "helix_ids.utils.metrics",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/evaluation/holdout_evaluation_v2.py",
+      "target_module": "scripts.training.train_multidataset_v2_fixed",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/evaluation/holdout_evaluation_v2.py",
+      "target_module": "scripts.training.train_multidataset_v2_fixed",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/evaluation/holdout_evaluation_v2.py",
+      "target_module": "scripts.training.train_multidataset_v2_fixed",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/evaluation/test_phase3_smoke.py",
+      "target_module": "helix_ids.config.helix_full_config",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/evaluation/test_phase3_smoke.py",
+      "target_module": "helix_ids.data.feature_harmonization",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/evaluation/test_phase3_smoke.py",
+      "target_module": "helix_ids.models.full",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/operations/export_inference_bundle.py",
+      "target_module": "helix_ids.operations.inference_runtime",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/operations/freeze_baseline.py",
+      "target_module": "helix_ids.operations.baseline_freeze",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/operations/serve_rest.py",
+      "target_module": "helix_ids.operations.inference_runtime",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/operations/stress_validate_baseline.py",
+      "target_module": "helix_ids.operations.inference_runtime",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/operations/stress_validate_baseline.py",
+      "target_module": "helix_ids.operations.monitoring",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/smoke_save_checkpoint.py",
+      "target_module": "helix_ids.utils.callbacks",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/adversarial_training_v2.py",
+      "target_module": "helix_ids.contracts.schema_contract",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/adversarial_training_v2.py",
+      "target_module": "helix_ids.governance",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/adversarial_training_v2.py",
+      "target_module": "helix_ids.utils.export",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/adversarial_training_v2.py",
+      "target_module": "scripts.training.train_multidataset_v2_fixed",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/core/__init__.py",
+      "target_module": "scripts.training.core.recovery_manager",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/core/__init__.py",
+      "target_module": "scripts.training.core.trainer_facade",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/core/__init__.py",
+      "target_module": "scripts.training.core.trainer_factory",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/core/__init__.py",
+      "target_module": "scripts.training.core.trainer_state",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/core/recovery_manager.py",
+      "target_module": "scripts.training.core.trainer_state",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/core/recovery_manager.py",
+      "target_module": "scripts.training.losses",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/core/recovery_manager.py",
+      "target_module": "scripts.training.representation",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/core/trainer_facade.py",
+      "target_module": "scripts.training.core.recovery_manager",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/core/trainer_facade.py",
+      "target_module": "scripts.training.core.trainer_state",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/core/trainer_facade.py",
+      "target_module": "scripts.training.diagnostics",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/core/trainer_facade.py",
+      "target_module": "scripts.training.evaluation",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/core/trainer_facade.py",
+      "target_module": "scripts.training.execution",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/core/trainer_facade.py",
+      "target_module": "scripts.training.losses",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/core/trainer_facade.py",
+      "target_module": "scripts.training.representation",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/core/trainer_facade.py",
+      "target_module": "scripts.training.scheduler",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/core/trainer_facade.py",
+      "target_module": "scripts.training.validation",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/core/trainer_facade.py",
+      "target_module": "scripts.training.core.recovery_manager",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/core/trainer_factory.py",
+      "target_module": "helix_ids.config.helix_full_config",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/core/trainer_factory.py",
+      "target_module": "helix_ids.models.full",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/core/trainer_factory.py",
+      "target_module": "scripts.training.core.trainer_facade",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/core/trainer_factory.py",
+      "target_module": "scripts.training.core.trainer_state",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/core/trainer_state.py",
+      "target_module": "helix_ids.config.helix_full_config",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/core/trainer_state.py",
+      "target_module": "helix_ids.models.full",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/core/trainer_state.py",
+      "target_module": "scripts.training.diagnostics",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/core/trainer_state.py",
+      "target_module": "scripts.training.evaluation",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/core/trainer_state.py",
+      "target_module": "scripts.training.execution",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/core/trainer_state.py",
+      "target_module": "scripts.training.losses",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/core/trainer_state.py",
+      "target_module": "scripts.training.representation",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/core/trainer_state.py",
+      "target_module": "scripts.training.scheduler",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/core/trainer_state.py",
+      "target_module": "scripts.training.validation",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/data/__init__.py",
+      "target_module": "scripts.training.governance.ab_testing",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/data/__init__.py",
+      "target_module": "scripts.training.governance.ab_testing",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/data/__init__.py",
+      "target_module": "scripts.training.governance.orchestrator",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/data/__init__.py",
+      "target_module": "scripts.training.governance.orchestrator",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/data/validators.py",
+      "target_module": "scripts.training.governance",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/data/validators.py",
+      "target_module": "scripts.training.governance.ab_testing",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/data/validators.py",
+      "target_module": "scripts.training.governance.orchestrator",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/diagnostics/__init__.py",
+      "target_module": "scripts.training.diagnostics.cluster_analyzer",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/diagnostics/__init__.py",
+      "target_module": "scripts.training.diagnostics.geometry_analyzer",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/diagnostics/__init__.py",
+      "target_module": "scripts.training.diagnostics.rep_diagnostics",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/diagnostics/cluster_analyzer.py",
+      "target_module": "helix_ids.data.datasets",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/diagnostics/rep_diagnostics.py",
+      "target_module": "helix_ids.data.geometric_representation_fixes",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/diagnostics/rep_diagnostics.py",
+      "target_module": "scripts.training.diagnostics.cluster_analyzer",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/diagnostics/rep_diagnostics.py",
+      "target_module": "scripts.training.diagnostics.geometry_analyzer",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/evaluation/__init__.py",
+      "target_module": "scripts.training.evaluation.evaluation_orchestrator",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/evaluation/__init__.py",
+      "target_module": "scripts.training.evaluation.evaluator",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/evaluation/evaluation_orchestrator.py",
+      "target_module": "helix_ids.models.full",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/evaluation/evaluation_orchestrator.py",
+      "target_module": "scripts.training.evaluation.evaluator",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/evaluation/evaluator.py",
+      "target_module": "helix_ids.models.full",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/execution/__init__.py",
+      "target_module": "scripts.training.execution.batch_processor",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/execution/__init__.py",
+      "target_module": "scripts.training.execution.epoch_runner",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/execution/__init__.py",
+      "target_module": "scripts.training.execution.training_orchestrator",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/execution/__init__.py",
+      "target_module": "scripts.training.execution.warmup_manager",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/execution/batch_processor.py",
+      "target_module": "scripts.training.losses",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/execution/epoch_runner.py",
+      "target_module": "scripts.training.execution.batch_processor",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/execution/epoch_runner.py",
+      "target_module": "scripts.training.execution.warmup_manager",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/execution/training_orchestrator.py",
+      "target_module": "scripts.training.execution.epoch_runner",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/governance/__init__.py",
+      "target_module": "scripts.training.governance.ab_testing",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/governance/__init__.py",
+      "target_module": "scripts.training.governance.orchestrator",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/governance/__init__.py",
+      "target_module": "scripts.training.governance.promotion",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/governance/__init__.py",
+      "target_module": "scripts.training.governance.reporting",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/governance/orchestrator.py",
+      "target_module": "helix_ids.models.full",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/losses/__init__.py",
+      "target_module": "scripts.training.losses.loss_registry",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/losses/loss_registry.py",
+      "target_module": "scripts.training.losses.contrastive_losses",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/losses/loss_registry.py",
+      "target_module": "scripts.training.losses.contrastive_losses",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/losses/loss_registry.py",
+      "target_module": "scripts.training.losses.contrastive_losses",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/losses/loss_registry.py",
+      "target_module": "scripts.training.losses.contrastive_losses",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/losses/loss_registry.py",
+      "target_module": "scripts.training.losses.contrastive_losses",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/losses/loss_registry.py",
+      "target_module": "scripts.training.losses.contrastive_losses",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/losses/loss_registry.py",
+      "target_module": "scripts.training.losses.contrastive_losses",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/losses/loss_registry.py",
+      "target_module": "scripts.training.losses.contrastive_losses",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/losses/loss_registry.py",
+      "target_module": "scripts.training.losses.contrastive_losses",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/losses/loss_registry.py",
+      "target_module": "scripts.training.losses.energy_losses",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/losses/loss_registry.py",
+      "target_module": "scripts.training.losses.energy_losses",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/losses/loss_registry.py",
+      "target_module": "scripts.training.losses.regularization_losses",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/losses/loss_registry.py",
+      "target_module": "scripts.training.losses.regularization_losses",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/losses/loss_registry.py",
+      "target_module": "scripts.training.losses.regularization_losses",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/losses/loss_registry.py",
+      "target_module": "scripts.training.losses.regularization_losses",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/losses/loss_registry.py",
+      "target_module": "scripts.training.losses.regularization_losses",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/losses/loss_registry.py",
+      "target_module": "scripts.training.losses.regularization_losses",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/orchestration/__init__.py",
+      "target_module": "helix_ids.config.helix_full_config",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/orchestration/__init__.py",
+      "target_module": "scripts.training.orchestration.config_parser",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/orchestration/__init__.py",
+      "target_module": "scripts.training.orchestration.governance_pipeline",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/orchestration/__init__.py",
+      "target_module": "scripts.training.orchestration.run_orchestrator",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/orchestration/config_parser.py",
+      "target_module": "helix_ids.config.helix_full_config",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/orchestration/config_parser.py",
+      "target_module": "scripts.training.orchestration",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/orchestration/governance_pipeline.py",
+      "target_module": "helix_ids.governance.promotion",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/orchestration/governance_pipeline.py",
+      "target_module": "helix_ids.governance.run_registry",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/orchestration/governance_pipeline.py",
+      "target_module": "scripts.training.orchestration",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/orchestration/run_orchestrator.py",
+      "target_module": "helix_ids.data.feature_harmonization",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/orchestration/run_orchestrator.py",
+      "target_module": "helix_ids.data.learnability_contract",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/orchestration/run_orchestrator.py",
+      "target_module": "helix_ids.governance.determinism",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/orchestration/run_orchestrator.py",
+      "target_module": "helix_ids.models.full",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/orchestration/run_orchestrator.py",
+      "target_module": "scripts.training.data",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/orchestration/run_orchestrator.py",
+      "target_module": "scripts.training.orchestration",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/orchestration/run_orchestrator.py",
+      "target_module": "helix_ids.data.learnability_contract",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/orchestration/run_orchestrator.py",
+      "target_module": "helix_ids.data.feature_harmonization",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/prepare_canonical_artifacts.py",
+      "target_module": "helix_ids.contracts",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/prepare_canonical_artifacts.py",
+      "target_module": "helix_ids.data.feature_harmonization",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/prepare_canonical_artifacts.py",
+      "target_module": "helix_ids.data.multi_dataset_loader",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/representation/__init__.py",
+      "target_module": "scripts.training.representation.centroid_manager",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/representation/__init__.py",
+      "target_module": "scripts.training.representation.representation_coordinator",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/representation/representation_coordinator.py",
+      "target_module": "scripts.training.data.dataset_builder",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/scheduler/__init__.py",
+      "target_module": "scripts.training.scheduler.early_stopping",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/scheduler/__init__.py",
+      "target_module": "scripts.training.scheduler.freeze_manager",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/scheduler/__init__.py",
+      "target_module": "scripts.training.scheduler.lr_scheduler",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/scheduler/__init__.py",
+      "target_module": "scripts.training.scheduler.phase_manager",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/scheduler/__init__.py",
+      "target_module": "scripts.training.scheduler.phase_orchestrator",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/scheduler/phase_orchestrator.py",
+      "target_module": "scripts.training.scheduler.phase_manager",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/scheduler/phase_orchestrator.py",
+      "target_module": "scripts.training.scheduler.early_stopping",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/scheduler/phase_orchestrator.py",
+      "target_module": "scripts.training.scheduler.lr_scheduler",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/train_edge_models.py",
+      "target_module": "helix_ids.contracts.schema_contract",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/train_edge_models.py",
+      "target_module": "helix_ids.governance",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/train_edge_models.py",
+      "target_module": "helix_ids.utils.export",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/train_helix_ids_full.py",
+      "target_module": "helix_ids.config.helix_full_config",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/train_helix_ids_full.py",
+      "target_module": "helix_ids.contracts",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/train_helix_ids_full.py",
+      "target_module": "helix_ids.data.learnability_contract",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/train_helix_ids_full.py",
+      "target_module": "helix_ids.governance",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/train_helix_ids_full.py",
+      "target_module": "helix_ids.governance.determinism",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/train_helix_ids_full.py",
+      "target_module": "helix_ids.governance.entrypoint",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/train_helix_ids_full.py",
+      "target_module": "helix_ids.governance.parameters",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/train_helix_ids_full.py",
+      "target_module": "helix_ids.models.full",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/train_helix_ids_full.py",
+      "target_module": "helix_ids.utils.export",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/train_helix_ids_full.py",
+      "target_module": "helix_ids.utils.metrics",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/train_helix_ids_full.py",
+      "target_module": "helix_ids.data.feature_harmonization",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/train_helix_ids_full.py",
+      "target_module": "scripts.training.evaluation",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/train_helix_ids_full.py",
+      "target_module": "scripts.training.validation",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/train_helix_ids_full.py",
+      "target_module": "scripts.training.data.dataset_builder",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/train_helix_ids_full.py",
+      "target_module": "scripts.training.data.samplers",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/train_helix_ids_full.py",
+      "target_module": "scripts.training.core",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/train_helix_ids_full.py",
+      "target_module": "scripts.training.execution",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/train_helix_ids_full.py",
+      "target_module": "scripts.training.governance",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/train_helix_ids_full.py",
+      "target_module": "scripts.training.governance",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/train_helix_ids_full.py",
+      "target_module": "scripts.training.losses",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/train_helix_ids_full.py",
+      "target_module": "scripts.training.representation",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/train_helix_ids_full.py",
+      "target_module": "scripts.training.scheduler",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/train_helix_ids_full.py",
+      "target_module": "scripts.training.orchestration",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/train_helix_ids_full.py",
+      "target_module": "scripts.training.orchestration.run_orchestrator",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/train_helix_ids_full.py",
+      "target_module": "scripts.training.orchestration",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/train_helix_ids_full.py",
+      "target_module": "scripts.training.orchestration.governance_pipeline",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/train_helix_ids_full.py",
+      "target_module": "scripts.training.diagnostics",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/train_helix_ids_full.py",
+      "target_module": "scripts.training.core",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/train_helix_ids_full.py",
+      "target_module": "scripts.training.orchestration.governance_pipeline",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/train_multidataset_v2_fixed.py",
+      "target_module": "helix_ids.contracts.schema_contract",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/train_multidataset_v2_fixed.py",
+      "target_module": "helix_ids.governance",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/train_multidataset_v2_fixed.py",
+      "target_module": "helix_ids.governance.determinism",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/train_multidataset_v2_fixed.py",
+      "target_module": "helix_ids.governance.entrypoint",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/train_multidataset_v2_fixed.py",
+      "target_module": "helix_ids.governance.parameters",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/train_multidataset_v2_fixed.py",
+      "target_module": "helix_ids.governance.promotion",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/train_multidataset_v2_fixed.py",
+      "target_module": "helix_ids.governance.run_registry",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/train_multidataset_v2_fixed.py",
+      "target_module": "helix_ids.utils.export",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/train_multidataset_v2_fixed.py",
+      "target_module": "helix_ids.utils.metrics",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/train_multidataset_v2_fixed.py",
+      "target_module": "helix_ids.utils.metrics",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/train_unified_rebalanced.py",
+      "target_module": "helix_ids.data.loader_core",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/train_unified_rebalanced.py",
+      "target_module": "helix_ids.models.adaptation.transfer_learning",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/train_unsw_only_cleaned.py",
+      "target_module": "helix_ids.contracts.schema_contract",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/train_unsw_only_cleaned.py",
+      "target_module": "helix_ids.governance",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/train_unsw_only_cleaned.py",
+      "target_module": "helix_ids.utils.export",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/train_unsw_only_cleaned.py",
+      "target_module": "helix_ids.config.helix_full_config",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/train_unsw_only_cleaned.py",
+      "target_module": "helix_ids.data.feature_harmonization",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/train_unsw_only_cleaned.py",
+      "target_module": "helix_ids.data.multi_dataset_loader",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/train_unsw_only_cleaned.py",
+      "target_module": "helix_ids.models.full",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/validation/__init__.py",
+      "target_module": "scripts.training.governance.ab_testing",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/validation/__init__.py",
+      "target_module": "scripts.training.governance.ab_testing",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/validation/__init__.py",
+      "target_module": "scripts.training.governance.ab_testing",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/validation/__init__.py",
+      "target_module": "scripts.training.governance.ab_testing",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/validation/__init__.py",
+      "target_module": "scripts.training.governance.ab_testing",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/validation/__init__.py",
+      "target_module": "scripts.training.governance.ab_testing",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/validation/__init__.py",
+      "target_module": "scripts.training.governance.orchestrator",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/validation/__init__.py",
+      "target_module": "scripts.training.governance.orchestrator",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/validation/artifacts.py",
+      "target_module": "scripts.training.governance",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/validation/artifacts.py",
+      "target_module": "scripts.training.governance",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/validation/artifacts.py",
+      "target_module": "scripts.training.governance",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/validation/calibrator.py",
+      "target_module": "helix_ids.models.full",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/validation/calibrator.py",
+      "target_module": "helix_ids.utils.metrics",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/validation/calibrator.py",
+      "target_module": "scripts.training.data",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/validation/evaluator.py",
+      "target_module": "helix_ids.models.full",
+      "source_category": "scripts",
+      "target_category": "src"
+    },
+    {
+      "source": "scripts/training/validation/evaluator.py",
+      "target_module": "scripts.training.governance",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/validation/evaluator.py",
+      "target_module": "scripts.training.governance",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/validation/evaluator.py",
+      "target_module": "scripts.training.governance",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/validation/evaluator.py",
+      "target_module": "scripts.training.governance",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/validation/evaluator.py",
+      "target_module": "scripts.training.governance",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/validation/evaluator.py",
+      "target_module": "scripts.training.governance",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/validation/evaluator.py",
+      "target_module": "scripts.training.governance",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "scripts/training/validation/evaluator.py",
+      "target_module": "scripts.training.governance",
+      "source_category": "scripts",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/conftest.py",
+      "target_module": "helix_ids.models.helix_ids",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/conftest.py",
+      "target_module": "helix_ids.models.helix_ids",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/conftest.py",
+      "target_module": "helix_ids.models.helix_ids",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/conftest.py",
+      "target_module": "helix_ids.models.helix_ids",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/conftest.py",
+      "target_module": "helix_ids.models.helix_ids",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/conftest.py",
+      "target_module": "helix_ids.models.attention",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/conftest.py",
+      "target_module": "helix_ids.models.attention",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/conftest.py",
+      "target_module": "helix_ids.models.attention",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/conftest.py",
+      "target_module": "helix_ids.models.loss",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/conftest.py",
+      "target_module": "helix_ids.models.loss",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/conftest.py",
+      "target_module": "helix_ids.models.classifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/conftest.py",
+      "target_module": "helix_ids.models.classifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/conftest.py",
+      "target_module": "helix_ids.data.preprocessing",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/conftest.py",
+      "target_module": "helix_ids.data.augmentation",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/conftest.py",
+      "target_module": "helix_ids.utils.callbacks",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_adversarial_robustness.py",
+      "target_module": "helix_ids.metrics.adversarial_test",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_benchmark_formalization.py",
+      "target_module": "scripts.evaluation.benchmarks",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_benchmark_output_validator.py",
+      "target_module": "scripts.evaluation",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_benchmark_output_validator.py",
+      "target_module": "scripts.ci.validate_benchmark_outputs",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_benchmark_output_validator.py",
+      "target_module": "scripts.evaluation",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_benchmark_output_validator.py",
+      "target_module": "scripts.evaluation",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_callbacks.py",
+      "target_module": "helix_ids.utils.callbacks",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_checkpoint_contracts.py",
+      "target_module": "helix_ids.contracts",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_checkpoint_contracts.py",
+      "target_module": "helix_ids.data.feature_harmonization",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_checkpoint_contracts.py",
+      "target_module": "helix_ids.models.full",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_checkpoint_contracts.py",
+      "target_module": "helix_ids.operations.inference_runtime",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_classifier.py",
+      "target_module": "helix_ids.models.classifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_classifier.py",
+      "target_module": "helix_ids.models.classifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_classifier.py",
+      "target_module": "helix_ids.models.classifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_classifier.py",
+      "target_module": "helix_ids.models.classifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_classifier.py",
+      "target_module": "helix_ids.models.classifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_classifier.py",
+      "target_module": "helix_ids.models.classifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_classifier.py",
+      "target_module": "helix_ids.models.classifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_classifier.py",
+      "target_module": "helix_ids.models.classifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_classifier.py",
+      "target_module": "helix_ids.models.classifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_classifier.py",
+      "target_module": "helix_ids.models.classifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_classifier.py",
+      "target_module": "helix_ids.models.classifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_classifier.py",
+      "target_module": "helix_ids.models.classifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_classifier.py",
+      "target_module": "helix_ids.models.classifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_classifier.py",
+      "target_module": "helix_ids.models.classifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_classifier.py",
+      "target_module": "helix_ids.models.classifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_classifier.py",
+      "target_module": "helix_ids.models.classifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_classifier.py",
+      "target_module": "helix_ids.models.classifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_classifier.py",
+      "target_module": "helix_ids.models.classifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_classifier.py",
+      "target_module": "helix_ids.models.classifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_classifier.py",
+      "target_module": "helix_ids.models.classifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_classifier.py",
+      "target_module": "helix_ids.models.classifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_classifier.py",
+      "target_module": "helix_ids.models.classifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_classifier.py",
+      "target_module": "helix_ids.models.classifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_classifier.py",
+      "target_module": "helix_ids.models.classifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_classifier.py",
+      "target_module": "helix_ids.models.classifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_classifier.py",
+      "target_module": "helix_ids.models.classifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_classifier.py",
+      "target_module": "helix_ids.models.classifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_classifier.py",
+      "target_module": "helix_ids.models.classifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_classifier.py",
+      "target_module": "helix_ids.models.classifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_classifier.py",
+      "target_module": "helix_ids.models.classifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_classifier.py",
+      "target_module": "helix_ids.models.classifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_classifier.py",
+      "target_module": "helix_ids.models.classifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_classifier.py",
+      "target_module": "helix_ids.models.classifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_classifier.py",
+      "target_module": "helix_ids.models.classifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_classifier.py",
+      "target_module": "helix_ids.models.classifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_classifier.py",
+      "target_module": "helix_ids.models.classifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_combined_da.py",
+      "target_module": "helix_ids.models.adaptation.combined_da",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_coral_loss.py",
+      "target_module": "helix_ids.models.adaptation.coral_loss",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_critical_pipeline_invariants.py",
+      "target_module": "helix_ids.data.multi_dataset_loader",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_critical_pipeline_invariants.py",
+      "target_module": "helix_ids.utils.entropy_diagnostics",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_critical_pipeline_invariants.py",
+      "target_module": "helix_ids.utils.metrics",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_critical_pipeline_invariants.py",
+      "target_module": "scripts.training",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_critical_pipeline_invariants.py",
+      "target_module": "scripts.training.evaluation",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_critical_pipeline_invariants.py",
+      "target_module": "scripts.training.validation",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_critical_pipeline_invariants.py",
+      "target_module": "scripts.training.scheduler",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_critical_pipeline_invariants.py",
+      "target_module": "scripts.training.governance.orchestrator",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_data/test_diagnostic_contract.py",
+      "target_module": "helix_ids.contracts",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_data/test_diagnostic_contract.py",
+      "target_module": "helix_ids.data.learnability_contract",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_data/test_phase1_harmonization.py",
+      "target_module": "helix_ids.contracts",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_data/test_phase1_harmonization.py",
+      "target_module": "helix_ids.data.feature_harmonization",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_data/test_phase1_harmonization.py",
+      "target_module": "helix_ids.data.multi_dataset_loader",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_data/test_phase1_harmonization.py",
+      "target_module": "helix_ids.data",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_data/test_phase1_harmonization.py",
+      "target_module": "helix_ids.governance",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_data/test_phase1_harmonization.py",
+      "target_module": "helix_ids.utils.export",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_data/test_phase1_harmonization.py",
+      "target_module": "helix_ids.governance",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_data/test_phase1_harmonization.py",
+      "target_module": "helix_ids.utils.export",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_data/test_phase1_harmonization.py",
+      "target_module": "helix_ids.governance",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_data/test_phase1_harmonization.py",
+      "target_module": "helix_ids.utils.export",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_data/test_phase1_harmonization.py",
+      "target_module": "helix_ids.governance.provenance",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_data/test_phase1_harmonization.py",
+      "target_module": "helix_ids.governance",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_data/test_phase1_harmonization.py",
+      "target_module": "helix_ids.utils.export",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_data/test_phase1_harmonization.py",
+      "target_module": "helix_ids.governance",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_data/test_phase1_harmonization.py",
+      "target_module": "helix_ids.utils.export",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_data/test_phase1_harmonization.py",
+      "target_module": "helix_ids.governance.provenance",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_data/test_phase1_harmonization.py",
+      "target_module": "helix_ids.data.feature_harmonization",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_data/test_root_cause_reducer.py",
+      "target_module": "helix_ids.data.learnability_contract",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_data/test_unified_loader.py",
+      "target_module": "helix_ids.data.dataset_config",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_data/test_unified_loader.py",
+      "target_module": "helix_ids.data.label_mapping",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_data/test_unified_loader.py",
+      "target_module": "helix_ids.data.loader_core",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_data/test_unsw_learnability_contract.py",
+      "target_module": "helix_ids.data.learnability_contract",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_data_integrity_guards.py",
+      "target_module": "helix_ids.data.feature_harmonization",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_data_integrity_guards.py",
+      "target_module": "helix_ids.data.multi_dataset_loader",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_data_loading.py",
+      "target_module": "scripts.training.train_multidataset_v2_fixed",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_data_loading.py",
+      "target_module": "helix_ids.data.unified_loader",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_data_loading.py",
+      "target_module": "helix_ids.data.unified_loader",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_data_loading.py",
+      "target_module": "helix_ids.data.unified_loader",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_data_loading.py",
+      "target_module": "helix_ids.data.unified_loader",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_data_loading.py",
+      "target_module": "helix_ids.data.unified_loader",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_e2e_smoke.py",
+      "target_module": "helix_ids",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_e2e_smoke.py",
+      "target_module": "helix_ids.contracts",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_e2e_smoke.py",
+      "target_module": "helix_ids.contracts.schema_contract",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_e2e_smoke.py",
+      "target_module": "helix_ids.governance.orchestrator",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_e2e_smoke.py",
+      "target_module": "helix_ids.governance.parameters",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_e2e_smoke.py",
+      "target_module": "helix_ids.governance.promotion",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_e2e_smoke.py",
+      "target_module": "helix_ids.governance.provenance",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_e2e_smoke.py",
+      "target_module": "helix_ids.models.helix_ids_full",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_e2e_smoke.py",
+      "target_module": "helix_ids.operations.inference_runtime",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_e2e_smoke.py",
+      "target_module": "helix_ids.governance.provenance",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_e2e_smoke.py",
+      "target_module": "helix_ids.governance.lifecycle_verifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_entropy_deployment_validation.py",
+      "target_module": "helix_ids.utils.entropy_diagnostics",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_export.py",
+      "target_module": "helix_ids.utils.export",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_export.py",
+      "target_module": "helix_ids.utils.export",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_export_contract.py",
+      "target_module": "helix_ids.contracts",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_export_contract.py",
+      "target_module": "helix_ids.data.feature_harmonization",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_export_contract.py",
+      "target_module": "helix_ids.governance",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_export_contract.py",
+      "target_module": "helix_ids.models.full",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_export_contract.py",
+      "target_module": "helix_ids.operations.inference_runtime",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_export_contract.py",
+      "target_module": "helix_ids.utils.export",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_export_unit.py",
+      "target_module": "helix_ids.utils.export",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_export_unit.py",
+      "target_module": "helix_ids.utils.export",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_export_unit.py",
+      "target_module": "helix_ids.utils.export",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_export_unit.py",
+      "target_module": "helix_ids.utils.export",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_export_unit.py",
+      "target_module": "helix_ids.utils.export",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_export_unit.py",
+      "target_module": "helix_ids.utils.export",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_export_unit.py",
+      "target_module": "helix_ids.utils.export",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_feature_harmonization.py",
+      "target_module": "helix_ids.adaptation",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_fn_tracker.py",
+      "target_module": "helix_ids.metrics.fn_tracker",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_governance/test_ast_validator.py",
+      "target_module": "helix_ids.governance.ast_validator",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_governance/test_fingerprinting.py",
+      "target_module": "helix_ids.governance.fingerprinting",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_governance/test_integration_enforcement.py",
+      "target_module": "helix_ids.governance.entrypoint",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_governance/test_legacy_policy.py",
+      "target_module": "helix_ids.governance",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_governance/test_legacy_policy.py",
+      "target_module": "helix_ids.governance.parameters",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_governance/test_metrics_contract.py",
+      "target_module": "helix_ids.utils.metrics",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_governance/test_nested_schema_validation.py",
+      "target_module": "scripts.ci.validate_benchmark_outputs",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_governance/test_orchestrator_runtime.py",
+      "target_module": "helix_ids.governance.entrypoint",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_governance/test_orchestrator_runtime.py",
+      "target_module": "helix_ids.governance.orchestrator",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_governance/test_promotion.py",
+      "target_module": "helix_ids.governance.promotion",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_governance/test_run_registry.py",
+      "target_module": "helix_ids.governance.run_registry",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_governance/test_validate_schema_registry.py",
+      "target_module": "scripts.ci.validate_schema_registry",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_helix_ids_unit.py",
+      "target_module": "helix_ids.models.helix_ids",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_helix_ids_unit.py",
+      "target_module": "helix_ids.models.helix_ids",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_helix_ids_unit.py",
+      "target_module": "helix_ids.models.loss",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_label_aware_da.py",
+      "target_module": "helix_ids.models.adaptation",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_lifecycle_verifier.py",
+      "target_module": "helix_ids.governance",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_lifecycle_verifier.py",
+      "target_module": "helix_ids.governance.lifecycle_verifier",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_loss_unit.py",
+      "target_module": "helix_ids.models.loss",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_mmd_loss.py",
+      "target_module": "helix_ids.models.adaptation.mmd_loss",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_model_inference.py",
+      "target_module": "helix_ids.models.helix_ids",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_model_inference.py",
+      "target_module": "helix_ids.models.helix_ids",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_model_inference.py",
+      "target_module": "helix_ids.models.helix_ids",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_model_inference.py",
+      "target_module": "helix_ids.models.helix_ids",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_model_inference.py",
+      "target_module": "helix_ids.models.helix_ids",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_model_inference.py",
+      "target_module": "helix_ids.models.helix_ids",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_model_inference.py",
+      "target_module": "helix_ids.models.helix_ids",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_model_inference.py",
+      "target_module": "helix_ids.models.helix_ids",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_model_inference.py",
+      "target_module": "helix_ids.models.helix_ids",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_model_inference.py",
+      "target_module": "helix_ids.models.helix_ids",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_model_inference.py",
+      "target_module": "helix_ids.models.helix_ids",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_model_inference.py",
+      "target_module": "helix_ids.models.helix_ids",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_model_inference.py",
+      "target_module": "helix_ids.models.helix_ids",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_model_inference.py",
+      "target_module": "helix_ids.models.helix_ids",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_model_inference.py",
+      "target_module": "helix_ids.models.helix_ids",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_model_inference.py",
+      "target_module": "helix_ids.models.helix_ids",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_model_inference.py",
+      "target_module": "helix_ids.models.helix_ids",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_model_inference.py",
+      "target_module": "helix_ids.models.helix_ids",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_model_inference.py",
+      "target_module": "helix_ids.models.helix_ids",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_model_inference.py",
+      "target_module": "helix_ids.models.helix_ids",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_model_inference.py",
+      "target_module": "helix_ids.models.helix_ids",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_model_inference.py",
+      "target_module": "helix_ids.models.helix_ids",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_model_inference.py",
+      "target_module": "helix_ids.models.helix_ids",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_model_inference.py",
+      "target_module": "helix_ids.models.helix_ids",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_model_inference.py",
+      "target_module": "helix_ids.models.helix_ids",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_model_inference.py",
+      "target_module": "helix_ids.models.helix_ids",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_model_inference.py",
+      "target_module": "helix_ids.models.helix_ids",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_model_inference.py",
+      "target_module": "helix_ids.models.helix_ids",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_models/test_helix_full.py",
+      "target_module": "helix_ids.config.helix_full_config",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_models/test_helix_full.py",
+      "target_module": "helix_ids.models.full",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_models/test_helix_ids.py",
+      "target_module": "helix_ids.models.helix_ids",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_models/test_loss.py",
+      "target_module": "helix_ids.models.loss",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_operations/test_baseline_freeze.py",
+      "target_module": "helix_ids.models.full",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_operations/test_baseline_freeze.py",
+      "target_module": "helix_ids.operations.baseline_freeze",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_operations/test_baseline_freeze.py",
+      "target_module": "helix_ids.contracts",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_operations/test_baseline_freeze.py",
+      "target_module": "helix_ids.governance",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_operations/test_baseline_freeze.py",
+      "target_module": "helix_ids.utils.export",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_operations/test_deployment_manifest_injection.py",
+      "target_module": "helix_ids.contracts",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_operations/test_deployment_manifest_injection.py",
+      "target_module": "helix_ids.governance",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_operations/test_deployment_manifest_injection.py",
+      "target_module": "helix_ids.governance.provenance",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_operations/test_deployment_manifest_injection.py",
+      "target_module": "helix_ids.models.full",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_operations/test_deployment_manifest_injection.py",
+      "target_module": "helix_ids.utils.export",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_operations/test_deployment_manifest_injection.py",
+      "target_module": "helix_ids.operations.baseline_freeze",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_operations/test_deployment_manifest_injection.py",
+      "target_module": "helix_ids.operations.baseline_freeze",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_operations/test_deployment_manifest_injection.py",
+      "target_module": "helix_ids.models.adaptation.transfer_learning",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_operations/test_deployment_manifest_injection.py",
+      "target_module": "helix_ids.models.adaptation.transfer_learning",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_operations/test_deployment_manifest_injection.py",
+      "target_module": "scripts.evaluation.benchmarks",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_operations/test_deployment_manifest_injection.py",
+      "target_module": "scripts.evaluation.benchmarks",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_operations/test_inference_runtime.py",
+      "target_module": "helix_ids.contracts.schema_contract",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_operations/test_inference_runtime.py",
+      "target_module": "helix_ids.models.full",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_operations/test_inference_runtime.py",
+      "target_module": "helix_ids.operations.inference_runtime",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_operations/test_inference_runtime.py",
+      "target_module": "helix_ids.governance",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_operations/test_inference_runtime.py",
+      "target_module": "helix_ids.utils.export",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_operations/test_monitoring.py",
+      "target_module": "helix_ids.operations.monitoring",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_operations/test_serve_rest_metrics.py",
+      "target_module": "scripts.operations.serve_rest",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_per_class_metrics.py",
+      "target_module": "helix_ids.metrics",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_prepare_canonical_artifacts.py",
+      "target_module": "scripts.training.prepare_canonical_artifacts",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_prepare_canonical_artifacts.py",
+      "target_module": "helix_ids.contracts",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_provenance.py",
+      "target_module": "helix_ids.governance",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_regression_taxonomy_contracts.py",
+      "target_module": "helix_ids.contracts.attack_taxonomy",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_regression_taxonomy_contracts.py",
+      "target_module": "helix_ids.contracts.attack_taxonomy",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_runtime_invariants.py",
+      "target_module": "helix_ids.contracts",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_runtime_invariants.py",
+      "target_module": "helix_ids.data.feature_harmonization",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_runtime_invariants.py",
+      "target_module": "helix_ids.governance",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_runtime_invariants.py",
+      "target_module": "helix_ids.models.full",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_runtime_invariants.py",
+      "target_module": "helix_ids.operations.inference_runtime",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_runtime_invariants.py",
+      "target_module": "helix_ids.utils.export",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_runtime_monitoring_hardening.py",
+      "target_module": "helix_ids.contracts",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_runtime_monitoring_hardening.py",
+      "target_module": "helix_ids.data.feature_harmonization",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_runtime_monitoring_hardening.py",
+      "target_module": "helix_ids.data.multi_dataset_loader",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_runtime_monitoring_hardening.py",
+      "target_module": "helix_ids.operations.monitoring",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_runtime_monitoring_hardening.py",
+      "target_module": "helix_ids.governance",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_runtime_monitoring_hardening.py",
+      "target_module": "helix_ids.utils.export",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_runtime_monitoring_hardening.py",
+      "target_module": "helix_ids.governance",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_runtime_monitoring_hardening.py",
+      "target_module": "helix_ids.utils.export",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_runtime_monitoring_hardening.py",
+      "target_module": "helix_ids.governance",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_runtime_monitoring_hardening.py",
+      "target_module": "helix_ids.utils.export",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_schema_contract.py",
+      "target_module": "helix_ids.data.feature_harmonization",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_schema_registry_validation.py",
+      "target_module": "scripts.ci.validate_schema_registry",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_schema_registry_validation.py",
+      "target_module": "scripts.ci.validate_schema_registry",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_schema_registry_validation.py",
+      "target_module": "scripts.ci.validate_schema_registry",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_schema_registry_validation.py",
+      "target_module": "scripts.ci.validate_schema_registry",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_schema_registry_validation.py",
+      "target_module": "scripts.ci.validate_schema_registry",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_schema_registry_validation.py",
+      "target_module": "scripts.ci.validate_schema_registry",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_schema_registry_validation.py",
+      "target_module": "scripts.ci.validate_schema_registry",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_schema_registry_validation.py",
+      "target_module": "scripts.ci.validate_schema_registry",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_schema_registry_validation.py",
+      "target_module": "scripts.ci.validate_schema_registry",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_schema_registry_validation.py",
+      "target_module": "scripts.ci.validate_schema_registry",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_schema_registry_validation.py",
+      "target_module": "scripts.ci.validate_schema_registry",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_schema_registry_validation.py",
+      "target_module": "scripts.ci.validate_schema_registry",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_schema_registry_validation.py",
+      "target_module": "scripts.ci.validate_schema_registry",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_schema_registry_validation.py",
+      "target_module": "scripts.ci.validate_schema_registry",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_schema_registry_validation.py",
+      "target_module": "scripts.ci.validate_schema_registry",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_schema_registry_validation.py",
+      "target_module": "scripts.ci.validate_governance_docs",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_schema_registry_validation.py",
+      "target_module": "scripts.ci.validate_governance_docs",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_schema_registry_validation.py",
+      "target_module": "scripts.ci.validate_governance_docs",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_schema_registry_validation.py",
+      "target_module": "scripts.ci.validate_governance_docs",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_schema_registry_validation.py",
+      "target_module": "scripts.ci.validate_governance_docs",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_training/test_extracted_data_components.py",
+      "target_module": "scripts.training.data",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_training/test_extracted_evaluation.py",
+      "target_module": "scripts.training.evaluation",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_training_direct_adaptation_eval.py",
+      "target_module": "scripts.training",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_transfer_learning_da_schedule.py",
+      "target_module": "helix_ids.models.adaptation.transfer_learning",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_utils/test_metrics.py",
+      "target_module": "helix_ids.utils.metrics",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/test_validation_artifacts.py",
+      "target_module": "scripts.training.validation.artifacts",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_validation_calibrator.py",
+      "target_module": "scripts.training.validation.calibrator",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_validation_calibrator.py",
+      "target_module": "scripts.training.validation",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_validation_calibrator.py",
+      "target_module": "scripts.training.validation",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_validation_calibrator.py",
+      "target_module": "scripts.training.validation",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_validation_calibrator.py",
+      "target_module": "scripts.training.validation",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_validation_calibrator.py",
+      "target_module": "scripts.training.validation",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/test_validation_evaluator.py",
+      "target_module": "scripts.training.validation.evaluator",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_evaluation_orchestrator.py",
+      "target_module": "scripts.training.evaluation",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_execution_batch_processor.py",
+      "target_module": "scripts.training.execution.batch_processor",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_execution_batch_processor.py",
+      "target_module": "scripts.training.losses",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_execution_batch_processor.py",
+      "target_module": "helix_ids.models.helix_ids_full",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/training/test_execution_epoch_runner.py",
+      "target_module": "scripts.training.execution.batch_processor",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_execution_epoch_runner.py",
+      "target_module": "scripts.training.execution.epoch_runner",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_execution_epoch_runner.py",
+      "target_module": "scripts.training.execution.warmup_manager",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_execution_epoch_runner.py",
+      "target_module": "helix_ids.models.helix_ids_full",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/training/test_execution_epoch_runner.py",
+      "target_module": "scripts.training.losses",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_execution_orchestrator.py",
+      "target_module": "scripts.training.execution.training_orchestrator",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_execution_warmup_manager.py",
+      "target_module": "scripts.training.execution.warmup_manager",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_execution_warmup_manager.py",
+      "target_module": "helix_ids.models.helix_ids_full",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/training/test_extracted_diagnostics.py",
+      "target_module": "scripts.training.diagnostics",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_extracted_governance.py",
+      "target_module": "scripts.training.governance",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_extracted_governance.py",
+      "target_module": "scripts.training.governance.reporting",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_extracted_governance.py",
+      "target_module": "scripts.training.governance.reporting",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_extracted_governance.py",
+      "target_module": "scripts.training.governance.reporting",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_extracted_losses.py",
+      "target_module": "scripts.training.losses",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_extracted_orchestration.py",
+      "target_module": "helix_ids.config.helix_full_config",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/training/test_extracted_orchestration.py",
+      "target_module": "helix_ids.data.learnability_contract",
+      "source_category": "tests",
+      "target_category": "src"
+    },
+    {
+      "source": "tests/training/test_extracted_orchestration.py",
+      "target_module": "scripts.training.orchestration",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_extracted_orchestration.py",
+      "target_module": "scripts.training.orchestration.run_orchestrator",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_extracted_orchestration.py",
+      "target_module": "scripts.training.orchestration.run_orchestrator",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_extracted_orchestration.py",
+      "target_module": "scripts.training.orchestration.run_orchestrator",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_extracted_orchestration.py",
+      "target_module": "scripts.training.orchestration.run_orchestrator",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_extracted_orchestration.py",
+      "target_module": "scripts.training.orchestration.run_orchestrator",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_extracted_orchestration.py",
+      "target_module": "scripts.training.orchestration.run_orchestrator",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_extracted_orchestration.py",
+      "target_module": "scripts.training.orchestration",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_extracted_phase_orchestration.py",
+      "target_module": "scripts.training.scheduler",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_extracted_phase_orchestration.py",
+      "target_module": "scripts.training.scheduler.phase_orchestrator",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_extracted_representation.py",
+      "target_module": "scripts.training.losses.loss_registry",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_extracted_representation.py",
+      "target_module": "scripts.training.representation.centroid_manager",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_extracted_representation.py",
+      "target_module": "scripts.training.representation.representation_coordinator",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_extracted_scheduler.py",
+      "target_module": "scripts.training.scheduler",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_recovery_manager.py",
+      "target_module": "scripts.training.core.recovery_manager",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_recovery_manager.py",
+      "target_module": "scripts.training.core.trainer_state",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_trainer_facade.py",
+      "target_module": "scripts.training.core.trainer_facade",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_trainer_facade.py",
+      "target_module": "scripts.training.core.trainer_state",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_trainer_state.py",
+      "target_module": "scripts.training.core.trainer_state",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_validation_orchestrator.py",
+      "target_module": "scripts.training.validation",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_wrapper_removal.py",
+      "target_module": "scripts.training.core",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_wrapper_removal.py",
+      "target_module": "scripts.training.core",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_wrapper_removal.py",
+      "target_module": "scripts.training.core",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_wrapper_removal.py",
+      "target_module": "scripts.training.core",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_wrapper_removal.py",
+      "target_module": "scripts.training.losses",
+      "source_category": "tests",
+      "target_category": "scripts"
+    },
+    {
+      "source": "tests/training/test_wrapper_removal.py",
+      "target_module": "scripts.training.scheduler",
+      "source_category": "tests",
+      "target_category": "scripts"
+    }
+  ],
+  "cycle_detection": "No cycles detected"
+}

@@ -274,7 +274,7 @@ class HelixInferenceRuntime:
                     f"{context}: output[{index}] max abs diff {diff:.6g} exceeds threshold {max_abs_diff:.6g}"
                 )
 
-    def _write_export_sidecars(self, output_path: Path, manifest: Mapping[str, Any]) -> None:
+    def _write_export_sidecars(self, output_path: Path, manifest: dict[str, Any]) -> None:
         contract = self._contract_metadata()
         sidecars = write_contract_sidecars(output_path, contract)
         finalize_export_artifact(output_path, manifest, sidecars=sidecars)

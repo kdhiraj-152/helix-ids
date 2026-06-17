@@ -1,6 +1,0 @@
-{
-  "dataset": "cicids2018",
-  "note": "No fixed train/test split recorded; benchmark uses full cleaned dataset for governance hashing.",
-  "train_indices": [],
-  "test_indices": []
-}

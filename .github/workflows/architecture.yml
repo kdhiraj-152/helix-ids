@@ -1,0 +1,172 @@
+name: Architecture Lockdown
+
+on:
+  push:
+    branches: [main, release/*]
+    paths:
+      - "src/**"
+      - "scripts/**"
+      - "tests/architecture/**"
+      - ".github/workflows/architecture.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "scripts/**"
+      - "tests/architecture/**"
+
+env:
+  PYTHONPATH: src
+
+jobs:
+  architecture_check:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            requirements-lock.txt
+            pyproject.toml
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements-lock.txt ]; then pip install -r requirements-lock.txt; fi
+          pip install pytest pytest-cov
+
+      - name: 1. Check frozen trainer size limits
+        run: |
+          echo "=== HelixFullTrainer LOC gate (≤ 2000) ==="
+          python3 -c "
+import ast
+from pathlib import Path
+root = Path('scripts/training')
+f = root / 'train_helix_ids_full.py'
+tree = ast.parse(f.read_text('utf-8'))
+for node in ast.walk(tree):
+    if isinstance(node, ast.ClassDef) and node.name == 'HelixFullTrainer':
+        loc = node.end_lineno - node.lineno + 1
+        print(f'HelixFullTrainer: {loc} LOC (gate: ≤ 2000)')
+        assert loc <= 2000, f'FAIL: {loc} LOC exceeds freeze gate of 2000'
+        methods = sum(1 for n in node.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)))
+        print(f'HelixFullTrainer: {methods} methods (gate: ≤ 100)')
+        assert methods <= 100, f'FAIL: {methods} methods exceeds freeze gate of 100'
+        break
+print('PASS: Trainer size within freeze limits')
+"
+
+      - name: 2. Verify zero reverse dependencies
+        run: |
+          echo "=== src -> scripts imports ==="
+          python3 -c "
+import ast
+from pathlib import Path
+src = Path('src/helix_ids')
+project_root = Path('.')
+offenders = []
+for pyfile in sorted(src.rglob('*.py')):
+    if pyfile.name == '__init__.py':
+        continue
+    try:
+        tree = ast.parse(pyfile.read_text('utf-8'))
+    except SyntaxError:
+        continue
+    targets = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                targets.add(alias.name.split('.')[0])
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            targets.add(node.module.split('.')[0])
+    if 'scripts' in targets:
+        rel = pyfile.relative_to(project_root).as_posix()
+        offenders.append(rel)
+if offenders:
+    print(f'FAIL: Reverse deps found ({len(offenders)}):')
+    for o in offenders:
+        print(f'  {o}')
+    exit(1)
+print('PASS: Zero reverse dependencies (src -> scripts = 0)')
+"
+
+      - name: 3. Verify zero cycles
+        run: |
+          echo "=== Package cycle detection ==="
+          python3 -c "
+import ast
+from pathlib import Path
+project_root = Path('.')
+boundaries = {
+    'src/helix_ids': 'helix_ids',
+    'scripts/training': 'scripts.training',
+}
+boundary_by_prefix = {str(project_root / d): label for d, label in boundaries.items()}
+edges = []
+for dirpath_str, label in boundary_by_prefix.items():
+    dirpath = Path(dirpath_str)
+    if not dirpath.is_dir():
+        continue
+    for pyfile in sorted(dirpath.rglob('*.py')):
+        if any(p.startswith('.') for p in pyfile.parent.relative_to(dirpath).parts):
+            continue
+        try:
+            tree = ast.parse(pyfile.read_text('utf-8'))
+        except SyntaxError:
+            continue
+        for node in ast.walk(tree):
+            mod_name = None
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    mod_name = alias.name
+                    break
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                mod_name = node.module
+            if mod_name:
+                mod_path = mod_name.replace('.', '/')
+                for _dp, lbl in boundary_by_prefix.items():
+                    boundary_top = lbl.split('.')[0]
+                    if mod_path.split('/')[0] == boundary_top:
+                        if lbl != label:
+                            edges.append((label, lbl))
+                        break
+# DFS cycle detection
+labels = list(boundaries.values())
+adj = {lbl: [] for lbl in labels}
+for src, tgt in edges:
+    adj[src].append(tgt)
+WHITE, GRAY, BLACK = 0, 1, 2
+color = dict.fromkeys(labels, WHITE)
+def dfs(node, path=None):
+    if path is None:
+        path = []
+    color[node] = GRAY
+    path.append(node)
+    for neighbor in adj.get(node, []):
+        if color[neighbor] == GRAY:
+            cycle_start = path.index(neighbor)
+            return path[cycle_start:] + [neighbor]
+        if color[neighbor] == WHITE:
+            result = dfs(neighbor, path)
+            if result:
+                return result
+    path.pop()
+    color[node] = BLACK
+    return None
+for lbl in labels:
+    if color[lbl] == WHITE:
+        cycle = dfs(lbl)
+        if cycle:
+            print(f'FAIL: Cycle detected: {\" -> \".join(cycle)}')
+            exit(1)
+print('PASS: Zero package-level cycles')
+"
+
+      - name: 4. Run architecture pytest suite
+        run: |
+          python -m pytest tests/architecture/ -v --tb=short

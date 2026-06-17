@@ -258,4 +258,6 @@ def _fallback_label(known: set[str]) -> str:
         return "Unknown"
     if "Normal" in known:
         return "Normal"
+    if not known:
+        return "Normal"
     return next(iter(sorted(known)))

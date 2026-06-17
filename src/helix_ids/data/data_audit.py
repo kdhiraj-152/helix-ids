@@ -201,6 +201,15 @@ class DataAudit:
         """
         logger.info(f"Auditing duplicates for {df.shape[0]} rows")
 
+        if len(df) == 0:
+            return {
+                "exact_duplicates": 0,
+                "exact_dup_sample_indices": [],
+                "unique_rows": 0,
+                "rows_before_dedup": 0,
+                "duplicates_pct": 0.0,
+            }
+
         # Exact duplicates
         exact_dup_mask = df.duplicated(keep=False)
         exact_dup_count = exact_dup_mask.sum()

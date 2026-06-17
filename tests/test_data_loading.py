@@ -8,11 +8,15 @@ Tests cover:
 - Train/val/test split ratios
 """
 
-import json
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
+
+# Skip all data-dependent tests when raw datasets are not available
+if not (Path("data/nsl_kdd/train.csv").exists() and Path("data/unsw_nb15/UNSW_NB15_training-set.csv").exists()):
+    pytest.skip("Dataset files not available locally (gitignored). Run scripts/data/download_datasets.py first.", allow_module_level=True)
 
 # =============================================================================
 # Constants
