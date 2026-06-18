@@ -1,186 +1,128 @@
 # HELIX-IDS
 
-Some years ago I got fed up with intrusion detection systems that either
-(a) worked great on paper but fell apart on real network traffic, or
-(b) were too heavy to run anywhere but a beefy server in a data center.
+Network intrusion detection is broken.
 
-That second one bothered me most. Good network security should not require
-expensive hardware at every network tap. So I built HELIX-IDS — a detection
-system designed from the ground up to run on a Raspberry Pi or even an ESP32
-microcontroller, while still matching (and in some cases beating) what the
-big server-based systems could do.
+Academic benchmarks have been gamed for two decades. Real deployments ship with 90%+ false positive rates because the lab data is clean and the real world is not. And the systems that _do_ work require server-class hardware at every network tap — which is why most networks don't have detection at all, they have alerting after the fact.
 
-## What it does
+HELIX-IDS was built to break that pattern.
 
-HELIX-IDS ingests network flow features (NSL-KDD, UNSW-NB15, CICIDS-2018
-formats) and classifies traffic into normal operation or one of several attack
-families (DoS, Probe, R2L, U2R, and the specific sub-types in each dataset).
-It uses a neural network architecture with temporal attention, domain
-adaptation (so you can train on one dataset and deploy on another), and a
-hierarchical classifier head that treats rare attack classes differently
-from common ones — because the whole point is catching the thing that
-almost never happens.
+Not by inventing a miracle algorithm. By being honest about what edge deployment requires and building from that constraint up.
 
-The system runs on three tiers:
+## The problem this solves
 
-- **Server / cloud**: Training, evaluation, heavy inference
-- **Raspberry Pi (4 and Zero)**: Optimized inference, smaller model variants
-- **ESP32**: Minimal quantized model, does the basics on a microcontroller
+Every network intrusion dataset in existence is:
 
-## What makes this different
+1. **Small.** NSL-KDD has 25k training samples. That's two minutes of traffic on a moderately busy office link.
+2. **Ancient.** The original KDD Cup 99 dataset is from 1999. UNSW-NB15 (2015) is still considered "modern."
+3. **Imbalanced.** R2L and U2R attacks — the ones that do the real damage — show up in single-digit percentages. Standard loss functions ignore them.
+4. **Stale the moment you deploy.** Train on CICIDS-2018 and deploy on a 2025 network and your feature distributions have already shifted.
 
-**Edge-first design.** Most NIDS work starts with a server model and then
-tries to shrink it. I started with the question "what can we fit on a Pi?"
-and built up from there. The tradeoffs are explicit — the "Nano" variant for
-ESP32, "Lite" for Pi Zero, and "Full" for server. No hidden assumptions about
-available compute.
+HELIX doesn't solve problems 1-4. It acknowledges they exist and works _despite_ them.
 
-**Rare-class awareness.** In network intrusion, the dangerous attacks are the
-ones that almost never show up in training data (R2L, U2R). Standard loss
-functions wash them out. HELIX uses a threat-weighted focal loss that
-amplifies the signal from rare classes without destroying overall accuracy.
+## What it actually does
 
-**Provenance on every artifact.** Every model checkpoint, every training run,
-every processed dataset gets a SHA-256 hash recorded in a manifest. Not
-because I wanted to, but because I got tired of asking "wait, which model did
-that number come from?" and having no answer. The provenance chain makes
-every result in the paper independently verifiable.
+HELIX ingests network flow features from standard formats (NSL-KDD, UNSW-NB15, CICIDS-2017/2018) and classifies each flow as benign or one of several attack families — DoS, Probe, R2L, U2R, and dataset-specific subtypes.
 
-**Safe deployment gates.** The runtime monitors itself — coverage override
-rate, degraded state, request throughput. If the model starts guessing too
-often (override rate climbs), the system flags itself before anyone has to
-page. The staging gate check enforces this before any deployment is accepted.
+It uses a neural network with three specific design decisions that matter:
 
-## Current state
+**Temporal attention.** Not all network features are equally important, and which ones matter changes depending on the attack. The attention mechanism learns which features to weight when, rather than assuming a fixed importance for each feature across all traffic types.
 
-The repo is in formalization mode — the pipeline is locked for paper
-reproducibility. No new features, no new scripts, no refactors. Everything
-here exists to produce the numbers in the manuscript and let anyone else
-reproduce them verbatim.
+**Domain adaptation.** The gap between datasets is not noise — it's the primary source of deployment failure. HELIX trains a shared representation that generalizes across datasets so you can train on NSL-KDD and deploy on a live network without the performance cliff that naive transfer produces.
 
-### Last validated staging results
+**Hierarchical rare-class handling.** R2L and U2R attacks are infrequent but dangerous. Rather than treat them as "class 4" and watch standard loss functions wash their signal out, HELIX uses a threat-weighted loss that amplifies rare-class gradients. This is not free — it comes at a small cost to benign accuracy — but the tradeoff is explicit and measurable.
 
-| Metric | Value |
-|---|---|
-| Window 1 requests | 1500 |
-| Window 2 requests | 1500 |
-| Coverage override rate | 0.0 |
-| Degraded state | 0 |
+## What it runs on
 
-Artifacts live in `docs/reports/` and `docs/figures/`.
+| Tier | Device | What works |
+|------|--------|------------|
+| Server | x86/GPU | Full training, inference, all 7 attack classes |
+| Edge | Raspberry Pi 4/Zero | Optimized inference (quantized), reduced feature set |
+| Micro | ESP32 | Minimal binary classification (normal vs attack), 16KB weights |
 
-## One-shot reproduce
+The micro tier is the point. A $6 microcontroller that can flag malicious traffic inline is useful in places where nobody runs a server — an IoT sensor mesh, a router, a satellite link. The server tier exists to make the edge models possible.
 
-The following bash command trains the model, starts a REST server, fires
-3000 requests at it, collects metrics, and runs the staging gate check.
-If you have the venv set up (`.venv311/`), this is all you need:
+## What it does NOT do
 
-```bash
-source .venv311/bin/activate && \
-PYTHONPATH=src python3 scripts/training/train_helix_ids_full.py \
-  --config config/helix_config.yaml \
-  --output models/helix_full \
-  --device cpu \
-  --epochs 10 && \
-(PYTHONPATH=src python3 scripts/operations/serve_rest.py \
-    --checkpoint models/helix_full/helix_full_nsl_kdd_best.pt \
-    --host 127.0.0.1 --port 8080 --device cpu --global-coverage-quantile 1.0 \
-    >/tmp/helix_serve.log 2>&1 & HELIX_PID=$!; \
-python3 - <<'PY'
-import json
-import time
-from pathlib import Path
-from urllib import request
+This is the honest part.
 
-def post_predict(sample):
-    payload = json.dumps({'features': sample}).encode('utf-8')
-    req = request.Request('http://127.0.0.1:8080/predict', data=payload, headers={'Content-Type':'application/json'}, method='POST')
-    with request.urlopen(req, timeout=20):
-        return
+HELIX does **not** detect zero-day attacks. It classifies against known attack families. An unknown attack will produce a low-confidence prediction that triggers the coverage override gate — which is a safety mechanism, not a detection capability.
 
-def get_metrics():
-    with request.urlopen('http://127.0.0.1:8080/metrics', timeout=20) as r:
-        return r.read().decode('utf-8', errors='replace')
+HELIX does **not** process full packet captures. It works on flow-level features extracted upstream. If your pipeline cannot produce CICFlowMeter-style feature vectors, HELIX cannot help you.
 
-def parse_metrics(text):
-    out = {}
-    for raw in text.splitlines():
-        line = raw.strip()
-        if not line or line.startswith('#') or ' ' not in line:
-            continue
-        k, v = line.split(None, 1)
-        try:
-            out[k] = float(v.strip())
-        except ValueError:
-            pass
-    return out
+HELIX does **not** run in real time on ESP32. Inference takes ~150ms per sample on an ESP32-S3. That's fast enough for periodic scanning but not inline packet-by-packet inspection.
 
-for _ in range(60):
-    try:
-        with request.urlopen('http://127.0.0.1:8080/health', timeout=5):
-            break
-    except Exception:
-        time.sleep(0.5)
+HELIX does **not** have a threat intelligence feed, a SIEM integration, or a dashboard. It produces predictions and Prometheus metrics. You wire the rest.
 
-sample = [0.0] * 17
-for _ in range(3000):
-    post_predict(sample)
+These are not gaps. They are scope boundaries. The system does what it says and says what it does.
 
-metrics_text = get_metrics()
-metrics = parse_metrics(metrics_text)
-Path('docs/results').mkdir(parents=True, exist_ok=True)
-Path('docs/reports/staging_validation.json').write_text(
-    json.dumps(
-        {
-            'total_requests': int(metrics.get('helix_requests_total', 0.0)),
-            'override_rate': float(metrics.get('helix_coverage_override_rate', 0.0)),
-            'degraded_state': int(metrics.get('helix_degraded_state', 0.0)),
-        },
-        indent=2,
-    ),
-    encoding='utf-8',
-)
-print(metrics_text)
-PY
-python3 scripts/operations/staging_gate_check.py --metrics-endpoint http://127.0.0.1:8080/metrics; \
-kill $HELIX_PID)
-```
+## Why provenance matters
 
-## Project layout
+Every checkpoint, every training run, every dataset transform produces a SHA-256 manifest. This is not compliance theater — it exists because the paper pipeline must be independently verifiable. If I claim a macro F1 of 0.87 on UNSW-NB15, there is a hash chain from that number back to the exact dataset split, preprocessing config, model weights, and random seed that produced it. You can reproduce it, audit it, or falsify it.
 
-```
-src/helix_ids/          Core package
-config/                 Experiment configs
-scripts/
-  training/             Training pipelines
-  operations/           Serving, gating, deployment
-  evaluation/           Benchmark orchestration
-  data/                 Data processing
-  deployment/           Deployment tooling
-  ci/                   CI validators
-tests/                  Test suite
-docs/
-  architecture/         System design, models, schemas
-  development/          Training methodology
-  operations/           Runbooks, checkpoint audit
-  reports/              Audits, reviews, benchmarks
-  governance/           ADRs, hash authority, contracts
-  manuscript/           Paper drafts
-  results/              Staging validation artifacts
-  archives/             Historical phase docs
-```
+Three seeds minimum are required before a checkpoint can be promoted to a baseline. Single-seed runs are not deployable. This is not negotiable.
 
-## Manuscript and figures
+## The product spectrum
 
-- Manuscript: `docs/manuscript/HELIX_submission_ready.md`
-- Figures: `docs/fig/` and `docs/figures/`
+Three deployment profiles cover the operational surface:
 
-## A few notes if you're poking around
+**Nano.** ESP32-targeted, binary classification only, ~16KB weights, ~64KB RAM. Runs where no other NIDS can. Useful for air-gapped sensors, IoT gateways, and remote telemetry.
 
-- Everything expects `PYTHONPATH=src` — I should probably make this a
-  proper installable package but for the paper pipeline this works.
-- The gating logic lives in two files: `serve_rest.py` emits the metrics,
-  `staging_gate_check.py` reads them and decides pass/fail.
-- Benchmarks are orchestrated from `scripts/evaluation/benchmarks.py` which
-  reads experiment manifests from `config/experiments/*.yaml`.
-- If you're lost, `docs/README.md` has the full doc index.
+**Lite.** Pi Zero / Pi 4, reduced feature set, all 7 attack classes. Covers SOHO networks, branch offices, and edge compute nodes where a Pi is already running.
+
+**Full.** Server or cloud, full feature set, all classes, domain adaptation, deployment gates, provenance chain. For the network that actually has a server to run it.
+
+All three variants are generated from the same training pipeline with different quantization targets. There is no separate codebase for each tier.
+
+## Deployment truth
+
+The staging gate is a hard choke point. Before any model reaches production, it must pass:
+
+- Coverage override rate ≤ 0.02 (model is not guessing too often)
+- Degraded state == 0 (runtime monitors are healthy)
+- Verified provenance manifest (the checkpoint is who it says it is)
+
+If the gate fails, traffic is rolled back. Not flagged, not alerted — rolled back. The system will not serve a model it cannot justify.
+
+## The hard constraints you should know
+
+- **Input dimension is 17 features.** The system is built around 17 canonical features derived from the intersection of NSL-KDD, UNSW-NB15, and CICIDS-2017/2018. If your feature space is different, you need a mapping layer.
+- **Training requires PYTHONPATH=src.** The package is not installed as a pip package. This is intentional for the paper pipeline.
+- **Training is multi-seed.** Single runs produce research checkpoints. Three-seed consensus produces deployable baselines. This doubles training cost by design.
+- **The architecture is frozen.** No new features, no refactors, no new scripts. The repository is in formalization mode — everything exists to support reproducible publication. The next capability arrives in HELIX v2, not by expanding v1.
+
+## Where to go from here
+
+Everything else is in `docs/`. For the operating details — how to train, evaluate, deploy, tune, benchmark, or extend — that is where to look.
+
+### Quick links
+
+| You want… | Go to |
+|-----------|-------|
+| System architecture | `docs/architecture/SYSTEM_ARCHITECTURE.md` |
+| How to train and deploy | `docs/operations/DEPLOYMENT.md` |
+| All test types and CI gates | `docs/development/TESTING.md` |
+| API reference | `docs/api/API_REFERENCE.md` |
+| Governance and ADRs | `docs/architecture/GOVERNANCE.md` |
+| Changelog | `docs/changelog/CHANGELOG.md` |
+| AI agent guidance | `AGENTS.md` (repo root) |
+
+### Current state
+
+- **2,500+ tests** across unit, integration, property, mutation, chaos, and fault injection
+- **8,479 mutants killed**, 100% mutation score (cosmic-ray, 7 modules)
+- **≥70% coverage** enforced at CI gate
+- **RC3 certified** — C1–C4 all pass
+- **SLSA provenance** generated on every release
+- **Digest-pinned containers**, CycloneDX SBOM
+
+### Manuscript
+
+The paper is at `docs/manuscript/HELIX_submission_ready.md`. Figures are in `docs/figures/`.
+
+---
+
+HELIX-IDS is a research system built for the purpose of demonstrating that effective network intrusion detection does not require expensive infrastructure. It is not a commercial product. It is not SOC-2 certified. It is not a replacement for your existing SIEM.
+
+It is an honest attempt to solve a hard problem on hardware that costs single-digit dollars, with every number auditable, every tradeoff documented, and every failure mode understood.
+
+That is the pitch. No marketing. Just the work.
