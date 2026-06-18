@@ -10,14 +10,12 @@ Covers:
 from __future__ import annotations
 
 import logging
-
 from unittest.mock import MagicMock
 
 import pytest
 import torch
 
 from scripts.training.evaluation import EvaluationOrchestrator
-
 
 # ======================================================================
 #  Fixtures

@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import ANY, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 import torch
@@ -395,7 +395,6 @@ class TestResolveRestart:
         mgr = RestartManager(checkpoint_dir=ckpt_dir, require_governance=False)
 
         # Patch _load_checkpoint_metadata to raise
-        original_load = mgr._load_checkpoint_metadata
 
         def failing_load(path):
             raise RuntimeError("corrupted tensor data")
@@ -901,7 +900,7 @@ class TestRestartManagerInit:
         assert not new_ckpt.exists()
         assert not new_sentinel.exists()
 
-        mgr = RestartManager(
+        RestartManager(
             checkpoint_dir=new_ckpt,
             crash_sentinel_dir=new_sentinel,
             require_governance=False,

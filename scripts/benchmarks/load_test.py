@@ -28,19 +28,13 @@ Results written to benchmarks/load_test_results.json
 from __future__ import annotations
 
 # ruff: noqa: E402
-
 import argparse
-import gc
 import json
-import logging
-import math
-import os
 import statistics
 import sys
 import tempfile
 import time
-import tracemalloc
-from concurrent.futures import ThreadPoolExecutor, as_completed, wait
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock
@@ -62,7 +56,6 @@ except ImportError:
 
 try:
     import torch
-    import torch.nn as nn
 except ImportError:
     torch = None
 
@@ -237,14 +230,14 @@ def _make_restart_manager_worker(tmpdir: Path):
             "best_val_loss": 0.05,
             "state_dict": {},
         }
-        ckpt_path = ckpt_dir / f"checkpoint_epoch_005_step_1000.pt"
+        ckpt_path = ckpt_dir / "checkpoint_epoch_005_step_1000.pt"
         torch.save(fake_ckpt, ckpt_path)
 
         # Write crash sentinel
         mgr.write_crash_sentinel(reason="load_test")
 
         t0 = time.perf_counter()
-        decision = mgr.resolve_restart()
+        mgr.resolve_restart()
         return time.perf_counter() - t0
 
     return worker
@@ -252,7 +245,7 @@ def _make_restart_manager_worker(tmpdir: Path):
 
 def _make_logger_worker():
     """Worker that emits structured log messages."""
-    from helix_ids.operations.logging import get_logger, LogContext
+    from helix_ids.operations.logging import LogContext, get_logger
 
     logger = get_logger("loadtest")
 
@@ -303,7 +296,7 @@ def _checkpoint_save_storm(model: Any, concurrency: int = 50):
 
 def _log_flood(concurrency: int = 100, messages_per_worker: int = 100):
     """Flood the structured logger with concurrent messages."""
-    from helix_ids.operations.logging import get_logger, LogContext
+    from helix_ids.operations.logging import LogContext, get_logger
 
     logger = get_logger("flood_test")
 

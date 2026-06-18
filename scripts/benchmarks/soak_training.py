@@ -13,7 +13,6 @@ Usage:
 import json
 import sys
 import time
-import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -24,8 +23,7 @@ if str(SRC_DIR) not in sys.path:
 
 import torch
 import torch.nn as nn
-
-from soak_telemetry import collect_snapshot, write_snapshot, summarize_run, ARTIFACTS_DIR
+from soak_telemetry import ARTIFACTS_DIR, collect_snapshot, summarize_run, write_snapshot
 
 
 def training_step(model: nn.Module, batch_size: int = 256, input_dim: int = 41) -> float:
@@ -85,7 +83,7 @@ def certify_24h_training(
                 custom = {"total_steps": step_count}
 
             snapshot = collect_snapshot(run_id, custom_metrics=custom)
-            path = write_snapshot(snapshot, run_id)
+            write_snapshot(snapshot, run_id)
             elapsed_h = (now - (end_time - duration_hours * 3600)) / 3600
 
             print(
@@ -103,7 +101,7 @@ def certify_24h_training(
             last_snapshot_time = now
 
     # Final summary
-    print(f"\n=== Training Certification Complete ===")
+    print("\n=== Training Certification Complete ===")
     trends = summarize_run(run_id)
     print(json.dumps(trends, indent=2))
 

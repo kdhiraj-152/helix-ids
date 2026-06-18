@@ -35,7 +35,6 @@ import pytest
 import torch
 
 from helix_ids import __version__ as HELIX_IDS_VERSION
-from helix_ids.contracts import CONTRACT_VERSION, FEATURE_ORDER_HASH
 from helix_ids.contracts.schema_contract import (
     CANONICAL_BINARY_CLASSES,
     CANONICAL_FAMILY_CLASSES,
@@ -46,10 +45,9 @@ from helix_ids.contracts.schema_contract import (
     runtime_contract_payload,
 )
 from helix_ids.governance.orchestrator import (
-    DEFAULT_STAGE_SEQUENCE,
     GateOrchestrator,
 )
-from helix_ids.governance.parameters import DEFAULT_GOVERNANCE_POLICY, StageTimeouts
+from helix_ids.governance.parameters import DEFAULT_GOVERNANCE_POLICY
 from helix_ids.governance.promotion import (
     SeedRunSummary,
     aggregate_seed_runs,
@@ -62,7 +60,6 @@ from helix_ids.governance.provenance import (
     write_contract_sidecars,
 )
 from helix_ids.models.helix_ids_full import (
-    HelixFullConfig,
     HelixIDSFull,
     MultiTaskLoss,
 )

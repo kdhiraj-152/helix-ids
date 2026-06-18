@@ -35,10 +35,9 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
 from sklearn.metrics import precision_recall_curve, roc_auc_score
-from torch.utils.data import DataLoader, Dataset, Sampler
+from torch.utils.data import DataLoader, Dataset
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SRC_DIR = PROJECT_ROOT / "src"
@@ -89,6 +88,12 @@ REQUIRED_GEOMETRY_FEATURE_DIM = 17
 MIN_FEATURE_STD = 1e-6
 from helix_ids.data.feature_harmonization import ENGINEERED_FEATURE_NAMES  # noqa: E402
 
+# Import core package (Phase 18)
+from scripts.training.core import RecoveryManager  # noqa: E402
+
+# Import extracted dataset/sampler components (Phase 12B-3)
+from scripts.training.data.dataset_builder import MultiTaskNumpyDataset  # noqa: E402
+
 # ============================================================================
 # Import extracted evaluation components (Phase 16)
 # ============================================================================
@@ -96,16 +101,6 @@ from scripts.training.evaluation import (  # noqa: I001
     EvaluationOrchestrator,  # type: ignore[import-unvalidated]  # noqa: E402
     HelixFullEvaluator,  # type: ignore[import-unvalidated]  # noqa: E402
 )
-from scripts.training.validation import (  # noqa: I001
-    ValidationOrchestrator,  # type: ignore[import-unvalidated]  # noqa: E402
-)
-
-# Import extracted dataset/sampler components (Phase 12B-3)
-from scripts.training.data.dataset_builder import MultiTaskNumpyDataset  # noqa: E402
-from scripts.training.data.samplers import ClassBalancedIndexSampler, FrozenIndexSampler  # noqa: E402
-
-# Import core package (Phase 18)
-from scripts.training.core import RecoveryManager  # noqa: E402
 
 # Import extracted training execution components (Phase 17)
 from scripts.training.execution import (  # noqa: I001
@@ -152,6 +147,9 @@ from scripts.training.scheduler import (  # noqa: I001
     LRScheduler,
     PhaseManager,
     PhaseOrchestrator,
+)
+from scripts.training.validation import (  # noqa: I001
+    ValidationOrchestrator,  # type: ignore[import-unvalidated]  # noqa: E402
 )
 
 

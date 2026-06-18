@@ -17,7 +17,6 @@ import hashlib
 import json
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock, patch
 
 import pytest
 import torch
@@ -33,7 +32,6 @@ from helix_ids.governance.provenance import (
     verify_artifact_manifest,
     write_contract_sidecars,
 )
-
 
 # ── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -226,9 +224,9 @@ class TestCheckpointRecovery:
         model_state_dict, optimizer_state_dict, scheduler_state_dict.
         """
         # Run a step so optimizer and scheduler have non-trivial state
-        dummy_input = torch.randn(2, 8)
-        dummy_target = torch.randn(2, 2)
-        loss_fn = torch.nn.MSELoss()
+        torch.randn(2, 8)
+        torch.randn(2, 2)
+        torch.nn.MSELoss()
         tiny_model.train()
 
         opt_state = optimizer.state_dict()
@@ -510,7 +508,7 @@ class TestCheckpointRecovery:
         }
         original_opt_state = optimizer.state_dict()
         # Deep-copy the optimizer state dict (which may contain tensors)
-        original_opt_state_cpu = {
+        {
             k: (
                 {sk: sv.detach().cpu().clone() if isinstance(sv, torch.Tensor) else sv
                  for sk, sv in v.items()}

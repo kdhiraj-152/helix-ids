@@ -15,10 +15,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from helix_ids.operations.logging.log_context import LogContext, LogContextManager, current_log_context
+from helix_ids.operations.logging.log_context import (
+    LogContext,
+    LogContextManager,
+    current_log_context,
+)
 from helix_ids.operations.logging.log_formatter import StructuredFormatter
-from helix_ids.operations.logging.structured_logger import StructuredLogger, get_logger, _loggers
-
+from helix_ids.operations.logging.structured_logger import StructuredLogger, _loggers, get_logger
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -325,7 +328,7 @@ class TestStructuredFormatter:
     def test_format_exc_info_true_boolean(self) -> None:
         """exc_info=True (bool) outside exception handler.
         Covers: lines 87-90 (elif record.exc_info branch).
-        
+
         Note: Tested outside an exception handler so sys.exc_info()[1] is None
         and _format_exception is not called (it would fail on *True unpacking)."""
         formatter = StructuredFormatter(include_stack=True)

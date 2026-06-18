@@ -16,11 +16,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
 import numpy as np
 import pytest
-import torch
-from torch.utils.data import DataLoader, WeightedRandomSampler
+from torch.utils.data import WeightedRandomSampler
 
 from helix_ids.config.helix_full_config import TrainingConfig
 from helix_ids.data.learnability_contract import compute_schema_hash

@@ -28,7 +28,7 @@ def _make_trainer() -> train_mod.HelixFullTrainer:
     trainer.model = _NoopModel()
     trainer.logger = logging.getLogger("critical_invariance_tests")
     # Phase 12B-6: evaluator delegation bridge
-    from scripts.training.evaluation import EvaluationOrchestrator, HelixFullEvaluator
+    from scripts.training.evaluation import EvaluationOrchestrator
     trainer._evaluation_orchestrator = EvaluationOrchestrator(
         model=None, device="cpu", loss_fn=None, logger=trainer.logger,
     )

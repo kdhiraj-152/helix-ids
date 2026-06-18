@@ -24,7 +24,7 @@ if str(SRC_DIR) not in sys.path:
 
 import logging
 
-from soak_telemetry import collect_snapshot, write_snapshot, summarize_run, ARTIFACTS_DIR
+from soak_telemetry import ARTIFACTS_DIR, collect_snapshot, summarize_run, write_snapshot
 
 
 def certify_24h_logging(
@@ -35,7 +35,7 @@ def certify_24h_logging(
     run_id = f"soak_logging_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
     print(f"=== 24h Logging Certification: {run_id} ===")
 
-    from helix_ids.operations.logging import get_logger, LogContext
+    from helix_ids.operations.logging import LogContext, get_logger
     from helix_ids.operations.logging.console_log_handler import ConsoleLogHandler
 
     # Create log directory
@@ -86,7 +86,7 @@ def certify_24h_logging(
                 log_dir=log_dir,
                 custom_metrics=custom,
             )
-            path = write_snapshot(snapshot, run_id)
+            write_snapshot(snapshot, run_id)
             elapsed_h = (now - (end_time - duration_hours * 3600)) / 3600
 
             print(
@@ -98,7 +98,7 @@ def certify_24h_logging(
             )
             last_snapshot_time = now
 
-    print(f"\n=== Logging Certification Complete ===")
+    print("\n=== Logging Certification Complete ===")
     trends = summarize_run(run_id)
     print(json.dumps(trends, indent=2))
 

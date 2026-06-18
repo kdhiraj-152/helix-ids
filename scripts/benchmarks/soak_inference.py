@@ -22,9 +22,7 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 import torch
-import torch.nn as nn
-
-from soak_telemetry import collect_snapshot, write_snapshot, summarize_run, ARTIFACTS_DIR
+from soak_telemetry import ARTIFACTS_DIR, collect_snapshot, summarize_run, write_snapshot
 
 
 def certify_24h_inference(
@@ -71,7 +69,7 @@ def certify_24h_inference(
                     custom = {"total_inferences": inference_count}
 
                 snapshot = collect_snapshot(run_id, custom_metrics=custom)
-                path = write_snapshot(snapshot, run_id)
+                write_snapshot(snapshot, run_id)
                 elapsed_h = (now - (end_time - duration_hours * 3600)) / 3600
 
                 print(
@@ -86,7 +84,7 @@ def certify_24h_inference(
                 latencies.clear()
                 last_snapshot_time = now
 
-    print(f"\n=== Inference Certification Complete ===")
+    print("\n=== Inference Certification Complete ===")
     trends = summarize_run(run_id)
     print(json.dumps(trends, indent=2))
 

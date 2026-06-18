@@ -22,7 +22,6 @@ Snapshots written to: artifacts/soak/<run_id>/
 import gc
 import json
 import os
-import platform
 import threading
 import time
 from datetime import datetime, timezone

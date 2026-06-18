@@ -17,21 +17,17 @@ Covers:
 from __future__ import annotations
 
 import logging
-import os
-from typing import Any, cast
-from unittest.mock import MagicMock, patch
+from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 import torch
-from torch.utils.data import DataLoader
 
 from scripts.training.scheduler import (
     EarlyStoppingManager,
     PhaseManager,
-    TrainingPhase,
 )
 from scripts.training.scheduler.phase_orchestrator import PhaseOrchestrator
-
 
 # =========================================================================== #
 #  Fixtures

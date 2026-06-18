@@ -234,7 +234,9 @@ def format_snapshot_diff(
         if isinstance(i, str):
             lines.append(f"{name:<35} {i:>15} {m:>15} {f:>15}")
         else:
-            lines.append(f"{name:<35} {i:>15.2f} {m:>15.2f} {f:>15.2f}")
+            # Convert to float to handle torch.SymFloat which doesn't
+            # support the '.2f' format spec directly.
+            lines.append(f"{name:<35} {float(i):>15.2f} {float(m):>15.2f} {float(f):>15.2f}")
     return "\n".join(lines)
 
 

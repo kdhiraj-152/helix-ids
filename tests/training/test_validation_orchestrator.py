@@ -16,12 +16,10 @@ from __future__ import annotations
 
 import logging
 
-
 import pytest
 import torch
 
 from scripts.training.validation import ValidationOrchestrator
-
 
 # ======================================================================
 #  Fixtures

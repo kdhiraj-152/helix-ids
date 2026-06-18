@@ -6,7 +6,7 @@ or trainer lifecycle dependencies.
 """
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 
@@ -221,7 +221,7 @@ def _assert_feature_dimensions(
     x_train: np.ndarray,
     x_val: np.ndarray,
     feature_names: list[str],
-    expected_feature_dim: Optional[int],
+    expected_feature_dim: int | None,
 ) -> None:
     """Validate rank and feature-dimension alignment for train/val matrices."""
     if x_train.ndim != 2:
@@ -287,7 +287,7 @@ def _assert_feature_sanity_for_dataset(
     x_train: np.ndarray,
     x_val: np.ndarray,
     feature_names: list[str],
-    expected_feature_dim: Optional[int],
+    expected_feature_dim: int | None,
     min_feature_std: float,
     seed: int,
     logger: Any,

@@ -22,16 +22,15 @@ Dependency rules:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
-from scripts.training.scheduler.phase_manager import PhaseManager
 from scripts.training.scheduler.early_stopping import EarlyStoppingManager
-
+from scripts.training.scheduler.phase_manager import PhaseManager
 
 # =========================================================================== #
 # PhaseOrchestrator -- owns all phase-transition logic

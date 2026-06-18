@@ -14,8 +14,6 @@ Covers:
 
 from __future__ import annotations
 
-from typing import Optional
-
 import pytest
 import torch
 import torch.nn as nn
@@ -204,9 +202,11 @@ class TestNumericalEquivalence:
         )
         total = reg_big.compute_total_loss(
             ref_loss, ref_logits, ref_logits, ref_labels,
-            epoch=0, global_step=5, in_step_warmup=False,
+            epoch=1, global_step=5, in_step_warmup=False,
         )
-        assert total.item() > base
+        # Entropy warmup subtracts entropy_weight * mean_entropy from loss,
+        # so the total should be lower than the base during warmup
+        assert total.item() < base
 
     def test_tail_ce_regularization(
         self,
@@ -645,7 +645,7 @@ class _DummyLossFn(nn.Module):
         self,
         logits: torch.Tensor,
         labels: torch.Tensor,
-        class_weights: Optional[torch.Tensor],
+        class_weights: torch.Tensor | None,
     ) -> torch.Tensor:
         return self._ce(logits, labels)
 
@@ -736,7 +736,7 @@ class TestRegistryDispatch:
             use_energy_based_family_objective=True,
         )
         assert torch.isfinite(result)
-        assert "energy_total" in diag
+        assert "mean_energy_total" in diag
 
     def test_energy_ema_lifecycle(
         self, registry: LossRegistry,

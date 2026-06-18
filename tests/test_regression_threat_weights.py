@@ -6,8 +6,6 @@ differs from the canonical source (models.loss), this test fails.
 New threat weights must be derived from or imported from the canonical source.
 """
 
-import importlib
-import pkgutil
 import ast
 import os
 from pathlib import Path

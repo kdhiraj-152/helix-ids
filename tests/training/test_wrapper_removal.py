@@ -95,7 +95,9 @@ class TestEmbeddedClassesRemoved:
 
     def test_data_imports_present(self, trainer_source_text):
         assert "from scripts.training.data.dataset_builder import MultiTaskNumpyDataset" in trainer_source_text
-        assert "from scripts.training.data.samplers import ClassBalancedIndexSampler, FrozenIndexSampler" in trainer_source_text
+        # ClassBalancedIndexSampler and FrozenIndexSampler were fully extracted
+        # to scripts/training/orchestration/run_orchestrator.py and no longer
+        # appear as top-level imports in the trainer itself.
 
 
 # ── configure_structure_recovery delegation ──
