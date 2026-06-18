@@ -2,17 +2,18 @@
 
 Date: 2026-06-18
 Status: Certified ✓
+Version: Phase 23 (commit 6) — lockfile check fixed
 
 ## Pipeline Structure
 
-Single workflow: `release.yml`
+Single workflow: `release.yml` (307 lines)
 Trigger: tags v*, workflow_dispatch
 
 ### Job 1: verify (required by sign)
 
 | Step | Check | Artifact |
 |------|-------|----------|
-| 1 | Lockfile synced | — |
+| 1 | Lockfile synced (uv pip compile) | — |
 | 2 | SBOM generate + validate | results/sbom/sbom.json |
 | 3 | SBOM attestation | results/attestations/sbom-attestation.json |
 | 4 | Coverage ≥65% | results/junit/release-report.xml |
@@ -48,6 +49,13 @@ Trigger: tags v*, workflow_dispatch
 
 ## Verification Checks
 
+### Lockfile Integrity
+- [x] Generated with `uv pip compile --python-platform=linux --generate-hashes --allow-unsafe`
+- [x] Fresh package versions (fsspec 2026.6.0, pandas 3.0.3)
+- [x] CUDA hashes present (cuda-bindings, cuda-toolkit, nvidia-*)
+- [x] 47 pinned packages with hashes
+- [x] Header-agnostic diff check (sed '1,5d')
+
 ### SBOM Generation
 - [x] cyclonedx-py produces reproducible JSON
 - [x] Validation passes
@@ -65,10 +73,6 @@ Trigger: tags v*, workflow_dispatch
 - [x] Container image signs and verifies
 - [x] Certificate identity matches workflow path
 
-### Lockfile Integrity
-- [x] pip-compile produces identical output
-- [x] Compare against requirements.in
-
 ### Security Gates
 - [x] pip-audit: 0 vulnerabilities
 - [x] Bandit: 0 HIGH findings
@@ -79,7 +83,7 @@ Trigger: tags v*, workflow_dispatch
 
 ```
 requirements.in
-  → requirements-lock.txt (verified hashes)
+  → requirements-lock.txt (verified hashes, pip-compile sync)
   → results/sbom/sbom.json (CycloneDX)
   → results/attestations/sbom-attestation.json (in-toto)
   → results/provenance/slsa-attestation.json (SLSA v1.0)
@@ -92,7 +96,7 @@ requirements.in
 
 | Scenario | Action |
 |----------|--------|
-| Lockfile stale | Pin requirements.in, re-run pip-compile |
+| Lockfile stale | Pin requirements.in, re-run `uv pip compile --python-platform=linux` |
 | SBOM validation fails | Check cyclonedx-py version |
 | Provenance fails | Check generate_slsa_provenance.py |
 | Cosign fails | Check OIDC token availability |

@@ -7,16 +7,17 @@ Status: Certified ✓
 
 Reduced from 13 workflow files to 6 well-separated pipelines.
 Removed all dead/duplicate configurations.
+Lockfile regenerated with fresh package versions + correct CUDA hashes.
 
 ## Final Workflow Layout
 
 ```
 .github/workflows/
-├── ci.yml                 # Fast path
-├── quality.yml            # Medium path
-├── architecture.yml       # Governance layer
-├── dependency-review.yml  # Pre-CI gate
-├── release.yml            # Release pipeline
+├── ci.yml                 # Fast path (<6 min)
+├── quality.yml            # Medium path (~10–15 min)
+├── architecture.yml       # Governance layer (~3 min)
+├── dependency-review.yml  # Pre-CI gate (~1 min)
+├── release.yml            # Release pipeline (verify → sign → publish)
 └── nightly.yml            # Weekly long-running
 ```
 
@@ -96,6 +97,14 @@ Removed all dead/duplicate configurations.
 | sign-release.yml | release.yml | Merged into single pipeline |
 | test-reliability.yml | nightly.yml | Now weekly-only |
 
+## Key Fixes Applied
+
+| Issue | Fix | Commit |
+|-------|-----|--------|
+| Lockfile had stale package versions | Regenerated with `uv pip compile --refresh --python-platform=linux` | 6 |
+| Release pipeline used `pip-compile` (platform-dependent) | Changed to `uv pip compile --python-platform=linux` | 6 |
+| Lockfile check failed on header comment diff | Made diff header-agnostic (`sed '1,5d'`) | 6 |
+
 ## Trigger Summary
 
 | Workflow | push | pull_request | schedule | workflow_dispatch | tag v* |
@@ -109,8 +118,10 @@ Removed all dead/duplicate configurations.
 
 ## Verification
 
-- [x] All 3 commits cleanly applied
+- [x] All 6 commits cleanly applied (main: 328a83e → 64365c9)
 - [x] 6 obsolete workflows removed
 - [x] Zero dead workflow configurations
 - [x] All branch triggers validated
 - [x] Path filters prevent unnecessary runs
+- [x] Lockfile synchronized (uv check passes)
+- [x] All YAML files lint-valid

@@ -7,7 +7,9 @@ Status: Complete ✓
 
 - Repository made public (by user)
 - Branch protection fully applied for `main` and `dev`
-- Squash-merge only configured
+- Squash-merge only on main
+- 4 stale remote branches deleted (3 Dependabot, 1 old release)
+- 2 branches remain: `main` (protected) + `dev` (light protection)
 - Stale branches cleaned up (4 deleted)
 
 ## Branch Protection — main
