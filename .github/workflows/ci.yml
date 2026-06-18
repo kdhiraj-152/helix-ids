@@ -59,4 +59,7 @@ jobs:
             --ignore=tests/architecture \
             --ignore=tests/training \
             --ignore=tests/operations \
-            --ignore=tests/test_data
+            --ignore=tests/test_data \
+            --ignore=tests/test_export_unit.py \
+            --ignore=tests/test_lifecycle_verifier.py \
+            --ignore=tests/test_operations/test_serve_rest_metrics.py

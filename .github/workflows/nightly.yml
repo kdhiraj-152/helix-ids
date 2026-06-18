@@ -59,7 +59,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements-lock.txt ]; then pip install -r requirements-lock.txt; fi
-          pip install pytest pytest-cov hypothesis cosmic-ray
+          pip install pytest pytest-cov hypothesis cosmic-ray onnx onnxruntime fastapi uvicorn
 
       - name: 1. Run pytest with coverage
         run: |

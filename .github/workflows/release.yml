@@ -35,7 +35,7 @@ jobs:
           python -m pip install --upgrade pip
           if [ -f requirements-lock.txt ]; then pip install -r requirements-lock.txt; fi
           pip install pip-audit bandit cyclonedx-bom pytest pytest-cov hypothesis
-          pip install ruff mypy pip-licenses pip-tools
+          pip install ruff mypy pip-licenses pip-tools onnx onnxruntime fastapi uvicorn
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3.8.1
@@ -192,7 +192,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements-lock.txt ]; then pip install -r requirements-lock.txt; fi
-          pip install cyclonedx-bom pip-licenses
+          pip install cyclonedx-bom pip-licenses onnx onnxruntime fastapi uvicorn
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3.8.1
