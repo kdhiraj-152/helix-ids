@@ -47,7 +47,7 @@ ablations:
 
 benchmarks:
   - id: governance_ablation
-    entrypoint: benchmark_e2e_v2_fixed
+    entrypoint: benchmark_e2e
     config:
       evaluation_mode: "governance_ablation"
       platforms: ["production"]

@@ -54,7 +54,7 @@ def test_dry_run_manifest_and_result_schema_are_explicit(tmp_path: Path, monkeyp
         benchmark_id="dry_run",
         variant_id="base",
         seed=7,
-        entrypoint="benchmark_e2e_v2_fixed",
+        entrypoint="benchmark_e2e",
         config={
             "evaluation_mode": "smoke",
             "platforms": ["production"],

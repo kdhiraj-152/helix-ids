@@ -38,7 +38,7 @@ CLASS_NAMES = ["Normal", "DoS", "Probe", "R2L", "U2R"]
 
 
 def load_model_and_data(platform="production"):
-    from scripts.training.train_multidataset_v2_fixed import HELIXMLP5Class, SafeDataLoader
+    from scripts.training.train_multidataset import HELIXMLP5Class, SafeDataLoader
 
     model_dir = PROJECT_ROOT / "models" / "v2_fixed" / platform
     with open(model_dir / "model_card_v2.json") as f:
@@ -156,7 +156,7 @@ def _build_governance_summary(results: dict[str, dict], seed: int, posteval_star
         Path(os.environ.get("HELIX_RUN_REGISTRY", "results/gates/run_registry.jsonl"))
     )
     drift, z_score = registry.compute_drift(
-        dataset_id="benchmark_e2e_v2_fixed",
+        dataset_id="benchmark_e2e",
         current_macro_f1=aggregate_macro_f1,
         baseline_window_runs=20,
     )
@@ -207,7 +207,7 @@ def _build_governance_summary(results: dict[str, dict], seed: int, posteval_star
     return {
         "governance_stages": governance_stages,
         "governance_run_record": {
-            "dataset_id": "benchmark_e2e_v2_fixed",
+            "dataset_id": "benchmark_e2e",
             "macro_f1": aggregate_macro_f1,
             "fingerprint": os.environ.get("HELIX_FINGERPRINT"),
             "parent_run_id": os.environ.get("HELIX_PARENT_RUN_ID"),
@@ -222,7 +222,7 @@ def _build_governance_summary(results: dict[str, dict], seed: int, posteval_star
     }
 
 
-@governed_entrypoint(entrypoint_id="scripts.benchmark_e2e_v2_fixed")
+@governed_entrypoint(entrypoint_id="scripts.benchmark_e2e")
 def main():
     seed = int(os.environ.get("HELIX_SEED", "42"))
     os.environ["HELIX_SEED"] = str(seed)

@@ -30,6 +30,10 @@ htmlcov/
 .DS_Store
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
+.Python
 
 # Project runtime artifacts
 checkpoints/
@@ -61,6 +65,10 @@ data/**/*.parquet
 data/**/*.pkl
 data/splits/
 
+# Experiment tracking (MLflow, Weights & Biases)
+mlruns/
+wandb/
+
 # Logs
 *.log
 logs/
@@ -68,6 +76,7 @@ session_logs/
 
 # Temporary build artifacts
 tmp_artifact/
+*.tmp
 
 # Generated database files (cosmic-ray mutation test sessions)
 *.db

@@ -230,7 +230,7 @@ def main():
         manifest_base = build_export_manifest(
             contract=contract,
             model_architecture=model.__class__.__name__,
-            export_config={"format": "checkpoint", "origin": "train_unsw_only_cleaned"},
+            export_config={"format": "checkpoint", "origin": "train_unsw_only"},
         )
         payload[ARTIFACT_MANIFEST_KEY] = checkpoint_manifest_payload(manifest_base)
         torch.save(payload, p)

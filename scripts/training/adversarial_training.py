@@ -144,7 +144,7 @@ def main():
     from sklearn.model_selection import train_test_split
     from torch.utils.data import DataLoader, TensorDataset
 
-    from scripts.training.train_multidataset_v2_fixed import (
+    from scripts.training.train_multidataset import (
         HELIXMLP5Class,
         SafeDataLoader,
     )
@@ -232,7 +232,7 @@ def main():
     manifest_base = build_export_manifest(
         contract=contract,
         model_architecture=model.__class__.__name__,
-        export_config={"format": "checkpoint", "origin": "adversarial_training_v2"},
+        export_config={"format": "checkpoint", "origin": "adversarial_training"},
     )
     payload[ARTIFACT_MANIFEST_KEY] = checkpoint_manifest_payload(manifest_base)
     torch.save(payload, model_path)

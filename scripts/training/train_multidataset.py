@@ -10,7 +10,7 @@ FIXES from v1:
   5. PER-CLASS THRESHOLD TUNING: Optimal thresholds per class for deployment
 
 Usage:
-    python scripts/train_multidataset_v2_fixed.py
+    python scripts/train_multidataset.py
 """
 
 # ruff: noqa: E402
@@ -750,7 +750,7 @@ def _evaluate_optional_nsl_metrics(
 # ==================== MAIN PIPELINE ====================
 
 
-@governed_entrypoint(entrypoint_id="scripts.train_multidataset_v2_fixed")
+@governed_entrypoint(entrypoint_id="scripts.train_multidataset")
 def main():
     seed = int(os.environ.get("HELIX_SEED", "42"))
     os.environ["HELIX_SEED"] = str(seed)
@@ -919,7 +919,7 @@ def main():
         manifest_base = build_export_manifest(
             contract=contract,
             model_architecture=model.__class__.__name__,
-            export_config={"format": "checkpoint", "origin": "train_multidataset_v2_fixed"},
+            export_config={"format": "checkpoint", "origin": "train_multidataset"},
         )
         payload[ARTIFACT_MANIFEST_KEY] = checkpoint_manifest_payload(manifest_base)
         torch.save(payload, path)
@@ -940,7 +940,7 @@ def main():
         manifest_base = build_export_manifest(
             contract=contract,
             model_architecture=model.__class__.__name__,
-            export_config={"format": "checkpoint", "origin": "train_multidataset_v2_fixed"},
+            export_config={"format": "checkpoint", "origin": "train_multidataset"},
         )
         payload[ARTIFACT_MANIFEST_KEY] = checkpoint_manifest_payload(manifest_base)
         torch.save(payload, path)

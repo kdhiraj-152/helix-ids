@@ -44,7 +44,7 @@ defaults:
 
 benchmarks:
   - id: drift_robustness
-    entrypoint: benchmark_e2e_v2_fixed
+    entrypoint: benchmark_e2e
     config:
       evaluation_mode: "drift_robustness"
       platforms: ["production"]

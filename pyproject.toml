@@ -50,7 +50,6 @@ dev = [
     "pytest-mock>=3.10.0",
     "ruff>=0.1.0",
     "mypy>=1.0.0",
-    "pre-commit>=3.0.0",
 ]
 training = [
     "mlflow>=2.10.0",

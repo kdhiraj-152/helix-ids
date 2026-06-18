@@ -430,8 +430,8 @@
       "category": "scripts",
       "package": "scripts.deployment"
     },
-    "scripts/evaluation/benchmark_e2e_v2_fixed.py": {
-      "path": "scripts/evaluation/benchmark_e2e_v2_fixed.py",
+    "scripts/evaluation/benchmark_e2e.py": {
+      "path": "scripts/evaluation/benchmark_e2e.py",
       "category": "scripts",
       "package": "scripts.evaluation"
     },
@@ -440,8 +440,8 @@
       "category": "scripts",
       "package": "scripts.evaluation"
     },
-    "scripts/evaluation/holdout_evaluation_v2.py": {
-      "path": "scripts/evaluation/holdout_evaluation_v2.py",
+    "scripts/evaluation/holdout_evaluation.py": {
+      "path": "scripts/evaluation/holdout_evaluation.py",
       "category": "scripts",
       "package": "scripts.evaluation"
     },
@@ -500,8 +500,8 @@
       "category": "scripts",
       "package": "scripts.training"
     },
-    "scripts/training/adversarial_training_v2.py": {
-      "path": "scripts/training/adversarial_training_v2.py",
+    "scripts/training/adversarial_training.py": {
+      "path": "scripts/training/adversarial_training.py",
       "category": "scripts",
       "package": "scripts.training"
     },
@@ -740,8 +740,8 @@
       "category": "scripts",
       "package": "scripts.training"
     },
-    "scripts/training/train_multidataset_v2_fixed.py": {
-      "path": "scripts/training/train_multidataset_v2_fixed.py",
+    "scripts/training/train_multidataset.py": {
+      "path": "scripts/training/train_multidataset.py",
       "category": "scripts",
       "package": "scripts.training"
     },
@@ -750,8 +750,8 @@
       "category": "scripts",
       "package": "scripts.training"
     },
-    "scripts/training/train_unsw_only_cleaned.py": {
-      "path": "scripts/training/train_unsw_only_cleaned.py",
+    "scripts/training/train_unsw_only.py": {
+      "path": "scripts/training/train_unsw_only.py",
       "category": "scripts",
       "package": "scripts.training"
     },
@@ -1637,44 +1637,44 @@
       "target_category": "src"
     },
     {
-      "source": "scripts/evaluation/benchmark_e2e_v2_fixed.py",
+      "source": "scripts/evaluation/benchmark_e2e.py",
       "target_module": "helix_ids.governance.determinism",
       "source_category": "scripts",
       "target_category": "src"
     },
     {
-      "source": "scripts/evaluation/benchmark_e2e_v2_fixed.py",
+      "source": "scripts/evaluation/benchmark_e2e.py",
       "target_module": "helix_ids.governance.entrypoint",
       "source_category": "scripts",
       "target_category": "src"
     },
     {
-      "source": "scripts/evaluation/benchmark_e2e_v2_fixed.py",
+      "source": "scripts/evaluation/benchmark_e2e.py",
       "target_module": "helix_ids.governance.parameters",
       "source_category": "scripts",
       "target_category": "src"
     },
     {
-      "source": "scripts/evaluation/benchmark_e2e_v2_fixed.py",
+      "source": "scripts/evaluation/benchmark_e2e.py",
       "target_module": "helix_ids.governance.promotion",
       "source_category": "scripts",
       "target_category": "src"
     },
     {
-      "source": "scripts/evaluation/benchmark_e2e_v2_fixed.py",
+      "source": "scripts/evaluation/benchmark_e2e.py",
       "target_module": "helix_ids.governance.run_registry",
       "source_category": "scripts",
       "target_category": "src"
     },
     {
-      "source": "scripts/evaluation/benchmark_e2e_v2_fixed.py",
+      "source": "scripts/evaluation/benchmark_e2e.py",
       "target_module": "helix_ids.utils.metrics",
       "source_category": "scripts",
       "target_category": "src"
     },
     {
-      "source": "scripts/evaluation/benchmark_e2e_v2_fixed.py",
-      "target_module": "scripts.training.train_multidataset_v2_fixed",
+      "source": "scripts/evaluation/benchmark_e2e.py",
+      "target_module": "scripts.training.train_multidataset",
       "source_category": "scripts",
       "target_category": "scripts"
     },
@@ -1721,56 +1721,56 @@
       "target_category": "src"
     },
     {
-      "source": "scripts/evaluation/holdout_evaluation_v2.py",
+      "source": "scripts/evaluation/holdout_evaluation.py",
       "target_module": "helix_ids.governance.determinism",
       "source_category": "scripts",
       "target_category": "src"
     },
     {
-      "source": "scripts/evaluation/holdout_evaluation_v2.py",
+      "source": "scripts/evaluation/holdout_evaluation.py",
       "target_module": "helix_ids.governance.entrypoint",
       "source_category": "scripts",
       "target_category": "src"
     },
     {
-      "source": "scripts/evaluation/holdout_evaluation_v2.py",
+      "source": "scripts/evaluation/holdout_evaluation.py",
       "target_module": "helix_ids.governance.parameters",
       "source_category": "scripts",
       "target_category": "src"
     },
     {
-      "source": "scripts/evaluation/holdout_evaluation_v2.py",
+      "source": "scripts/evaluation/holdout_evaluation.py",
       "target_module": "helix_ids.governance.promotion",
       "source_category": "scripts",
       "target_category": "src"
     },
     {
-      "source": "scripts/evaluation/holdout_evaluation_v2.py",
+      "source": "scripts/evaluation/holdout_evaluation.py",
       "target_module": "helix_ids.governance.run_registry",
       "source_category": "scripts",
       "target_category": "src"
     },
     {
-      "source": "scripts/evaluation/holdout_evaluation_v2.py",
+      "source": "scripts/evaluation/holdout_evaluation.py",
       "target_module": "helix_ids.utils.metrics",
       "source_category": "scripts",
       "target_category": "src"
     },
     {
-      "source": "scripts/evaluation/holdout_evaluation_v2.py",
-      "target_module": "scripts.training.train_multidataset_v2_fixed",
+      "source": "scripts/evaluation/holdout_evaluation.py",
+      "target_module": "scripts.training.train_multidataset",
       "source_category": "scripts",
       "target_category": "scripts"
     },
     {
-      "source": "scripts/evaluation/holdout_evaluation_v2.py",
-      "target_module": "scripts.training.train_multidataset_v2_fixed",
+      "source": "scripts/evaluation/holdout_evaluation.py",
+      "target_module": "scripts.training.train_multidataset",
       "source_category": "scripts",
       "target_category": "scripts"
     },
     {
-      "source": "scripts/evaluation/holdout_evaluation_v2.py",
-      "target_module": "scripts.training.train_multidataset_v2_fixed",
+      "source": "scripts/evaluation/holdout_evaluation.py",
+      "target_module": "scripts.training.train_multidataset",
       "source_category": "scripts",
       "target_category": "scripts"
     },
@@ -1829,26 +1829,26 @@
       "target_category": "src"
     },
     {
-      "source": "scripts/training/adversarial_training_v2.py",
+      "source": "scripts/training/adversarial_training.py",
       "target_module": "helix_ids.contracts.schema_contract",
       "source_category": "scripts",
       "target_category": "src"
     },
     {
-      "source": "scripts/training/adversarial_training_v2.py",
+      "source": "scripts/training/adversarial_training.py",
       "target_module": "helix_ids.governance",
       "source_category": "scripts",
       "target_category": "src"
     },
     {
-      "source": "scripts/training/adversarial_training_v2.py",
+      "source": "scripts/training/adversarial_training.py",
       "target_module": "helix_ids.utils.export",
       "source_category": "scripts",
       "target_category": "src"
     },
     {
-      "source": "scripts/training/adversarial_training_v2.py",
-      "target_module": "scripts.training.train_multidataset_v2_fixed",
+      "source": "scripts/training/adversarial_training.py",
+      "target_module": "scripts.training.train_multidataset",
       "source_category": "scripts",
       "target_category": "scripts"
     },
@@ -2711,61 +2711,61 @@
       "target_category": "scripts"
     },
     {
-      "source": "scripts/training/train_multidataset_v2_fixed.py",
+      "source": "scripts/training/train_multidataset.py",
       "target_module": "helix_ids.contracts.schema_contract",
       "source_category": "scripts",
       "target_category": "src"
     },
     {
-      "source": "scripts/training/train_multidataset_v2_fixed.py",
+      "source": "scripts/training/train_multidataset.py",
       "target_module": "helix_ids.governance",
       "source_category": "scripts",
       "target_category": "src"
     },
     {
-      "source": "scripts/training/train_multidataset_v2_fixed.py",
+      "source": "scripts/training/train_multidataset.py",
       "target_module": "helix_ids.governance.determinism",
       "source_category": "scripts",
       "target_category": "src"
     },
     {
-      "source": "scripts/training/train_multidataset_v2_fixed.py",
+      "source": "scripts/training/train_multidataset.py",
       "target_module": "helix_ids.governance.entrypoint",
       "source_category": "scripts",
       "target_category": "src"
     },
     {
-      "source": "scripts/training/train_multidataset_v2_fixed.py",
+      "source": "scripts/training/train_multidataset.py",
       "target_module": "helix_ids.governance.parameters",
       "source_category": "scripts",
       "target_category": "src"
     },
     {
-      "source": "scripts/training/train_multidataset_v2_fixed.py",
+      "source": "scripts/training/train_multidataset.py",
       "target_module": "helix_ids.governance.promotion",
       "source_category": "scripts",
       "target_category": "src"
     },
     {
-      "source": "scripts/training/train_multidataset_v2_fixed.py",
+      "source": "scripts/training/train_multidataset.py",
       "target_module": "helix_ids.governance.run_registry",
       "source_category": "scripts",
       "target_category": "src"
     },
     {
-      "source": "scripts/training/train_multidataset_v2_fixed.py",
+      "source": "scripts/training/train_multidataset.py",
       "target_module": "helix_ids.utils.export",
       "source_category": "scripts",
       "target_category": "src"
     },
     {
-      "source": "scripts/training/train_multidataset_v2_fixed.py",
+      "source": "scripts/training/train_multidataset.py",
       "target_module": "helix_ids.utils.metrics",
       "source_category": "scripts",
       "target_category": "src"
     },
     {
-      "source": "scripts/training/train_multidataset_v2_fixed.py",
+      "source": "scripts/training/train_multidataset.py",
       "target_module": "helix_ids.utils.metrics",
       "source_category": "scripts",
       "target_category": "src"
@@ -2783,43 +2783,43 @@
       "target_category": "src"
     },
     {
-      "source": "scripts/training/train_unsw_only_cleaned.py",
+      "source": "scripts/training/train_unsw_only.py",
       "target_module": "helix_ids.contracts.schema_contract",
       "source_category": "scripts",
       "target_category": "src"
     },
     {
-      "source": "scripts/training/train_unsw_only_cleaned.py",
+      "source": "scripts/training/train_unsw_only.py",
       "target_module": "helix_ids.governance",
       "source_category": "scripts",
       "target_category": "src"
     },
     {
-      "source": "scripts/training/train_unsw_only_cleaned.py",
+      "source": "scripts/training/train_unsw_only.py",
       "target_module": "helix_ids.utils.export",
       "source_category": "scripts",
       "target_category": "src"
     },
     {
-      "source": "scripts/training/train_unsw_only_cleaned.py",
+      "source": "scripts/training/train_unsw_only.py",
       "target_module": "helix_ids.config.helix_full_config",
       "source_category": "scripts",
       "target_category": "src"
     },
     {
-      "source": "scripts/training/train_unsw_only_cleaned.py",
+      "source": "scripts/training/train_unsw_only.py",
       "target_module": "helix_ids.data.feature_harmonization",
       "source_category": "scripts",
       "target_category": "src"
     },
     {
-      "source": "scripts/training/train_unsw_only_cleaned.py",
+      "source": "scripts/training/train_unsw_only.py",
       "target_module": "helix_ids.data.multi_dataset_loader",
       "source_category": "scripts",
       "target_category": "src"
     },
     {
-      "source": "scripts/training/train_unsw_only_cleaned.py",
+      "source": "scripts/training/train_unsw_only.py",
       "target_module": "helix_ids.models.full",
       "source_category": "scripts",
       "target_category": "src"
@@ -3552,7 +3552,7 @@
     },
     {
       "source": "tests/test_data_loading.py",
-      "target_module": "scripts.training.train_multidataset_v2_fixed",
+      "target_module": "scripts.training.train_multidataset",
       "source_category": "tests",
       "target_category": "scripts"
     },

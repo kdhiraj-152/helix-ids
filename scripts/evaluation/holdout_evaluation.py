@@ -47,7 +47,7 @@ def cross_validate_holdout(model_class, model_kwargs, X, y, class_weights, n_fol
     """5-fold cross-validation for robust holdout estimation."""
     from torch.utils.data import DataLoader, TensorDataset
 
-    from scripts.training.train_multidataset_v2_fixed import ImprovedTrainer
+    from scripts.training.train_multidataset import ImprovedTrainer
 
     skf = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=seed)
     fold_results = []
@@ -127,7 +127,7 @@ def cross_validate_holdout(model_class, model_kwargs, X, y, class_weights, n_fol
 
 def cross_dataset_holdout(model, nsl_scaler, unsw_scaler, n_features):
     """Evaluate trained model on completely separate dataset portions."""
-    from scripts.training.train_multidataset_v2_fixed import SafeDataLoader
+    from scripts.training.train_multidataset import SafeDataLoader
 
     loader = SafeDataLoader()
     x_nsl, y_nsl = loader.load_nsl_kdd(PROJECT_ROOT / "data" / "nsl_kdd" / "test.csv")
@@ -167,13 +167,13 @@ def cross_dataset_holdout(model, nsl_scaler, unsw_scaler, n_features):
     return results
 
 
-@governed_entrypoint(entrypoint_id="scripts.holdout_evaluation_v2")
+@governed_entrypoint(entrypoint_id="scripts.holdout_evaluation")
 def main():
     seed = int(os.environ.get("HELIX_SEED", "42"))
     os.environ["HELIX_SEED"] = str(seed)
     determinism_state = set_global_determinism(seed)
 
-    from scripts.training.train_multidataset_v2_fixed import HELIXMLP5Class, SafeDataLoader
+    from scripts.training.train_multidataset import HELIXMLP5Class, SafeDataLoader
 
     logger.info("=" * 80)
     logger.info("HELIX-IDS HOLDOUT EVALUATION")
@@ -206,10 +206,10 @@ def main():
 
     results = {"cross_validation": cv_results, "date": datetime.now().isoformat()}
 
-    with open(RESULTS_DIR / "holdout_evaluation_v2.json", "w") as f:
+    with open(RESULTS_DIR / "holdout_evaluation.json", "w") as f:
         json.dump(results, f, indent=2)
 
-    logger.info("\nDone — saved to results/v2_fixed/holdout_evaluation_v2.json")
+    logger.info("\nDone — saved to results/v2_fixed/holdout_evaluation.json")
 
     posteval_start = time.perf_counter()
     fold_widths = [
@@ -226,7 +226,7 @@ def main():
         Path(os.environ.get("HELIX_RUN_REGISTRY", "results/gates/run_registry.jsonl"))
     )
     drift, z_score = registry.compute_drift(
-        dataset_id="holdout_evaluation_v2",
+        dataset_id="holdout_evaluation",
         current_macro_f1=aggregate_macro_f1,
         baseline_window_runs=20,
     )
@@ -299,7 +299,7 @@ def main():
             "seed": seed,
         },
         "governance_run_record": {
-            "dataset_id": "holdout_evaluation_v2",
+            "dataset_id": "holdout_evaluation",
             "macro_f1": aggregate_macro_f1,
             "fingerprint": os.environ.get("HELIX_FINGERPRINT"),
             "parent_run_id": os.environ.get("HELIX_PARENT_RUN_ID"),
@@ -308,7 +308,7 @@ def main():
                 "schema_hash": os.environ.get("HELIX_SCHEMA_HASH", "unknown"),
                 "mapping_version": os.environ.get("HELIX_MAPPING_VERSION", "unknown"),
                 "model_artifact": str(PROJECT_ROOT / "models" / "v2_fixed"),
-                "metrics_artifact": str(RESULTS_DIR / "holdout_evaluation_v2.json"),
+                "metrics_artifact": str(RESULTS_DIR / "holdout_evaluation.json"),
             },
         },
         "determinism": determinism_state.to_dict(),

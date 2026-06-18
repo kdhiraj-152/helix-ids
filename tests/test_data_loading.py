@@ -194,7 +194,7 @@ class TestUnifiedFeatureAlignment:
         """
         Test unified features has expected count.
         """
-        from scripts.training.train_multidataset_v2_fixed import SafeDataLoader
+        from scripts.training.train_multidataset import SafeDataLoader
         count = len(SafeDataLoader.UNIFIED_FEATURES)
 
         assert count == UNIFIED_FEATURES, \

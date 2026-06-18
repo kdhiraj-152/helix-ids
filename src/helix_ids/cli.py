@@ -41,16 +41,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.command == "train":
-        return _run_script_module("scripts.train_multidataset_v2_fixed")
+        return _run_script_module("scripts.train_multidataset")
 
     if args.command == "adversarial":
-        return _run_script_module("scripts.adversarial_training_v2")
+        return _run_script_module("scripts.adversarial_training")
 
     if args.command == "holdout_eval":
-        return _run_script_module("scripts.holdout_evaluation_v2")
+        return _run_script_module("scripts.holdout_evaluation")
 
     if args.command == "benchmark":
-        return _run_script_module("scripts.benchmark_e2e_v2_fixed")
+        return _run_script_module("scripts.benchmark_e2e")
 
     if args.command == "deploy":
         return _run_script_module("scripts.deploy")

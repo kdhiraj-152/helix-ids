@@ -58,16 +58,16 @@ DEFAULT_MANIFESTS_DIR = DEFAULT_RESULTS_DIR / "manifests"
 DEFAULT_METRICS_DIR = DEFAULT_RESULTS_DIR / "metrics"
 
 RUNNER_SPECS: dict[str, dict[str, Any]] = {
-    "benchmark_e2e_v2_fixed": {
-        "script": PROJECT_ROOT / "scripts" / "evaluation" / "benchmark_e2e_v2_fixed.py",
+    "benchmark_e2e": {
+        "script": PROJECT_ROOT / "scripts" / "evaluation" / "benchmark_e2e.py",
         "results_path": PROJECT_ROOT / "results" / "v2_fixed" / "e2e_benchmark_v2.json",
         "artifact_root": PROJECT_ROOT / "models" / "v2_fixed",
         "artifact_file": "model_v2.pt",
         "artifact_kind": "checkpoint",
         "platforms": ["production", "rpi4", "rpi_zero", "esp32"],
     },
-    "holdout_evaluation_v2": {
-        "script": PROJECT_ROOT / "scripts" / "evaluation" / "holdout_evaluation_v2.py",
+    "holdout_evaluation": {
+        "script": PROJECT_ROOT / "scripts" / "evaluation" / "holdout_evaluation.py",
         "results_path": PROJECT_ROOT / "results" / "v2_fixed" / "holdout_evaluation_v2.json",
         "artifact_root": None,
         "artifact_file": None,
@@ -865,9 +865,9 @@ def _load_metrics(entrypoint: str, results_path: Path) -> dict[str, Any]:
     if not results_path.exists():
         raise FileNotFoundError(f"Missing results: {results_path}")
     raw = json.loads(results_path.read_text(encoding="utf-8"))
-    if entrypoint == "benchmark_e2e_v2_fixed" and isinstance(raw, dict):
+    if entrypoint == "benchmark_e2e" and isinstance(raw, dict):
         return _metrics_from_benchmark_e2e(raw)
-    if entrypoint == "holdout_evaluation_v2" and isinstance(raw, dict):
+    if entrypoint == "holdout_evaluation" and isinstance(raw, dict):
         return _metrics_from_holdout(raw)
     return {"datasets": []}
 
