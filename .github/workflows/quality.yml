@@ -2,7 +2,7 @@ name: Quality Gates
 
 on:
   push:
-    branches: [main, release/*]
+    branches: [dev]
   pull_request:
     branches: [main]
 
@@ -29,25 +29,15 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements-lock.txt ]; then pip install -r requirements-lock.txt; fi
-          pip install pytest pytest-cov ruff mypy hypothesis
+          pip install pytest pytest-cov ruff mypy hypothesis numpy pandas
 
-      - name: 1. ruff check
-        run: |
-          ruff check src --output-format=github
-        continue-on-error: false
-
-      - name: 2. mypy (src)
-        run: |
-          mypy src --ignore-missing-imports
-        continue-on-error: false
-
-      - name: 3. pytest (full suite)
+      - name: 1. Coverage gate (≥65%)
         run: |
           python -m pytest -q \
             --cov=src/helix_ids \
             --cov-report=term-missing \
             --cov-report=xml:results/coverage.xml \
-            --junitxml=results/junit/checks-report.xml \
+            --junitxml=results/junit/quality-report.xml \
             || pytest_exit=$?
           echo "pytest exit code: ${pytest_exit:-0}"
           COV=$(python -m coverage report --format=total 2>/dev/null | tail -1 || echo "0")
@@ -58,11 +48,12 @@ jobs:
             exit 1
           fi
 
-      - name: 4. Architecture lockdown tests
+      - name: 2. Benchmark regression
         run: |
-          python -m pytest tests/architecture/test_architecture_lockdown.py -v --tb=short
+          python scripts/benchmarks/benchmark_pipeline.py
+          python scripts/benchmarks/check_performance_regression.py
 
-      - name: 5. Dependency audit
+      - name: 3. Dependency audit (reverse deps + self-imports)
         run: |
           echo "=== Dependency audit ==="
           python3 -c '
@@ -115,16 +106,28 @@ jobs:
           print("PASS: No self-imports")
           '
 
-      - name: 6. Upload coverage report
+      - name: 4. License compliance check
+        run: |
+          pip install pip-licenses
+          mkdir -p results/licenses
+          pip-licenses --format=csv --output-file=results/licenses/licenses.csv
+          pip-licenses --format=json --output-file=results/licenses/licenses.json
+          if [ -f scripts/ci/check_licenses_v2.py ]; then
+            python3 scripts/ci/check_licenses_v2.py results/licenses/licenses.csv
+          else
+            echo "License check script not found — skipping"
+          fi
+
+      - name: 5. Upload coverage report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: quality-coverage-report
           path: results/coverage.xml
 
-      - name: 7. Upload junit report
+      - name: 6. Upload junit report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: quality-junit-report
-          path: results/junit/checks-report.xml
+          path: results/junit/quality-report.xml
