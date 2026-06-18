@@ -42,8 +42,9 @@ jobs:
 
       - name: 1. Verify lockfile synchronized
         run: |
-          pip-compile --quiet --output-file=/tmp/lockfile-verify.txt requirements.in 2>&1
-          if diff -q requirements-lock.txt /tmp/lockfile-verify.txt 2>/dev/null; then
+          pip install uv 2>&1 | tail -1
+          uv pip compile --python-platform=linux --generate-hashes --allow-unsafe --quiet --output-file=/tmp/lockfile-verify.txt requirements.in 2>&1
+          if diff <(sed '1,5d' requirements-lock.txt) <(sed '1,5d' /tmp/lockfile-verify.txt) 2>/dev/null; then
             echo "LOCKFILE: synchronized"
           else
             echo "::error title=Lockfile stale::requirements-lock.txt does not match requirements.in"
