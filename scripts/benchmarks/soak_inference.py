@@ -46,7 +46,7 @@ def certify_24h_inference(
 
     with torch.no_grad():
         while time.time() < end_time:
-            x = torch.randn(256, 41, device=device)
+            x = torch.randn(256, 17, device=device)
             t0 = time.perf_counter()
             _ = model(x)
             lat = time.perf_counter() - t0
@@ -118,5 +118,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--duration", type=int, default=24, help="Duration in hours")
     parser.add_argument("--interval", type=int, default=3600, help="Snapshot interval in seconds")
+    parser.add_argument("--output", type=str, default=None, help="Output directory (default: artifacts/soak/)")
     args = parser.parse_args()
+    if args.output:
+        import soak_telemetry as _st
+        _st.ARTIFACTS_DIR = Path(args.output)
+        globals()["ARTIFACTS_DIR"] = _st.ARTIFACTS_DIR
     sys.exit(0 if certify_24h_inference(args.duration, args.interval) else 1)

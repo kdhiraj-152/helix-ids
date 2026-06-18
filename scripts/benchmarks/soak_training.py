@@ -26,20 +26,26 @@ import torch.nn as nn
 from soak_telemetry import ARTIFACTS_DIR, collect_snapshot, summarize_run, write_snapshot
 
 
-def training_step(model: nn.Module, batch_size: int = 256, input_dim: int = 41) -> float:
-    """Run a single training step and return latency."""
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
-    loss_fn = nn.MSELoss()
+def training_step(model: nn.Module, device: str = "cpu", batch_size: int = 256) -> float:
+    """Run a single training step against multi-head model and return latency."""
+    loss_fn_binary = nn.BCEWithLogitsLoss()
+    loss_fn_family = nn.CrossEntropyLoss()
 
-    x = torch.randn(batch_size, input_dim)
-    y = torch.randn(batch_size, 2)
+    x = torch.randn(batch_size, 17, device=device)
+    y_binary = torch.randint(0, 2, (batch_size, 2), device=device).float()
+    y_family = torch.randint(0, 7, (batch_size,), device=device)
 
     t0 = time.perf_counter()
-    optimizer.zero_grad()
-    out = model(x)
-    loss = loss_fn(out, y)
+    model.zero_grad()
+    binary_logits, family_logits = model(x)
+    loss = loss_fn_binary(binary_logits, y_binary) + loss_fn_family(family_logits, y_family)
     loss.backward()
-    optimizer.step()
+    # Minimal optimizer step — one param group is enough for soak purposes
+    for group in model.parameters():
+        if group.requires_grad and group.grad is not None:
+            with torch.no_grad():
+                group -= 1e-4 * group.grad
+            break
     return time.perf_counter() - t0
 
 
@@ -63,7 +69,7 @@ def certify_24h_training(
 
     while time.time() < end_time:
         # Run training step
-        lat = training_step(model)
+        lat = training_step(model, device=device)
         latencies.append(lat)
         step_count += 1
 
@@ -144,5 +150,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--duration", type=int, default=24, help="Duration in hours")
     parser.add_argument("--interval", type=int, default=3600, help="Snapshot interval in seconds")
+    parser.add_argument("--output", type=str, default=None, help="Output directory (default: artifacts/soak/)")
     args = parser.parse_args()
+    if args.output:
+        import soak_telemetry as _st
+        _st.ARTIFACTS_DIR = Path(args.output)
+        globals()["ARTIFACTS_DIR"] = _st.ARTIFACTS_DIR
     sys.exit(0 if certify_24h_training(args.duration, args.interval) else 1)

@@ -36,7 +36,6 @@ def certify_24h_logging(
     print(f"=== 24h Logging Certification: {run_id} ===")
 
     from helix_ids.operations.logging import LogContext, get_logger
-    from helix_ids.operations.logging.console_log_handler import ConsoleLogHandler
 
     # Create log directory
     log_dir = Path(tempfile.mkdtemp(prefix="soak_logging_"))
@@ -48,11 +47,11 @@ def certify_24h_logging(
     file_handler.setFormatter(logging.Formatter(
         "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
     ))
-    logger.logger.addHandler(file_handler)
+    logger.addHandler(file_handler)
 
     # Disable console output to avoid stdout flood during soak
-    logger.logger.handlers = [h for h in logger.logger.handlers
-                              if not isinstance(h, ConsoleLogHandler)]
+    logger.handlers = [h for h in logger.handlers
+                       if not isinstance(h, logging.StreamHandler)]
 
     end_time = time.time() + duration_hours * 3600
     log_count = 0
@@ -139,5 +138,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--duration", type=int, default=24, help="Duration in hours")
     parser.add_argument("--interval", type=int, default=3600, help="Snapshot interval in seconds")
+    parser.add_argument("--output", type=str, default=None, help="Output directory (default: artifacts/soak/)")
     args = parser.parse_args()
+    if args.output:
+        import soak_telemetry as _st
+        _st.ARTIFACTS_DIR = Path(args.output)
+        globals()["ARTIFACTS_DIR"] = _st.ARTIFACTS_DIR
     sys.exit(0 if certify_24h_logging(args.duration, args.interval) else 1)
