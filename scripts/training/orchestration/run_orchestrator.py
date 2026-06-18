@@ -30,10 +30,10 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset, WeightedRandomSampler
 
-from helix_ids.data.feature_harmonization import ENGINEERED_FEATURE_NAMES
 from helix_ids.data.learnability_contract import compute_schema_hash
 from helix_ids.governance.determinism import seed_worker
 from helix_ids.models.full import HelixFullConfig, MultiTaskLoss, create_helix_full
+from scripts.training._constants import ENGINEERED_FEATURE_NAMES
 from scripts.training.data import (
     FrozenIndexSampler,
     MultiTaskNumpyDataset,

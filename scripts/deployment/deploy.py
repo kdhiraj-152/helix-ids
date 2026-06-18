@@ -144,10 +144,10 @@ class HelixDeployer:
     def predict(self, X: np.ndarray) -> tuple:
         """Predict on input features"""
         self.load()
-        assert self.scaler is not None
-        assert self.model is not None
-
-        # Scale
+        if self.scaler is None:
+            raise RuntimeError("scaler not loaded — call load() first")
+        if self.model is None:
+            raise RuntimeError("model not loaded — call load() first")
         x_scaled = self.scaler.transform(X)
 
         # Predict
@@ -163,7 +163,8 @@ class HelixDeployer:
         print(f"\nLoading {input_path}...")
         df = pd.read_csv(input_path)
 
-        assert self.feature_names is not None
+        if self.feature_names is None:
+            raise RuntimeError("feature_names not loaded - call load() first")
         # Check features
         missing = set(self.feature_names) - set(df.columns)
         if missing:
@@ -191,8 +192,10 @@ class HelixDeployer:
     def benchmark(self, n_samples: int = 10000):
         """Benchmark inference speed"""
         self.load()
-        assert self.scaler is not None
-        assert self.model is not None
+        if self.scaler is None:
+            raise RuntimeError("scaler not loaded - call load() first")
+        if self.model is None:
+            raise RuntimeError("model not loaded - call load() first")
 
         print(f"\nBenchmarking {self.platform} model...")
 
@@ -227,7 +230,8 @@ class HelixDeployer:
         """Export to ONNX format"""
         self.load()
 
-        assert self.model is not None
+        if self.model is None:
+            raise RuntimeError("model not loaded — call load() first")
         dummy_input = torch.randn(1, 32)
         torch.onnx.export(
             self.model,

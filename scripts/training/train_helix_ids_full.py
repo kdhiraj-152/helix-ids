@@ -86,7 +86,7 @@ from helix_ids.utils.metrics import (  # noqa: E402
 
 REQUIRED_GEOMETRY_FEATURE_DIM = 17
 MIN_FEATURE_STD = 1e-6
-from helix_ids.data.feature_harmonization import ENGINEERED_FEATURE_NAMES  # noqa: E402
+from scripts.training._constants import ENGINEERED_FEATURE_NAMES  # noqa: E402
 
 # Import core package (Phase 18)
 from scripts.training.core import RecoveryManager  # noqa: E402

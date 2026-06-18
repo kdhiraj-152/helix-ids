@@ -50,7 +50,9 @@ def load_model_and_data(platform="production"):
     ]:
         if not sidecar_path.exists():
             raise RuntimeError(f"Missing benchmark provenance sidecar: {sidecar_path}")
-    hidden_dims = eval(card["architecture"])
+    hidden_dims = card["architecture"]
+    if isinstance(hidden_dims, str):
+        hidden_dims = json.loads(hidden_dims)
     n_features = card["n_features"]
     model = HELIXMLP5Class(
         input_dim=n_features, hidden_dims=hidden_dims, num_classes=5, dropout=0.0

@@ -382,62 +382,54 @@ def test_trainer_facade_method_count_gate() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Rule 6 — ENGINEERED_FEATURE_NAMES must be in src, not in scripts/training
-# (or at least not defined in scripts/training)
+# Rule 6 — ENGINEERED_FEATURE_NAMES must live in scripts/training/_constants.py,
+#           not in src/helix_ids/ (training-layer detail, not domain)
 # ---------------------------------------------------------------------------
 
-def test_engineered_feature_names_not_defined_in_training() -> None:
-    """ENGINEERED_FEATURE_NAMES constant must be defined in src/helix_ids, not redefined in scripts/training.
 
-    Imports from src are allowed; re-definitions are not.
+def test_engineered_feature_names_not_defined_in_src() -> None:
+    """ENGINEERED_FEATURE_NAMES constant must be in scripts/training/_constants.py,
+    not defined in src/helix_ids/. Training-layer feature-engineering constants
+    do not belong in the domain core.
     """
     constant_name = "ENGINEERED_FEATURE_NAMES"
-    # Check where it's assigned/defined
-    trainers_file = SCRIPTS_TRAINING_ROOT / "train_helix_ids_full.py"
-    if not trainers_file.exists():
-        pytest.skip("train_helix_ids_full.py not found")
 
-    # Check if defined as top-level constant in training scripts (not just imported)
-    scripts_with_definition = []
-    for pyfile in sorted(SCRIPTS_TRAINING_ROOT.rglob("*.py")):
+    # Check it's NOT defined in src/
+    src_definitions = []
+    for pyfile in sorted(SRC_ROOT.rglob("*.py")):
         content = pyfile.read_text("utf-8")
         if f"{constant_name} =" in content or f"{constant_name}=" in content:
-            # Make sure it's actually assigned, not just imported
             lines = content.split("\n")
             for i, line in enumerate(lines):
                 stripped = line.strip()
                 if stripped.startswith(constant_name) and "=" in stripped:
-                    scripts_with_definition.append(
+                    src_definitions.append(
                         f"{pyfile.relative_to(PROJECT_ROOT).as_posix()}:{i+1}"
                     )
 
-    if scripts_with_definition:
-        # This is a WARNING, not necessarily a failure — check if it's also in src
-        src_definitions = []
-        for pyfile in sorted(SRC_ROOT.rglob("*.py")):
-            content = pyfile.read_text("utf-8")
-            if f"{constant_name} =" in content or f"{constant_name}=" in content:
-                lines = content.split("\n")
-                for i, line in enumerate(lines):
-                    stripped = line.strip()
-                    if stripped.startswith(constant_name) and "=" in stripped:
-                        src_definitions.append(
-                            f"{pyfile.relative_to(PROJECT_ROOT).as_posix()}:{i+1}"
-                        )
+    if src_definitions:
+        pytest.fail(
+            f"ENGINEERED_FEATURE_NAMES should NOT be defined in src/ "
+            f"(found in {src_definitions}). "
+            f"It belongs in scripts/training/_constants.py."
+        )
 
-        if src_definitions:
-            # Defined in both — the canonical location should be src
-            pytest.fail(
-                f"ENGINEERED_FEATURE_NAMES defined in src ({src_definitions}) "
-                f"AND in scripts/training ({scripts_with_definition}). "
-                f"Remove the scripts/training definition; src is canonical."
-            )
-        else:
-            # Only defined in scripts — needs relocation
-            print(
-                f"WARNING: ENGINEERED_FEATURE_NAMES defined only in scripts/training: "
-                f"{scripts_with_definition}. Should be moved to src/helix_ids."
-            )
+    # Check it IS defined in the canonical location
+    canonical = SCRIPTS_TRAINING_ROOT / "_constants.py"
+    if not canonical.exists():
+        pytest.fail(
+            f"Canonical location {canonical.relative_to(PROJECT_ROOT)} not found."
+        )
+    content = canonical.read_text("utf-8")
+    if (
+        f"{constant_name} =" not in content
+        and f"{constant_name}=" not in content
+        and f"{constant_name}:" not in content
+    ):
+        pytest.fail(
+            f"ENGINEERED_FEATURE_NAMES must be defined in "
+            f"{canonical.relative_to(PROJECT_ROOT)}."
+        )
 
 
 # ---------------------------------------------------------------------------

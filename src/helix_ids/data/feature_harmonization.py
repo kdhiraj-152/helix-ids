@@ -100,23 +100,12 @@ COMMON_FEATURES_METADATA = {
 }
 
 COMMON_FEATURES = list(COMMON_FEATURES_METADATA.keys())
-assert len(COMMON_FEATURES) == 17, f"Expected 17 common features, got {len(COMMON_FEATURES)}"
+if len(COMMON_FEATURES) != 17:
+    raise AssertionError(f"Expected 17 common features, got {len(COMMON_FEATURES)}")
 FEATURE_ORDER = list(CANONICAL_FEATURE_ORDER)
 
 LEAKAGE_PRONE_FEATURES: set[str] = set()
 INVARIANT_FEATURES = COMMON_FEATURES.copy()
-ENGINEERED_FEATURE_NAMES: frozenset[str] = frozenset(
-    {
-        "log_src_bytes",
-        "log_dst_bytes",
-        "src_dst_bytes_ratio",
-        "dst_src_bytes_ratio",
-        "same_host_rate_x_service",
-        "diff_srv_rate_x_flag",
-        "count_x_srv_count",
-        "protocol_service_flag",
-    }
-)
 
 PROTOCOL_MAP = {"tcp": 0, "udp": 1, "icmp": 2}
 

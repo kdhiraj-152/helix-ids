@@ -130,90 +130,108 @@ class TrainerFacade:
 
     @property
     def phase_manager(self) -> PhaseManager:
-        assert self._phase_manager is not None
+        if self._phase_manager is None:
+            raise RuntimeError("phase_manager not initialized — call init() first")
         return self._phase_manager
 
     @property
     def early_stopping_manager(self) -> EarlyStoppingManager:
-        assert self._early_stopping_manager is not None
+        if self._early_stopping_manager is None:
+            raise RuntimeError("early_stopping_manager not initialized — call init() first")
         return self._early_stopping_manager
 
     @property
     def freeze_manager(self) -> FreezeManager:
-        assert self._freeze_manager is not None
+        if self._freeze_manager is None:
+            raise RuntimeError("freeze_manager not initialized — call init() first")
         return self._freeze_manager
 
     @property
     def lr_scheduler(self) -> LRScheduler:
-        assert self._lr_scheduler is not None
+        if self._lr_scheduler is None:
+            raise RuntimeError("lr_scheduler not initialized — call init() first")
         return self._lr_scheduler
 
     @property
     def evaluation_orchestrator(self) -> EvaluationOrchestrator:
-        assert self._evaluation_orchestrator is not None
+        if self._evaluation_orchestrator is None:
+            raise RuntimeError("evaluation_orchestrator not initialized — call init() first")
         return self._evaluation_orchestrator
 
     @property
     def validation_orchestrator(self) -> ValidationOrchestrator:
-        assert self._validation_orchestrator is not None
+        if self._validation_orchestrator is None:
+            raise RuntimeError("validation_orchestrator not initialized — call init() first")
         return self._validation_orchestrator
 
     @property
     def geometry_analyzer(self) -> GeometryAnalyzer:
-        assert self._geometry_analyzer is not None
+        if self._geometry_analyzer is None:
+            raise RuntimeError("geometry_analyzer not initialized — call init() first")
         return self._geometry_analyzer
 
     @property
     def cluster_analyzer(self) -> ClusterAnalyzer:
-        assert self._cluster_analyzer is not None
+        if self._cluster_analyzer is None:
+            raise RuntimeError("cluster_analyzer not initialized — call init() first")
         return self._cluster_analyzer
 
     @property
     def rep_diagnostics(self) -> RepresentationDiagnostics:
-        assert self._rep_diagnostics is not None
+        if self._rep_diagnostics is None:
+            raise RuntimeError("rep_diagnostics not initialized — call init() first")
         return self._rep_diagnostics
 
     @property
     def centroid_manager(self) -> CentroidManager:
-        assert self._centroid_manager is not None
+        if self._centroid_manager is None:
+            raise RuntimeError("centroid_manager not initialized — call init() first")
         return self._centroid_manager
 
     @property
     def phase_orchestrator(self) -> PhaseOrchestrator:
-        assert self._phase_orchestrator is not None
+        if self._phase_orchestrator is None:
+            raise RuntimeError("phase_orchestrator not initialized — call init() first")
         return self._phase_orchestrator
 
     @property
     def representation_coordinator(self) -> RepresentationCoordinator:
-        assert self._representation_coordinator is not None
+        if self._representation_coordinator is None:
+            raise RuntimeError("representation_coordinator not initialized — call init() first")
         return self._representation_coordinator
 
     @property
     def loss_registry(self) -> LossRegistry:
-        assert self._loss_registry is not None
+        if self._loss_registry is None:
+            raise RuntimeError("loss_registry not initialized — call init() first")
         return self._loss_registry
 
     @property
     def batch_processor(self) -> BatchProcessor:
-        assert self._batch_processor is not None
+        if self._batch_processor is None:
+            raise RuntimeError("batch_processor not initialized — call init() first")
         return self._batch_processor
 
     @property
     def warmup_manager(self) -> WarmupManager:
-        assert self._warmup_manager is not None
+        if self._warmup_manager is None:
+            raise RuntimeError("warmup_manager not initialized — call init() first")
         return self._warmup_manager
 
     @property
     def epoch_runner(self) -> EpochRunner:
-        assert self._epoch_runner is not None
+        if self._epoch_runner is None:
+            raise RuntimeError("epoch_runner not initialized — call init() first")
         return self._epoch_runner
 
     @property
     def training_orchestrator(self) -> TrainingOrchestrator:
-        assert self._training_orchestrator is not None
+        if self._training_orchestrator is None:
+            raise RuntimeError("training_orchestrator not initialized — call init() first")
         return self._training_orchestrator
 
     @property
     def recovery_manager(self) -> RecoveryManager:
-        assert self._recovery_manager is not None
+        if self._recovery_manager is None:
+            raise RuntimeError("recovery_manager not initialized — call init() first")
         return self._recovery_manager

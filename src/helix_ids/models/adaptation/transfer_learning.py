@@ -12,7 +12,7 @@ Reference:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
@@ -1111,8 +1111,15 @@ class MultiDatasetPretrainer:
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
 
+        from pathlib import Path as _Path
+
+        config_dict = asdict(self.config)
+        # Convert Path objects to strings for safe serialization with weights_only=True
+        if isinstance(config_dict.get("checkpoint_dir"), _Path):
+            config_dict["checkpoint_dir"] = str(config_dict["checkpoint_dir"])
+
         checkpoint = {
-            "config": self.config,
+            "config": config_dict,
             "feature_aligner_state": (
                 self._feature_aligner.state_dict() if self._feature_aligner is not None else None
             ),
@@ -1182,9 +1189,12 @@ class MultiDatasetPretrainer:
             deployment_manifest=deployment_manifest,
         )
 
-        checkpoint = torch.load(path, map_location=self.device, weights_only=False)
+        checkpoint = torch.load(path, map_location=self.device, weights_only=True)
 
-        self.config = checkpoint["config"]
+        config_dict = checkpoint["config"]
+        if isinstance(config_dict.get("checkpoint_dir"), str):
+            config_dict["checkpoint_dir"] = Path(config_dict["checkpoint_dir"])
+        self.config = TransferLearningConfig(**config_dict)
         self._source_dims = checkpoint["source_dims"]
         self._pretrain_history = checkpoint["pretrain_history"]
         self._finetune_history = checkpoint["finetune_history"]
