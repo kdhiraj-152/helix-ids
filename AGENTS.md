@@ -10,10 +10,11 @@ Guidance for AI coding agents working in this repository.
 
 ## Read First
 
-- [README.md](README.md): project status, reproducibility path, staging artifacts.
-- [docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md): canonical package boundaries and model/runtime scope.
-- [docs/operations/OPERATIONS_DEPLOYMENT_RUNBOOK.md](docs/operations/OPERATIONS_DEPLOYMENT_RUNBOOK.md): deployment gates, metrics, rollout guards.
-- [scripts/README.md](scripts/README.md): script-domain layout and wrapper expectations.
+- [README.md](README.md): project overview, quick start, install, train, evaluate, deploy.
+- [docs/architecture/SYSTEM_ARCHITECTURE.md](docs/architecture/SYSTEM_ARCHITECTURE.md): canonical package boundaries, model/runtime scope, governance, recovery.
+- [docs/development/TESTING.md](docs/development/TESTING.md): test organization, types, coverage expectations, CI gates.
+- [docs/development/CODING_STANDARDS.md](docs/development/CODING_STANDARDS.md): code style, linting, type annotations, forbidden patterns.
+- [docs/operations/DEPLOYMENT.md](docs/operations/DEPLOYMENT.md): deployment stages, gate criteria, runbook commands.
 
 ## Environment And Commands
 
@@ -44,13 +45,27 @@ Notes:
   - evaluation: [scripts/evaluation](scripts/evaluation)
   - data: [scripts/data](scripts/data)
   - deployment: [scripts/deployment](scripts/deployment)
+  - benchmarks: [scripts/benchmarks](scripts/benchmarks)
+  - ci: [scripts/ci](scripts/ci)
 - Tests: [tests](tests)
+- Documentation: [docs](docs)
+  - architecture: system design, data flow, governance, decisions
+  - development: testing, coding standards, contributing, release process
+  - operations: deployment, monitoring, recovery, soak testing
+  - api: CLI & REST API reference
+  - reports: RC3 readiness verdict, audit baseline
+  - changelog: phase history
+  - manuscript: paper drafts
+  - figures: paper figures
+  - archive: historical phase documentation
 
 ## Project-Specific Pitfalls
 
-- Feature-space history is mixed across modules (legacy 32/41-feature paths and current harmonized/full-model paths). Confirm target module contracts before changing dimensions or schemas.
+- Feature-space history is mixed across modules (legacy 32/41-feature paths and current harmonized/full-model paths). Confirm target module contracts before changing dimensions or schemas. The canonical input dim is **17** features (not 41).
 - Some architecture text includes legacy sections; treat current code under [src/helix_ids](src/helix_ids) and active scripts under [scripts](scripts) as source of truth.
 - Service gating depends on `helix_coverage_override_rate` and `helix_degraded_state`; preserve the operational threshold behavior in [scripts/operations/serve_rest.py](scripts/operations/serve_rest.py) and [scripts/operations/staging_gate_check.py](scripts/operations/staging_gate_check.py).
+- Training produces governed checkpoints only — single-seed runs are research-only and not deployable.
+- The lockfile (`requirements-lock.txt`) must be synchronized with `requirements.in` — CI enforces this.
 
 ## Code-Review-Graph Workflow (Default Post-Change Review)
 
@@ -77,3 +92,18 @@ Repository-specific guidance:
 - Preserve existing naming and script-domain placement conventions from [scripts/README.md](scripts/README.md).
 - Keep patches small and test the nearest affected unit/integration tests first.
 - Prefer linking existing docs instead of duplicating long procedural content in code comments or new docs.
+- Do not change the documentation structure (new docs/ directories or files) without explicit approval — the current structure is intentionally minimal.
+
+## Documentation Authority
+
+The following files are single sources of truth:
+
+| Topic | Document |
+|-------|----------|
+| System design | `docs/architecture/SYSTEM_ARCHITECTURE.md` |
+| Testing | `docs/development/TESTING.md` |
+| Deployment | `docs/operations/DEPLOYMENT.md` |
+| Governance | `docs/architecture/GOVERNANCE.md` |
+| API reference | `docs/api/API_REFERENCE.md` |
+
+Historical documentation lives in `docs/archive/` and is not authoritative.

@@ -1,99 +1,60 @@
 # HELIX-IDS Documentation
 
-## Structure
+This directory is the single source of truth for HELIX-IDS documentation.
+It is intentionally minimal — each topic has exactly one authoritative document.
 
 ```
 docs/
-├── README.md                  # This file
-├── architecture/              # System architecture, model design, schemas
-│   ├── ARCHITECTURE.md        # Canonical package boundaries, model/runtime scope
-│   ├── ARCHITECTURE_FULL.md   # Full architecture description
-│   ├── CHECKPOINT_CERTIFICATION.md
-│   ├── CONFIG_GOVERNANCE.md
-│   ├── EXPERIMENTAL_SETUP.md
-│   ├── FAILURE_MODES.md
-│   ├── FEATURE_HARMONIZATION.md
-│   ├── FINAL_METRICS.md
-│   ├── MODEL_ARCHITECTURE.md
-│   ├── PRODUCTION_READINESS.md
-│   ├── RC3_READINESS_VERDICT.md
-│   ├── REPRODUCIBILITY_AUDIT.md
-│   ├── SCHEMA_CONTRACT.md
-│   ├── TECHNICAL_DEBT_REGISTER.md
-│   ├── TECHNICAL_DEBT_ROADMAP.md
-│   ├── TRAINER_FINAL_AUDIT.md
-│   ├── TRAINING_METHODOLOGY.md
-│   └── dependency_graph.md + dependency_graph.json
-├── audits/                    # Phase 23 audit deliverables
-│   ├── DEAD_FILE_AUDIT.md
-│   ├── DELETE_CANDIDATES.md
-│   ├── REPOSITORY_STRUCTURE.md
-│   ├── NAMING_STANDARDIZATION.md
-│   ├── GITIGNORE_AUDIT.md
-│   ├── DOC_RATIONALIZATION.md
-│   ├── ARTIFACT_RETENTION_POLICY.md
-│   ├── TEST_SUITE_MAP.md
-│   └── DEPENDENCY_AUDIT.md
-├── archive/                   # Historical phase documentation (archived)
-│   ├── phase4/                # Phase 4A/4B governance audits
-│   ├── phase11a/              # Phase 11A cleanup report
-│   ├── phase13/               # Phase 13B architecture audit
-│   ├── phase19/               # Phase 19 architecture freeze
-│   ├── phase22/               # Phase 22 reliability plan
-│   ├── phase23/               # Phase 23 CI/CD consolidation
-│   └── superseded/            # Superseded docs (dead code, dependency, etc.)
-├── compliance/                # License policy, supply chain
-│   ├── LICENSE_POLICY.md
-│   └── SUPPLY_CHAIN.md
-├── development/               # Project status
-│   └── PROJECT_STATUS.md
-├── governance/                # ADRs, hash authority, schema contracts
-│   ├── ADR-001-governance-philosophy.md
-│   ├── ADR-002-schema-lifecycle.md
-│   ├── ADR-003-hash-authority.md
-│   ├── ADR-004-enforcement-pipeline.md
-│   ├── IMMUTABLE_SCHEMA_CONTRACT.md
-│   ├── PRI_FRAMEWORK.md
-│   ├── hash_authority.md
-│   ├── manifest_schema_governance.md
-│   └── result_schema_governance.md
-├── manuscript/                # Paper drafts
-│   ├── HELIX_ieee_variant.md
-│   └── HELIX_submission_ready.md
-├── operations/                # Deployment runbooks, branch governance
-│   ├── BRANCH_GOVERNANCE_APPLIED.md
-│   ├── BRANCH_GOVERNANCE_FINAL.md
-│   ├── OPERATIONS_CERTIFICATION.md
-│   ├── OPERATIONS_DEPLOYMENT_RUNBOOK.md
-│   └── RELEASE_PIPELINE_CERTIFICATION.md
-├── releases/                  # Release certification docs
-│   ├── RC1_READINESS.md
-│   ├── RC2_CERTIFICATION.md
-│   └── RC2_READINESS.md
-├── reports/                   # Analysis reports
-│   ├── BENCHMARK_PROTOCOL.md
-│   ├── DATASET_REPORT.md
-│   ├── LIMITATIONS_AND_THREATS.md
-│   └── MUTATION_SCORECARD.md
-├── reproducibility/           # Reproducibility guides
-│   ├── CONTAINER_REPRODUCIBILITY.md
-│   ├── DATA_PIPELINE.md
-│   └── REPRODUCIBLE_BUILD_GUIDE.md
-├── security/                  # Security posture
-│   ├── SECURITY_POSTURE.md
-│   └── SECURITY_REVIEW.md
-└── figures/                   # Figures (6 PNGs for manuscript)
+├── README.md                              # This file
+├── architecture/                          # System design
+│   ├── SYSTEM_ARCHITECTURE.md             # High-level architecture, model, training, inference
+│   ├── DATA_FLOW.md                       # Data pipeline from raw captures to predictions
+│   ├── GOVERNANCE.md                      # Governance policies, ADRs, config governance
+│   └── DECISIONS.md                       # Architecture Decision Record summaries
+├── development/                           # Developer guidance
+│   ├── TESTING.md                         # All testing: unit, integration, mutation, chaos
+│   ├── CODING_STANDARDS.md                # Style, linting, type annotations, conventions
+│   ├── CONTRIBUTING.md                    # How to contribute
+│   └── RELEASE_PROCESS.md                 # Release pipeline, CI workflows, branch governance
+├── operations/                            # Deployment and runtime
+│   ├── DEPLOYMENT.md                      # Full deployment runbook (6 phases)
+│   ├── MONITORING.md                      # Metrics, alerting, telemetry
+│   ├── RECOVERY.md                        # Failure modes, detection, recovery
+│   └── SOAK_TESTING.md                    # Soak and load test certification
+├── api/                                   # API reference
+│   └── API_REFERENCE.md                   # REST endpoints, CLI commands
+├── reports/                               # Certification and audit
+│   ├── RC3_READINESS_VERDICT.md           # RC3 certification verdict
+│   └── AUDIT_BASELINE_2026.md             # Consolidated audit findings
+├── changelog/                             # Phase history
+│   └── CHANGELOG.md                       # All notable changes
+├── manuscript/                            # Paper drafts (preserved as-is)
+│   ├── HELIX_submission_ready.md
+│   └── HELIX_ieee_variant.md
+├── figures/                               # Paper figures (6 PNGs)
+└── archive/                               # Historical docs (not authoritative)
+    ├── phase4/                            # Phase 4A/4B governance audits
+    ├── phase11a/                          # Phase 11A cleanup report
+    ├── phase13/                           # Phase 13B architecture audit
+    ├── phase19/                           # Phase 19 architecture freeze
+    ├── phase22/                           # Phase 22 reliability plan
+    ├── phase23/                           # Phase 23 CI/CD consolidation
+    └── superseded/                        # Superseded reports and analyses
 ```
 
 ## Quick Reference
 
-| Area | Key Doc | Purpose |
-|------|---------|---------|
-| Architecture | `architecture/ARCHITECTURE.md` | Package boundaries, model/runtime scope |
-| Operations | `operations/OPERATIONS_DEPLOYMENT_RUNBOOK.md` | Deployment gates, metrics, rollout |
-| Governance | `governance/ADR-001-governance-philosophy.md` | ADR-001: Governance philosophy |
+| Area | Document | Purpose |
+|------|----------|---------|
+| Architecture | `architecture/SYSTEM_ARCHITECTURE.md` | Package boundaries, model, training/inference, governance |
+| Testing | `development/TESTING.md` | All test types, coverage, CI gates |
+| Deployment | `operations/DEPLOYMENT.md` | Runbook, stages, gates, commands |
+| Monitoring | `operations/MONITORING.md` | Metrics, alerting, thresholds |
+| Recovery | `operations/RECOVERY.md` | Failure modes, detection, recovery |
+| API | `api/API_REFERENCE.md` | REST endpoints, CLI flags |
 | Manuscript | `manuscript/HELIX_submission_ready.md` | Paper draft |
-| Reproducibility | `reproducibility/REPRODUCIBLE_BUILD_GUIDE.md` | Container-based reproducible build |
-| Security | `security/SECURITY_POSTURE.md` | Security posture and review |
-| Releases | `releases/RC2_CERTIFICATION.md` | RC2 certification status |
-| Reports | `reports/BENCHMARK_PROTOCOL.md` | Benchmark and mutation testing |
+| Changelog | `changelog/CHANGELOG.md` | Phase history |
+
+> **Note:** Historical phase documentation in `archive/` is preserved for
+> reference but is **not authoritative**. If something in archive/ contradicts
+> the active docs above, the active doc is correct.

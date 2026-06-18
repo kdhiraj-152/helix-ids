@@ -53,4 +53,4 @@ os.execv(sys.executable, [sys.executable, TARGET, *sys.argv[1:]])
   - use `os.execv` delegation,
   - include the canonical wrapper docstring convention,
   - and point to existing canonical scripts.
-- See migration mapping in `docs/reports/SCRIPT_MIGRATION_MATRIX.md`.
+- See migration mapping in `docs/archive/superseded/SCRIPT_MIGRATION_MATRIX.md`.
