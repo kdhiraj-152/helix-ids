@@ -39,7 +39,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements-lock.txt ]; then pip install -r requirements-lock.txt; fi
-          pip install pip-audit bandit cyclonedx-bom pytest pytest-cov
+          pip install pip-audit bandit cyclonedx-bom pytest pytest-cov hypothesis
           pip install ruff mypy pip-licenses
 
       - name: Install Cosign

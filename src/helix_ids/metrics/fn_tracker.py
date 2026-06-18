@@ -342,7 +342,7 @@ class FalseNegativeTracker:
             fig.savefig(output_path, dpi=150, bbox_inches="tight")
             print(f"Plot saved to {output_path}")
 
-        return fig
+        return fig  # type: ignore[no-any-return]
 
     def plot_fn_heatmap(self, output_path: Optional[str] = None) -> Optional[object]:
         """
@@ -401,7 +401,7 @@ class FalseNegativeTracker:
             fig.savefig(output_path, dpi=150, bbox_inches="tight")
             print(f"Heatmap saved to {output_path}")
 
-        return fig
+        return fig  # type: ignore[no-any-return]
 
     def to_dict(self) -> dict:
         """

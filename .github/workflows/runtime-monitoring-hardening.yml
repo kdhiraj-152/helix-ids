@@ -36,7 +36,7 @@ jobs:
           # Install project dependencies into the runner env so pytest can import them
           if [ -f requirements-lock.txt ]; then pip install -r requirements-lock.txt; fi
           # Ensure test tooling is available in CI (pytest may be in dev deps locally)
-          pip install pytest pytest-cov || true
+          pip install pytest pytest-cov hypothesis || true
           # Also install jsonschema into the runner env to satisfy import-time requirements
           python -m pip install jsonschema || true
           # onnx/onnxruntime needed by test_lifecycle_verifier (collected in default test paths)
@@ -106,7 +106,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements-lock.txt ]; then pip install -r requirements-lock.txt; fi
-          pip install onnx onnxruntime pytest pytest-cov
+          pip install onnx onnxruntime pytest pytest-cov hypothesis
 
       - name: Contract lifecycle tests
         run: |
@@ -138,7 +138,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         if [ -f requirements-lock.txt ]; then pip install -r requirements-lock.txt; fi
-        pip install pyyaml pytest pytest-cov
+        pip install pyyaml pytest pytest-cov hypothesis
 
     - name: Schema registry validation
       run: |
@@ -179,7 +179,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements-lock.txt ]; then pip install -r requirements-lock.txt; fi
-          pip install jsonschema pytest pytest-cov || true
+          pip install jsonschema pytest pytest-cov hypothesis || true
 
       - name: Validate experiment manifests (YAML load + expansion)
         run: |

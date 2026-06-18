@@ -38,7 +38,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements-lock.txt ]; then pip install -r requirements-lock.txt; fi
-          pip install pytest pytest-cov
+          pip install pytest pytest-cov hypothesis
 
       - name: 1. Check frozen trainer size limits
         run: |
