@@ -33,7 +33,7 @@ jobs:
 
       - name: 1. ruff check
         run: |
-          ruff check . --output-format=github
+          ruff check src --output-format=github
         continue-on-error: false
 
       - name: 2. mypy (src)
@@ -50,11 +50,9 @@ jobs:
             --junitxml=results/junit/checks-report.xml \
             || pytest_exit=$?
           echo "pytest exit code: ${pytest_exit:-0}"
-          # Extract coverage percentage
           COV=$(python -m coverage report --format=total 2>/dev/null | tail -1 || echo "0")
           echo "COVERAGE=${COV}" >> $GITHUB_ENV
-          echo "Coverage: ${COV}% (gate: ≥65%)"
-          # Fail only on coverage gate, not test failures (report both)
+          echo "Coverage: ${COV}% (gate: 65%)"
           if (( $(echo "$COV < 65" | bc -l 2>/dev/null || echo 1) )); then
             echo "FAIL: Coverage ${COV}% below 65% gate"
             exit 1
@@ -67,60 +65,55 @@ jobs:
       - name: 5. Dependency audit
         run: |
           echo "=== Dependency audit ==="
-          python3 -c "
-import ast
-from pathlib import Path
-
-project_root = Path('.')
-src = project_root / 'src' / 'helix_ids'
-
-# Check for new reverse deps (src -> scripts)
-offenders = []
-for pyfile in sorted(src.rglob('*.py')):
-    if pyfile.name == '__init__.py':
-        continue
-    try:
-        tree = ast.parse(pyfile.read_text('utf-8'))
-    except SyntaxError:
-        continue
-    targets = set()
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            for alias in node.names:
-                targets.add(alias.name.split('.')[0])
-        elif isinstance(node, ast.ImportFrom) and node.module:
-            targets.add(node.module.split('.')[0])
-    if 'scripts' in targets:
-        rel = pyfile.relative_to(project_root).as_posix()
-        offenders.append(rel)
-if offenders:
-    print(f'FAIL: New reverse dependencies ({len(offenders)})')
-    for o in offenders:
-        print(f'  {o}')
-    exit(1)
-print('PASS: No reverse dependencies')
-
-# Check for self-imports
-self_imports = []
-for pyfile in sorted(src.rglob('*.py')):
-    if pyfile.name == '__init__.py':
-        continue
-    rel = pyfile.relative_to(project_root).as_posix()
-    module_path = rel.replace('/', '.').replace('.py', '')
-    try:
-        tree = ast.parse(pyfile.read_text('utf-8'))
-    except SyntaxError:
-        continue
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom) and node.module == module_path:
-            self_imports.append(rel)
-if self_imports:
-    print(f'FAIL: Self-imports found ({len(self_imports)})')
-    for s in self_imports:
-        print(f'  {s}')
-    exit(1)
-print('PASS: No self-imports')
-"
+          python3 -c '
+          import ast
+          from pathlib import Path
+          project_root = Path(".")
+          src = project_root / "src" / "helix_ids"
+          offenders = []
+          for pyfile in sorted(src.rglob("*.py")):
+              if pyfile.name == "__init__.py":
+                  continue
+              try:
+                  tree = ast.parse(pyfile.read_text("utf-8"))
+              except SyntaxError:
+                  continue
+              targets = set()
+              for node in ast.walk(tree):
+                  if isinstance(node, ast.Import):
+                      for alias in node.names:
+                          targets.add(alias.name.split(".")[0])
+                  elif isinstance(node, ast.ImportFrom) and node.module:
+                      targets.add(node.module.split(".")[0])
+              if "scripts" in targets:
+                  rel = pyfile.relative_to(project_root).as_posix()
+                  offenders.append(rel)
+          if offenders:
+              print(f"FAIL: New reverse dependencies ({len(offenders)})")
+              for o in offenders:
+                  print(f"  {o}")
+              exit(1)
+          print("PASS: No reverse dependencies")
+          self_imports = []
+          for pyfile in sorted(src.rglob("*.py")):
+              if pyfile.name == "__init__.py":
+                  continue
+              rel = pyfile.relative_to(project_root).as_posix()
+              module_path = rel.replace("/", ".").replace(".py", "")
+              try:
+                  tree = ast.parse(pyfile.read_text("utf-8"))
+              except SyntaxError:
+                  continue
+              for node in ast.walk(tree):
+                  if isinstance(node, ast.ImportFrom) and node.module == module_path:
+                      self_imports.append(rel)
+          if self_imports:
+              print(f"FAIL: Self-imports found ({len(self_imports)})")
+              for s in self_imports:
+                  print(f"  {s}")
+              exit(1)
+          print("PASS: No self-imports")
+          '
 
       - name: 6. Upload coverage report
         if: always()

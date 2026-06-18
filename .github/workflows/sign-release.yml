@@ -102,12 +102,26 @@ jobs:
           done
           echo "All signatures verified successfully."
 
-      - name: Build and sign container (Cosign keyless)
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build container
         run: |
           # Build the production container
           docker build --target production -t ghcr.io/${{ github.repository }}:${{ github.ref_name }} .
           echo "Container built: ghcr.io/${{ github.repository }}:${{ github.ref_name }}"
-          
+
+      - name: Push container to GHCR
+        run: |
+          docker push ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+          echo "Container pushed: ghcr.io/${{ github.repository }}:${{ github.ref_name }}"
+
+      - name: Sign container (Cosign keyless)
+        run: |
           # Sign the container image
           cosign sign --yes \
             ghcr.io/${{ github.repository }}:${{ github.ref_name }} 2>&1

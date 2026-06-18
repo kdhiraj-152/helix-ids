@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 _log_context: contextvars.ContextVar[dict[str, Any]] = contextvars.ContextVar(
-    "_structured_log_context", default={}
+    "_structured_log_context"
 )
 
 
@@ -35,7 +35,7 @@ class LogContextManager:
     extra: dict[str, Any] = field(default_factory=dict)
 
     def __enter__(self) -> LogContextManager:
-        existing = _log_context.get().copy()
+        existing = _log_context.get({}).copy()
         if self.run_id is not None:
             existing["run_id"] = self.run_id
         if self.experiment_id is not None:
@@ -58,7 +58,7 @@ class LogContextManager:
 
 
 def current_log_context() -> dict[str, Any]:
-    return _log_context.get().copy()
+    return _log_context.get({}).copy()
 
 
 # Convenience alias

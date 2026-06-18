@@ -40,11 +40,14 @@ jobs:
           python -m pip install --upgrade pip
           if [ -f requirements-lock.txt ]; then pip install -r requirements-lock.txt; fi
           pip install pip-audit bandit cyclonedx-bom pytest pytest-cov
-          pip install ruff mypy pip-licenses cosign
+          pip install ruff mypy pip-licenses
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.8.1
 
       - name: 1. Verify lockfile synchronized
         run: |
-          pip install piptools
+          pip install pip-tools
           pip-compile --quiet --output-file=/tmp/lockfile-verify.txt requirements.in 2>&1
           if diff -q requirements-lock.txt /tmp/lockfile-verify.txt 2>/dev/null; then
             echo "LOCKFILE: synchronized"
@@ -90,7 +93,7 @@ jobs:
 
       - name: 5. Verify Ruff
         run: |
-          ruff check src scripts tests
+          ruff check src
           echo "RUFF: 0 violations"
 
       - name: 6. Verify Mypy

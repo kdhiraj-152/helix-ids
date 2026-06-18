@@ -133,8 +133,6 @@ class RestartManager:
         checkpoint was found and a crash was detected. Otherwise returns a
         fresh-start decision.
         """
-        run_id = self._detect_run_id()
-
         # 1. Detect crash
         crash = self._detect_crash()
         if crash is None:
