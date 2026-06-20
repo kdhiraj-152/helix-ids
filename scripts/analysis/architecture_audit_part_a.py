@@ -6,9 +6,9 @@ Outputs structured JSON to stdout.
 """
 
 import ast
+import json
 import os
 import sys
-import json
 from collections import defaultdict
 from pathlib import Path
 
@@ -70,7 +70,7 @@ def resolve_import(module_name: str, file_path: Path) -> str | None:
     return None
 
 def analyze_file(file_path: Path) -> dict:
-    with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+    with open(file_path, encoding="utf-8", errors="replace") as f:
         source = f.read()
     lines = source.split("\n")
     loc = len(lines)
@@ -230,7 +230,7 @@ def detect_cycles(graph: dict) -> list[list[str]]:
             adj[src].append(tgt)
             all_nodes.add(tgt)
     WHITE, GRAY, BLACK = 0, 1, 2
-    color = {node: WHITE for node in all_nodes}
+    color = dict.fromkeys(all_nodes, WHITE)
     path = []
     cycles = []
     def dfs(u):

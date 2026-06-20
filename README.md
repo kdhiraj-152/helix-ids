@@ -29,7 +29,7 @@ It uses a neural network with three specific design decisions that matter:
 
 **Domain adaptation.** The gap between datasets is not noise — it's the primary source of deployment failure. HELIX trains a shared representation that generalizes across datasets so you can train on NSL-KDD and deploy on a live network without the performance cliff that naive transfer produces.
 
-**Hierarchical rare-class handling.** R2L and U2R attacks are infrequent but dangerous. Rather than treat them as "class 4" and watch standard loss functions wash their signal out, HELIX uses a threat-weighted loss that amplifies rare-class gradients. This is not free — it comes at a small cost to benign accuracy — but the tradeoff is explicit and measurable.
+**Threat-aware multi-task loss.** R2L and U2R attacks are infrequent but dangerous. Rather than treat them as "class 4" and watch standard loss functions wash their signal out, HELIX uses a threat-weighted multi-task loss that amplifies rare-class gradients. This is not free — it comes at a small cost to benign accuracy — but the tradeoff is explicit and measurable.
 
 ## What it runs on
 
@@ -61,17 +61,13 @@ Every checkpoint, every training run, every dataset transform produces a SHA-256
 
 Three seeds minimum are required before a checkpoint can be promoted to a baseline. Single-seed runs are not deployable. This is not negotiable.
 
-## The product spectrum
+## The production architecture
 
-Three deployment profiles cover the operational surface:
+The current production system is built around a single certified model:
 
-**Nano.** ESP32-targeted, binary classification only, ~16KB weights, ~64KB RAM. Runs where no other NIDS can. Useful for air-gapped sensors, IoT gateways, and remote telemetry.
+**HelixIDS-Full** — Multi-task neural network with MLP backbone, threat-weighted multi-task loss, and deployment gate certification. Trained via the unified pipeline in `scripts/training/train_helix_ids_full.py` using the learnability contract system and canonical feature harmonization.
 
-**Lite.** Pi Zero / Pi 4, reduced feature set, all 7 attack classes. Covers SOHO networks, branch offices, and edge compute nodes where a Pi is already running.
-
-**Full.** Server or cloud, full feature set, all classes, domain adaptation, deployment gates, provenance chain. For the network that actually has a server to run it.
-
-All three variants are generated from the same training pipeline with different quantization targets. There is no separate codebase for each tier.
+All edge variants (Nano, Lite) are generated from the same training pipeline through quantization — there is no separate codebase for each tier.
 
 ## Deployment truth
 
@@ -99,12 +95,24 @@ Everything else is in `docs/`. For the operating details — how to train, evalu
 | You want… | Go to |
 |-----------|-------|
 | System architecture | `docs/architecture/SYSTEM_ARCHITECTURE.md` |
+| Active system overview (for new contributors) | `docs/ACTIVE_SYSTEM.md` |
 | How to train and deploy | `docs/operations/DEPLOYMENT.md` |
 | All test types and CI gates | `docs/development/TESTING.md` |
 | API reference | `docs/api/API_REFERENCE.md` |
 | Governance and ADRs | `docs/architecture/GOVERNANCE.md` |
 | Changelog | `docs/changelog/CHANGELOG.md` |
 | AI agent guidance | `AGENTS.md` (repo root) |
+
+### Archived Components
+
+Historical implementations that are **not** part of the active production system are preserved under `archive/phase24a/`. These include:
+
+- `src/helix_ids/adaptation/` — Early cross-dataset adaptation (superseded by `data/feature_harmonization.py`)
+- `src/helix_ids/data/data_audit.py` — Dataset quality auditing (not used in production pipelines)
+- `scripts/training/train_unified_rebalanced.py` — Direct adaptation training (production uses `train_helix_ids_full.py`)
+- `scripts/training/train_unsw_only.py` — UNSW-only training (deleted — zero production references)
+
+See `archive/phase24a/README.md` for details.
 
 ### Current state
 

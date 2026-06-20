@@ -1,6 +1,6 @@
 # HELIX-IDS System Architecture
 
-> Last updated: 2026-06-18  
+> Last updated: 2026-06-20  
 > This document is the single authoritative description of HELIX-IDS architecture.  
 > It supersedes all earlier architecture descriptions.
 
@@ -10,7 +10,7 @@ HELIX-IDS (Hierarchical Edge-optimized Lightweight Intrusion eXpert) is a networ
 
 The system runs on three tiers:
 - **Server / Cloud**: Training, evaluation, high-throughput inference
-- **Edge (RPi 4, RPi Zero)**: Optimized inference with smaller model variants
+- **Edge (RPi 4, RPi Zero)**: Optimized inference with quantized model variants
 - **Microcontroller (ESP32)**: Minimal inference with quantized models
 
 ### Design Goals
@@ -27,30 +27,22 @@ The system runs on three tiers:
 ```
 src/helix_ids/
 ├── config/           Training/Data/Eval config dataclasses + YAML loading
+├── contracts/        Schema contracts, canonical feature definitions
 ├── data/             Dataset loading, feature harmonization, preprocessing
 │   ├── feature_harmonization.py    Cross-dataset feature mapping (17 canonical features)
+│   ├── learnability_contract.py    Data quality validation before training
 │   ├── multi_dataset_loader.py     Multi-dataset split management
 │   ├── preprocessing.py            Data preprocessing pipeline
 │   └── unified_loader.py           High-level dataset loading interface
 ├── models/           Neural network architectures
-│   ├── helix_ids_full.py           Primary multi-task model (MLP backbone)
-│   ├── attention.py                Temporal Attention Module (TAM)
-│   └── loss.py                     Multi-task loss, focal loss
+│   └── helix_ids_full.py           Production model — multi-task MLP backbone
 ├── governance/       Provenance, determinism, entrypoint wrapping, promotion
-│   ├── entrypoint.py               Non-bypassable governance wrapper
-│   ├── determinism.py              Seed-based deterministic training
-│   ├── fingerprinting.py           Artifact fingerprinting
-│   ├── lifecycle_verifier.py       Checkpoint lifecycle validation
-│   └── promotion.py                Multi-seed promotion consensus
 ├── operations/       Inference runtime, monitoring, recovery
-│   ├── inference_runtime.py        REST inference server (Prometheus metrics)
-│   ├── monitoring.py               System health monitoring
-│   └── recovery_manager.py         Phase recovery and state management
-└── utils/            Shared utilities (export, metrics)
+└── utils/            Shared utilities (export, metrics, loss)
 ```
 
 Operational scripts live in `scripts/`:
-- `scripts/training/train_helix_ids_full.py` — Primary training pipeline
+- `scripts/training/train_helix_ids_full.py` — Primary training pipeline (sole production entrypoint)
 - `scripts/operations/serve_rest.py` — REST inference server
 - `scripts/operations/staging_gate_check.py` — Deployment gate checker
 - `scripts/evaluation/benchmarks.py` — Benchmark orchestration
@@ -64,8 +56,7 @@ The harmonization contract is implemented in `src/helix_ids/data/feature_harmoni
 - **Canonical features**: 17 features (14 common + 3 dataset-origin one-hot indicators)
 - **Per-dataset normalization** enforced to avoid cross-dataset leakage
 - **Stratified splitting** used where feasible
-
-Full cross-dataset mapping is documented in FEATURE_HARMONIZATION.md (archived) and implemented in `feature_harmonization.py`.
+- **Learnability contract** validates data quality before training starts
 
 ### Schema Contract
 
@@ -75,26 +66,16 @@ Full cross-dataset mapping is documented in FEATURE_HARMONIZATION.md (archived) 
 
 ## 4. Model Architecture
 
-The canonical model is implemented in `src/helix_ids/models/helix_ids_full.py`.
+The sole production model is implemented in `src/helix_ids/models/helix_ids_full.py`.
 
-### Model Variants
-
-| Variant | Parameters | Target | Inference Time (RPi 4) | Memory |
-|---------|-----------|--------|----------------------|--------|
-| HELIXNano | ~50K | ESP32 / RPi Zero | <30ms | <512KB |
-| HELIXLite | ~150K | RPi Zero / RPi 4 | <50ms | <1MB |
-| HELIXFull | ~500K | RPi 4 / Server | <100ms | <5MB |
+Edge variants (Nano, Lite) are generated from the same training pipeline through quantization — there is no separate codebase for each tier.
 
 ### Multi-Task Architecture
 
-```mermaid
-flowchart TD
-    A["Input: 17 features"] --> B["Temporal Attention Module"]
-    B --> C["MLP Backbone"]
-    C --> D["Binary Head (Normal vs Attack)"]
-    C --> E["Family Head (7 attack families)"]
-    D --> F["Threat-Weighted Focal Loss"]
-    E --> F
+```
+Input: 17 features → MLP Backbone → Binary Head (Normal vs Attack)
+                                       → Family Head (7 attack families)
+                                       → Threat-Weighted Multi-Task Loss
 ```
 
 Default configuration:
@@ -106,16 +87,9 @@ Default configuration:
 | Binary classes | 2 (Normal, Attack) |
 | Family classes | 7 |
 
-### Temporal Attention Module (TAM)
-
-Applies multi-head self-attention over time-windowed features:
-- **TAMNano**: 2 heads, 32-dim hidden, 1 layer
-- **TAMLite**: 4 heads, 64-dim hidden, 2 layers
-- **TAMFull**: 8 heads, 128-dim hidden, 3 layers
-
 ## 5. Training Flow
 
-### Primary pipeline
+### Primary pipeline (sole production entrypoint)
 ```bash
 PYTHONPATH=src python scripts/training/train_helix_ids_full.py \
     --config config/experiments/smoke.yaml \

@@ -44,7 +44,7 @@ def training_step(model: nn.Module, device: str = "cpu", batch_size: int = 256) 
     for group in model.parameters():
         if group.requires_grad and group.grad is not None:
             with torch.no_grad():
-                group -= 1e-4 * group.grad
+                group.sub_(1e-4 * group.grad)
             break
     return time.perf_counter() - t0
 

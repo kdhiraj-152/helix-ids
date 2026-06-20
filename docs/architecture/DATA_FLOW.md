@@ -65,7 +65,7 @@ Per-dataset normalization is enforced to avoid cross-dataset leakage:
 | `MultiDatasetLoader` | `multi_dataset_loader.py` | Multi-dataset split management |
 | `UnifiedDataLoader` | `unified_loader.py` | High-level loading interface |
 | `FeatureEngineer` | `feature_engineering.py` | 41-feature computation from raw flows |
-| `DataAudit` | `data_audit.py` | Dataset quality auditing |
+| `DataAudit` | `data_audit.py` (archived) | Dataset quality auditing (archived under `archive/phase24a/`) |
 
 ## Data Flow During Training
 

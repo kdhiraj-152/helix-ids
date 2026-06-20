@@ -14,6 +14,8 @@ Tests robustness against corrupted inputs:
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -849,9 +851,28 @@ class TestEntropyCorrupted:
 class TestDataAuditCorrupted:
     """Corruption resilience tests for data_audit."""
 
+    @classmethod
+    def setup_class(cls):
+        """Load archived data_audit module via importlib (Phase 24A)."""
+        import importlib.util as _iu
+        import sys as _sys
+        _archive = (
+            Path(__file__).resolve().parent.parent
+            / "archive" / "phase24a" / "src" / "helix_ids" / "data" / "data_audit.py"
+        )
+        _spec = _iu.spec_from_file_location("_archived_data_audit", str(_archive))
+        _mod = _iu.module_from_spec(_spec)
+        # Register in sys.modules before exec (dataclass decorator needs it)
+        _sys.modules["_archived_data_audit"] = _mod
+        _spec.loader.exec_module(_mod)
+        cls.DataAudit = _mod.DataAudit
+        cls.DataAuditConfig = getattr(_mod, "DataAuditConfig", None)
+        # Flag to indicate methods should use cls.DataAudit
+        cls._use_archived = True
+
     def test_audit_empty_dataframe(self) -> None:
         """DataAudit methods must handle empty DataFrames without crashing."""
-        from helix_ids.data.data_audit import DataAudit
+        DataAudit = self.DataAudit
 
         auditor = DataAudit()
         df = pd.DataFrame()
@@ -860,7 +881,7 @@ class TestDataAuditCorrupted:
 
     def test_audit_single_row_dataframe(self) -> None:
         """DataAudit methods must handle single-row DataFrames without crashing."""
-        from helix_ids.data.data_audit import DataAudit
+        DataAudit = self.DataAudit
 
         auditor = DataAudit()
         df = pd.DataFrame({"a": [1.0], "b": [2.0]})
@@ -872,7 +893,7 @@ class TestDataAuditCorrupted:
 
     def test_audit_all_nan_dataframe(self) -> None:
         """DataAudit must handle DataFrames with all NaN values."""
-        from helix_ids.data.data_audit import DataAudit
+        DataAudit = self.DataAudit
 
         auditor = DataAudit()
         df = pd.DataFrame({"a": [np.nan, np.nan], "b": [np.nan, np.nan]})
@@ -882,7 +903,7 @@ class TestDataAuditCorrupted:
 
     def test_audit_all_identical_rows(self) -> None:
         """DataAudit must handle DataFrames where every row is identical."""
-        from helix_ids.data.data_audit import DataAudit
+        DataAudit = self.DataAudit
 
         auditor = DataAudit()
         df = pd.DataFrame({"a": [1.0, 1.0, 1.0], "b": [2.0, 2.0, 2.0]})
@@ -892,7 +913,7 @@ class TestDataAuditCorrupted:
 
     def test_audit_nan_percent_column(self) -> None:
         """DataAudit must handle NaN values correctly at the column threshold."""
-        from helix_ids.data.data_audit import DataAudit, DataAuditConfig
+        DataAudit, DataAuditConfig = self.DataAudit, self.DataAuditConfig
 
         # 50% NaN in first column, threshold at 30%
         auditor = DataAudit(DataAuditConfig(nan_column_threshold=0.3))
@@ -906,7 +927,7 @@ class TestDataAuditCorrupted:
 
     def test_audit_identifiers_no_match(self) -> None:
         """audit_identifiers with no matching identifier columns must return LOW risk."""
-        from helix_ids.data.data_audit import DataAudit
+        DataAudit = self.DataAudit
 
         auditor = DataAudit()
         df = pd.DataFrame({"feature_a": [1.0], "feature_b": [2.0]})
@@ -916,7 +937,7 @@ class TestDataAuditCorrupted:
 
     def test_audit_labels_missing_column(self) -> None:
         """audit_labels with missing label column must return error dict."""
-        from helix_ids.data.data_audit import DataAudit
+        DataAudit = self.DataAudit
 
         auditor = DataAudit()
         df = pd.DataFrame({"a": [1.0]})
@@ -925,7 +946,7 @@ class TestDataAuditCorrupted:
 
     def test_audit_labels_with_mapping(self) -> None:
         """audit_labels with mapping must detect unmapped labels."""
-        from helix_ids.data.data_audit import DataAudit
+        DataAudit = self.DataAudit
 
         auditor = DataAudit()
         df = pd.DataFrame({"label": ["normal", "attack", "unknown", "malicious"]})
@@ -936,7 +957,7 @@ class TestDataAuditCorrupted:
 
     def test_audit_outliers_zero_std(self) -> None:
         """audit_outliers must handle columns with zero standard deviation."""
-        from helix_ids.data.data_audit import DataAudit
+        DataAudit = self.DataAudit
 
         auditor = DataAudit()
         df = pd.DataFrame({"a": [5.0, 5.0, 5.0], "b": [1.0, 2.0, 3.0]})
@@ -945,7 +966,7 @@ class TestDataAuditCorrupted:
 
     def test_audit_outliers_no_numeric(self) -> None:
         """audit_outliers must handle DataFrames with no numeric columns."""
-        from helix_ids.data.data_audit import DataAudit
+        DataAudit = self.DataAudit
 
         auditor = DataAudit()
         df = pd.DataFrame({"a": ["x", "y"], "b": ["z", "w"]})
@@ -954,7 +975,7 @@ class TestDataAuditCorrupted:
 
     def test_audit_generate_report_single(self) -> None:
         """generate_audit_report with a single dataset must not crash."""
-        from helix_ids.data.data_audit import DataAudit
+        DataAudit = self.DataAudit
 
         auditor = DataAudit()
         df = pd.DataFrame({"a": [1.0, 2.0], "b": [3.0, 4.0]})
@@ -965,7 +986,7 @@ class TestDataAuditCorrupted:
 
     def test_audit_generate_report_multiple(self) -> None:
         """generate_audit_report with multiple datasets must not crash."""
-        from helix_ids.data.data_audit import DataAudit
+        DataAudit = self.DataAudit
 
         auditor = DataAudit()
         df1 = pd.DataFrame({"a": [1.0]})
@@ -975,7 +996,7 @@ class TestDataAuditCorrupted:
 
     def test_generate_report_with_exclude(self) -> None:
         """generate_audit_report must accept exclude_cols_per_dataset."""
-        from helix_ids.data.data_audit import DataAudit
+        DataAudit = self.DataAudit
 
         auditor = DataAudit()
         df1 = pd.DataFrame({"Flow ID": ["x"], "feature_a": [1.0]})
@@ -988,7 +1009,7 @@ class TestDataAuditCorrupted:
 
     def test_audit_schema_single_dataset(self) -> None:
         """audit_schema with a single dataset must return consistency_score=1.0."""
-        from helix_ids.data.data_audit import DataAudit
+        DataAudit = self.DataAudit
 
         auditor = DataAudit()
         df = pd.DataFrame({"a": [1.0], "b": [2.0]})
@@ -998,7 +1019,7 @@ class TestDataAuditCorrupted:
 
     def test_audit_schema_mismatched(self) -> None:
         """audit_schema must detect column mismatches across datasets."""
-        from helix_ids.data.data_audit import DataAudit
+        DataAudit = self.DataAudit
 
         auditor = DataAudit()
         df1 = pd.DataFrame({"a": [1.0], "b": [2.0]})
@@ -1008,7 +1029,7 @@ class TestDataAuditCorrupted:
 
     def test_audit_identifiers_with_exclude(self) -> None:
         """audit_identifiers must accept explicit column list (overrides config)."""
-        from helix_ids.data.data_audit import DataAudit
+        DataAudit = self.DataAudit
 
         auditor = DataAudit()
         df = pd.DataFrame({"Flow ID": ["x"], "Src IP": ["y"], "feature": [1.0]})

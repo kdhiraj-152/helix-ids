@@ -19,7 +19,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-
 # ── Gate definitions ──────────────────────────────────────────────────────────
 
 GATES: list[dict[str, Any]] = [

@@ -53,9 +53,18 @@ def certify_24h_inference(
             latencies.append(lat)
             inference_count += 1
 
+            # Periodic MPS cache clear to prevent memory accumulation
+            if inference_count % 100 == 0:
+                if device == "mps":
+                    torch.mps.empty_cache()
+
             # Periodic telemetry snapshot
             now = time.time()
             if now - last_snapshot_time >= snapshot_interval or last_snapshot_time == 0:
+                # Flush MPS cache before snapshot to get accurate RSS
+                if device == "mps":
+                    torch.mps.empty_cache()
+
                 if latencies:
                     lats = sorted(latencies)
                     custom = {

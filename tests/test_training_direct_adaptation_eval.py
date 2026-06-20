@@ -2,9 +2,16 @@
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
 import numpy as np
 
-from scripts.training import train_unified_rebalanced as runner
+# Archived under archive/phase24a/scripts/training/ (Phase 24A)
+ARCHIVE_SCRIPTS = Path(__file__).resolve().parent.parent / "archive" / "phase24a"
+sys.path.insert(0, str(ARCHIVE_SCRIPTS))
+
+from scripts.training import train_unified_rebalanced as runner  # noqa: E402
 
 
 class _DummyLoader:

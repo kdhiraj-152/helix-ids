@@ -18,7 +18,37 @@ import pandas as pd
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from helix_ids.adaptation import FeatureHarmonizer, create_cross_dataset_pipeline  # noqa: E402
+# Archived under archive/phase24a/src/ (Phase 24A)
+# Use importlib so the archived module resolves relative imports correctly
+import importlib.util as _imp_util
+from pathlib import Path as _Path
+
+_ARCHIVE_HELIX = _Path(__file__).resolve().parent.parent / "archive" / "phase24a" / "src" / "helix_ids"
+
+# Create a synthetic package in sys.modules so relative imports work
+import types as _types
+
+_archived_hids = _types.ModuleType("helix_ids")
+_archived_hids.__path__ = [str(_ARCHIVE_HELIX)]
+_archived_hids.__package__ = "helix_ids"
+sys.modules["helix_ids"] = _archived_hids
+
+# Now load adaptation.__init__ as a submodule
+_adapt_spec = _imp_util.spec_from_file_location(
+    "helix_ids.adaptation", str(_ARCHIVE_HELIX / "adaptation" / "__init__.py"),
+    submodule_search_locations=[str(_ARCHIVE_HELIX / "adaptation")],
+)
+_adapt_mod = _imp_util.module_from_spec(_adapt_spec)
+sys.modules["helix_ids.adaptation"] = _adapt_mod
+_adapt_spec.loader.exec_module(_adapt_mod)
+
+# Export the needed names
+FeatureHarmonizer = _adapt_mod.FeatureHarmonizer
+create_cross_dataset_pipeline = _adapt_mod.create_cross_dataset_pipeline
+
+# Restore real helix_ids in sys.modules so other tests don't get the synthetic one
+sys.modules.pop("helix_ids.adaptation", None)
+sys.modules.pop("helix_ids", None)
 
 
 def test_feature_harmonizer_basic():

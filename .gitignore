@@ -43,12 +43,22 @@ checkpoints/
 **/models/*.pth
 results/
 outputs/
-artifacts/
-.code-review-graph/
+
+# Specific cleanup artifacts (gitignored but tracked — kept for archiving)
+artifacts/soak/
+artifacts/benchmarks/
+artifacts/tmp/
+artifacts/cache/
+logs/
+session_logs/
+*.log
+*.tmp
+*.bak
 
 # Local agent/tooling state
 .opencode.json
 .mcp.json
+.code-review-graph/
 
 # Recycle bin for proven-dead code (archived, not active)
 src/helix_ids/_unused/
@@ -69,14 +79,8 @@ data/splits/
 mlruns/
 wandb/
 
-# Logs
-*.log
-logs/
-session_logs/
-
 # Temporary build artifacts
 tmp_artifact/
-*.tmp
 
 # Generated database files (cosmic-ray mutation test sessions)
 *.db

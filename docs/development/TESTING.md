@@ -105,7 +105,7 @@ Run: `pytest tests/test_property_based.py -q`
 | `operations/determinism.py` | 117 | 100% |
 | `models/inference_runtime.py` | 1,565 | 100% |
 | `feature_harmonization.py` | 1,875 | 100% |
-| `transfer_learning.py` | 1,565 | 100% |
+| `transfer_learning.py` | 1,565 | 100% (archived — Phase 24B candidate) |
 
 **CI**: Mutation testing runs weekly (Monday 06:00 UTC) via `test-reliability.yml`.
 
