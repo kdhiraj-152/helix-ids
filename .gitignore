@@ -117,3 +117,57 @@ docs/figures/*.png
 # Top-level/binary model checkpoints (prevent accidental commits)
 *.pt
 *.pth
+
+# Understand-Anything knowledge graph (local workspace only, not for GitHub)
+.understand-anything/
+
+# ── Regeneratable plots and visualizations ──────────────────────────────────
+/plots/
+
+# ── One-time cleanup/storage audit reports at root ───────────────────────────
+/reports/
+
+# ── Intermediate phase research docs (not authoritative, regeneratable) ──────
+/docs/phase25a/
+/docs/phase25c/
+/docs/phase26a/
+/docs/phase26b/
+/docs/phase27a/
+/docs/phase27b/
+/docs/phase28a/
+/docs/phase28c/
+/docs/phase29/
+/docs/phase30/
+
+# ── Generated benchmark outputs and caches ───────────────────────────────────
+/benchmarks/*.json
+/benchmarks/*.npz
+
+# ── Regeneratable research plots and result data ─────────────────────────────
+**/plots/*.png
+**/results.json
+
+# ── One-time analysis outputs (never commit generated JSON dumps) ────────────
+/scripts/analysis/*_output.json
+
+# ── Superseded archive artifacts (kept for reference in git, not re-generated) ─
+/docs/archive/superseded/*.json
+
+# ── One-off phase analysis scripts (research intermediates; keep latest phases) ─
+/scripts/analysis/phase31_*
+/scripts/analysis/phase32_*
+/scripts/analysis/phase33_*
+/scripts/analysis/phase43a_*
+/scripts/analysis/phase43b_*
+/scripts/analysis/phase43c_*
+/scripts/analysis/phase43d_*
+/scripts/analysis/phase43e_*
+/scripts/analysis/phase43g_*
+/scripts/analysis/phase43h_*
+/scripts/analysis/phase44c_*
+/scripts/analysis/phase45_*
+/scripts/analysis/phase47_*
+/scripts/analysis/phase48_*
+/scripts/analysis/phase49_*
+/scripts/analysis/phase50_*
+/scripts/analysis/test_temp*

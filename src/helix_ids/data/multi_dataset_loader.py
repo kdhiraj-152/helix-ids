@@ -14,16 +14,23 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
+
+try:
+    import datasets as hf_datasets
+except ImportError:
+    hf_datasets = None  # type: ignore[assignment]
 from sklearn.feature_selection import mutual_info_classif
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import f1_score
 from sklearn.model_selection import GroupShuffleSplit
 
 from ..contracts.attack_taxonomy import (
+    BOTIOT_TO_7CLASS,
     CICIDS2018_TO_7CLASS,
     CICIDS_TO_7CLASS,
     NSL_KDD_ATTACK_MAPPING,
     NSLKDD_TO_7CLASS,
+    TONIOT_TO_7CLASS,
     UNSW_TO_7CLASS,
 )
 from ..contracts.schema_contract import (
@@ -37,8 +44,11 @@ from ..contracts.schema_contract import (
 )
 from .feature_harmonization import (
     FEATURE_ORDER,
+    create_bot_iot_mapping,
+    create_cicids2017_mapping,
     create_cicids_mapping,
     create_nslkdd_mapping,
+    create_ton_iot_mapping,
     create_unsw_mapping,
     harmonize_features,
     normalize_column_name,
@@ -95,9 +105,22 @@ ATTACK_TYPE_ALIASES = {"label", "attack type", "attack_type"}
 
 
 class MultiDatasetLoader:
-    """Loads and harmonizes all 3 IDS datasets for unified training."""
+    """Loads and harmonizes all IDS datasets (NSL-KDD, UNSW-NB15, CICIDS, TON-IoT, Bot-IoT, CIC-IDS2017)."""
 
     TRAIN_FILE = "train.csv"
+    TONIOT_RAW_COLUMNS = [
+        "ts", "src_ip", "src_port", "dst_ip", "dst_port", "proto",
+        "duration", "src_bytes", "dst_bytes", "conn_state", "missed_bytes",
+        "src_pkts", "src_ip_bytes", "dst_pkts", "dst_ip_bytes", "dns_ttl_answer",
+        "dns_query", "dns_qclass", "dns_qtype", "dns_rcode", "dns_aa",
+        "dns_tc", "dns_rd", "dns_ra", "dns_res", "http_method",
+        "http_uri", "http_referrer", "http_version", "http_request_body_len",
+        "http_response_body_len", "http_status_code", "http_user_agent",
+        "http_orig_mime_types", "http_resp_mime_types", "http_trans_depth",
+        "ssl_version", "ssl_cipher", "ssl_resumed", "ssl_established",
+        "ssl_subject", "ssl_issuer", "type",
+    ]
+
     NSLKDD_RAW_COLUMNS = [
         "duration",
         "protocol_type",
@@ -198,8 +221,10 @@ class MultiDatasetLoader:
                 raise ValueError("unsw_nb15 label-space mismatch: non-numeric labels present")
             return numeric_labels.astype(int)
 
-        source_labels = labels.astype(str).str.strip().str.replace(r"\s+", " ", regex=True).str.title()
-        mapped_labels = source_labels.map(UNSW_TO_7CLASS)
+        source_labels = labels.astype(str).str.strip().str.replace(r"\s+", " ", regex=True)
+        # Case-insensitive mapping (UNSW labels like "DoS" should not be title-cased)
+        _lower_to_class = {k.lower(): v for k, v in UNSW_TO_7CLASS.items()}
+        mapped_labels = source_labels.str.lower().map(_lower_to_class)
         unresolved = source_labels[mapped_labels.isna()].unique().tolist()
         if unresolved:
             raise ValueError(f"unsw_nb15 label-space mismatch: {sorted(map(str, unresolved))}")
@@ -481,6 +506,204 @@ class MultiDatasetLoader:
             harmonized["label"] = mapped_labels.astype(int)
 
         return harmonized
+
+    def _clean_ton_iot_frame(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Clean TON-IoT raw dataframe: drop exact dupes, rename label col.
+
+        TON-IoT raw data has both a binary ``label`` column (0=normal, 1=attack)
+        and a multi-class ``type`` column (backdoor, ddos, dos, injection, …).
+        The pipeline requires multi-class labels, so ``type`` is used as the
+        canonical label column.
+        """
+        df = df.copy()
+        if "type" in df.columns:
+            # Multi-class labels live in the 'type' column. Drop the binary
+            # 'label' column if present, then rename 'type' → 'label'.
+            if "label" in df.columns:
+                df = df.drop(columns=["label"])
+            df.rename(columns={"type": "label"}, inplace=True)
+        elif "label" not in df.columns and "attack_type" in df.columns:
+            df.rename(columns={"attack_type": "label"}, inplace=True)
+        # Drop exact duplicate rows
+        before = len(df)
+        df = df.drop_duplicates()
+        after = len(df)
+        logger.info(f"TON-IoT dedup: {before:,} -> {after:,} rows ({((before - after) / before * 100):.1f}% removed)")
+        return df
+
+    def load_ton_iot(self) -> pd.DataFrame:
+        """Load TON-IoT dataset (single file; train=test in this corpus)."""
+        paths = [
+            self.data_dir / "ton_iot" / "raw" / self.TRAIN_FILE,
+            self.data_dir / "ton_iot" / self.TRAIN_FILE,
+        ]
+        for path in paths:
+            if path.exists():
+                logger.info(f"Loading TON-IoT from {path}")
+                raw = pd.read_csv(path, low_memory=False)
+                raw = self._clean_ton_iot_frame(raw)
+                return raw
+        raise FileNotFoundError(f"TON-IoT not found in any of {paths}")
+
+    def harmonize_ton_iot(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Harmonize TON-IoT to the common invariant feature space."""
+        mapping = create_ton_iot_mapping()
+        harmonized = harmonize_features(df, mapping)
+
+        # Map attack types to 7-class
+        if "label" in harmonized.columns:
+            normalized_labels = (
+                harmonized["label"]
+                .astype(str)
+                .str.strip()
+                .str.lower()
+            )
+            mapped_labels = normalized_labels.map(
+                {k.lower(): v for k, v in TONIOT_TO_7CLASS.items()}
+            )
+            unresolved = normalized_labels[mapped_labels.isna()].unique().tolist()
+            if unresolved:
+                raise ValueError(f"ton_iot label-space mismatch: {sorted(map(str, unresolved))}")
+            harmonized["label"] = mapped_labels.astype(int)
+
+        return harmonized
+
+    def load_bot_iot(self) -> pd.DataFrame | None:
+        """Load Bot-IoT dataset.
+
+        Tries local CSV cache first, then falls back to HuggingFace.
+        """
+        local_paths = [
+            self.data_dir / "bot_iot" / "raw" / self.TRAIN_FILE,
+            self.data_dir / "bot_iot" / self.TRAIN_FILE,
+        ]
+        for path in local_paths:
+            if path.exists():
+                logger.info(f"Loading Bot-IoT from {path}")
+                df = pd.read_csv(path, low_memory=False)
+                return self._clean_bot_iot_frame(df)
+
+        if hf_datasets is None:
+            logger.warning("datasets library not installed; cannot load Bot-IoT")
+            return None
+        try:
+            logger.info("Loading Bot-IoT from HuggingFace (masoltani/bot-iot)...")
+            ds = hf_datasets.load_dataset("masoltani/bot-iot", split="train")
+            df = ds.to_pandas()
+            logger.info(f"  Bot-IoT: {len(df)} samples from HuggingFace")
+            return self._clean_bot_iot_frame(df)
+        except Exception as exc:
+            logger.warning(f"Bot-IoT not available from HuggingFace: {exc}")
+            return None
+
+    def harmonize_bot_iot(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Harmonize Bot-IoT to the common invariant feature space."""
+        mapping = create_bot_iot_mapping()
+        harmonized = harmonize_features(df, mapping)
+
+        # Map categories to 7-class
+        if "label" in harmonized.columns:
+            normalized_labels = (
+                harmonized["label"]
+                .astype(str)
+                .str.strip()
+                .str.lower()
+                .str.replace(r"\s+", " ", regex=True)
+            )
+            mapped_labels = normalized_labels.map(BOTIOT_TO_7CLASS)
+            unresolved = normalized_labels[mapped_labels.isna()].unique().tolist()
+            if unresolved:
+                raise ValueError(f"bot_iot label-space mismatch: {sorted(map(str, unresolved))}")
+            harmonized["label"] = mapped_labels.astype(int)
+
+        return harmonized
+
+    def load_cicids2017(self) -> pd.DataFrame | None:
+        """Load CIC-IDS2017.
+
+        Tries local CSV cache first, then falls back to HuggingFace.
+        """
+        local_paths = [
+            self.data_dir / "cicids2017" / "raw" / self.TRAIN_FILE,
+            self.data_dir / "cicids2017" / self.TRAIN_FILE,
+        ]
+        for path in local_paths:
+            if path.exists():
+                logger.info(f"Loading CIC-IDS2017 from {path}")
+                df = pd.read_csv(path, low_memory=False)
+                if "attack_label" in df.columns:
+                    df = df.rename(columns={"attack_label": "label"})
+                return df
+
+        if hf_datasets is None:
+            logger.warning("datasets library not installed; cannot load CIC-IDS2017")
+            return None
+        try:
+            logger.info("Loading CIC-IDS2017 from HuggingFace (rdpahalavan/CIC-IDS2017)...")
+            ds = hf_datasets.load_dataset("rdpahalavan/CIC-IDS2017", split="train")
+            df = ds.to_pandas()
+            logger.info(f"  CIC-IDS2017: {len(df)} samples from HuggingFace")
+            if "attack_label" in df.columns:
+                df = df.rename(columns={"attack_label": "label"})
+            return df
+        except Exception as exc:
+            logger.warning(f"CIC-IDS2017 not available from HuggingFace: {exc}")
+            return None
+
+    def harmonize_cicids2017(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Harmonize CIC-IDS2017 using CICIDS feature mapping + label mapping."""
+        mapping = create_cicids2017_mapping()
+        harmonized = harmonize_features(df, mapping)
+
+        # Map attack types to 7-class (same labels as CIC-IDS2018)
+        if "label" in harmonized.columns:
+            normalized_labels = (
+                harmonized["label"]
+                .astype(str)
+                .str.strip()
+                .str.replace(r"\s+", " ", regex=True)
+                .str.replace("\u2013", "-")  # normalize en-dash → hyphen
+                .str.upper()
+            )
+            label_map = {
+                **{str(k).upper(): v for k, v in CICIDS_TO_7CLASS.items()},
+                **{str(k).upper(): v for k, v in CICIDS2018_TO_7CLASS.items()},
+            }
+            mapped_labels = normalized_labels.map(label_map)
+            unresolved = normalized_labels[mapped_labels.isna()].unique().tolist()
+            if unresolved:
+                raise ValueError(f"cicids2017 label-space mismatch: {sorted(map(str, unresolved))}")
+            harmonized["label"] = mapped_labels.astype(int)
+
+        return harmonized
+
+    def _clean_bot_iot_frame(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Clean Bot-IoT raw dataframe: rename label col, drop unneeded cols."""
+        df = df.copy()
+        # Bot-IoT has attack (binary), category (7-class target), subcategory
+        # Use 'category' as the label target.
+        if "category" in df.columns:
+            if "label" in df.columns:
+                df = df.drop(columns=["label"])
+            df.rename(columns={"category": "label"}, inplace=True)
+        # Drop columns that are not needed for flow-level harmonization
+        # (pre-computed entropy / network stats features)
+        entropy_cols = [
+            "AR_P_Proto_P_Dport", "AR_P_Proto_P_DstIP", "AR_P_Proto_P_Sport",
+            "AR_P_Proto_P_SrcIP", "N_IN_Conn_P_DstIP", "N_IN_Conn_P_SrcIP",
+            "Pkts_P_State_P_Protocol_P_DestIP", "Pkts_P_State_P_Protocol_P_SrcIP",
+            "TnBPDstIP", "TnBPSrcIP", "TnP_PDstIP", "TnP_PSrcIP",
+            "TnP_PerProto", "TnP_Per_Dport",
+        ]
+        existing_entropy = [c for c in entropy_cols if c in df.columns]
+        if existing_entropy:
+            df = df.drop(columns=existing_entropy)
+        # Drop timestamp and other non-flow columns
+        extra_drop = ["stime", "ltime", "seq", "attack", "subcategory"]
+        existing_extra = [c for c in extra_drop if c in df.columns]
+        if existing_extra:
+            df = df.drop(columns=existing_extra)
+        return df
 
     def _augment_geometry_expansion_features(self, df: pd.DataFrame) -> pd.DataFrame:
         """Add cross-dataset geometric expansion features for minority-class separation."""
@@ -969,12 +1192,20 @@ class MultiDatasetLoader:
                 f"unique_pred_coverage={coverage:.3f} < {min_coverage:.3f}"
             )
 
-    def load_and_harmonize_all(self) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-        """
-        Load and harmonize all 3 datasets.
+    def load_and_harmonize_all(
+        self,
+    ) -> tuple[
+        pd.DataFrame,
+        pd.DataFrame,
+        pd.DataFrame | None,
+        pd.DataFrame | None,
+        pd.DataFrame | None,
+        pd.DataFrame | None,
+    ]:
+        """Load and harmonize all 6 datasets.
 
         Returns:
-            (nsl_kdd_df, unsw_df, cicids_df) - each with common features + label
+            (nsl_kdd_df, unsw_df, cicids_df, ton_iot_df, bot_iot_df, cicids2017_df) - each with common features + label
         """
         logger.info("Loading NSL-KDD...")
         nsl_kdd = self.load_nslkdd()
@@ -993,9 +1224,42 @@ class MultiDatasetLoader:
             cicids = self.harmonize_cicids(cicids_raw)
             logger.info(f"  → CICIDS: {len(cicids)} samples, shape {cicids.shape}")
         else:
-            logger.warning("  → CICIDS not available, continuing with 2 datasets")
+            logger.warning("  → CICIDS not available, continuing")
 
-        return nsl_kdd, unsw, cicids
+        ton_iot = None
+        logger.info("Loading TON-IoT...")
+        try:
+            ton_iot_raw = self.load_ton_iot()
+            ton_iot = self.harmonize_ton_iot(ton_iot_raw)
+            logger.info(f"  → TON-IoT: {len(ton_iot)} samples, shape {ton_iot.shape}")
+        except FileNotFoundError:
+            logger.warning("  → TON-IoT not available, continuing")
+
+        bot_iot = None
+        logger.info("Loading Bot-IoT (masoltani/bot-iot)...")
+        try:
+            bot_iot_raw = self.load_bot_iot()
+            if bot_iot_raw is not None:
+                bot_iot = self.harmonize_bot_iot(bot_iot_raw)
+                logger.info(f"  → Bot-IoT: {len(bot_iot)} samples, shape {bot_iot.shape}")
+            else:
+                logger.warning("  → Bot-IoT not available, continuing")
+        except Exception as exc:
+            logger.warning(f"  → Bot-IoT failed: {exc}")
+
+        cicids2017 = None
+        logger.info("Loading CIC-IDS2017...")
+        try:
+            cicids2017_raw = self.load_cicids2017()
+            if cicids2017_raw is not None:
+                cicids2017 = self.harmonize_cicids2017(cicids2017_raw)
+                logger.info(f"  → CIC-IDS2017: {len(cicids2017)} samples, shape {cicids2017.shape}")
+            else:
+                logger.warning("  → CIC-IDS2017 not available, continuing")
+        except Exception as exc:
+            logger.warning(f"  → CIC-IDS2017 failed: {exc}")
+
+        return nsl_kdd, unsw, cicids, ton_iot, bot_iot, cicids2017
 
     def create_splits(  # NOSONAR
         self,
@@ -1015,7 +1279,7 @@ class MultiDatasetLoader:
         Returns:
             Dict with combined and per-dataset split arrays.
         """
-        dataset_names = ["nsl_kdd", "unsw_nb15", "cicids"]
+        dataset_names = ["nsl_kdd", "unsw_nb15", "cicids", "ton_iot", "bot_iot", "cicids2017"]
         named_dfs = [(dataset_names[idx], df) for idx, df in enumerate(dfs) if df is not None]
         if not named_dfs:
             raise ValueError("No datasets provided for split creation")
@@ -1279,11 +1543,11 @@ class MultiDatasetLoader:
         output_dir.mkdir(parents=True, exist_ok=True)
 
         # Load all datasets
-        nsl_kdd, unsw, cicids = self.load_and_harmonize_all()
+        nsl_kdd, unsw, cicids, ton_iot, bot_iot, cicids2017 = self.load_and_harmonize_all()
 
         # Create splits
         splits = self.create_splits(
-            [nsl_kdd, unsw, cicids] if cicids is not None else [nsl_kdd, unsw]
+            [nsl_kdd, unsw, cicids, ton_iot, bot_iot, cicids2017]
         )
 
         # Save splits as numpy arrays
@@ -1557,7 +1821,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
     loader = MultiDatasetLoader()
-    nsl_kdd, unsw, cicids = loader.load_and_harmonize_all()
+    nsl_kdd, unsw, cicids, ton_iot, bot_iot, cicids2017 = loader.load_and_harmonize_all()
 
     print("\n=== Harmonized Datasets ===")
     print(f"NSL-KDD: {nsl_kdd.shape}")
@@ -1567,10 +1831,19 @@ if __name__ == "__main__":
     if cicids is not None:
         print(f"CICIDS: {cicids.shape}")
         print(f"  Columns: {list(cicids.columns)}")
+    if ton_iot is not None:
+        print(f"TON-IoT: {ton_iot.shape}")
+        print(f"  Columns: {list(ton_iot.columns)}")
+    if bot_iot is not None:
+        print(f"Bot-IoT: {bot_iot.shape}")
+        print(f"  Columns: {list(bot_iot.columns)}")
+    if cicids2017 is not None:
+        print(f"CIC-IDS2017: {cicids2017.shape}")
+        print(f"  Columns: {list(cicids2017.columns)}")
 
     print("\n=== Creating Splits ===")
     splits = loader.create_splits(
-        [nsl_kdd, unsw, cicids] if cicids is not None else [nsl_kdd, unsw]
+        [nsl_kdd, unsw, cicids, ton_iot, bot_iot, cicids2017]
     )
     for key in sorted(splits.keys()):
         print(f"{key}: {splits[key].shape}")

@@ -58,6 +58,10 @@ Notes:
   - manuscript: paper drafts
   - figures: paper figures
   - archive: historical phase documentation
+  - final: publication paper draft and supporting docs
+  - redteam: red/blue team security audits
+  - releases: phase certification reports
+  - phase31-43h: intermediate research phase documentation
 
 ## Project-Specific Pitfalls
 
@@ -92,7 +96,6 @@ Repository-specific guidance:
 - Preserve existing naming and script-domain placement conventions from [scripts/README.md](scripts/README.md).
 - Keep patches small and test the nearest affected unit/integration tests first.
 - Prefer linking existing docs instead of duplicating long procedural content in code comments or new docs.
-- Do not change the documentation structure (new docs/ directories or files) without explicit approval — the current structure is intentionally minimal.
 
 ## Documentation Authority
 
@@ -107,3 +110,4 @@ The following files are single sources of truth:
 | API reference | `docs/api/API_REFERENCE.md` |
 
 Historical documentation lives in `docs/archive/` and is not authoritative.
+Intermediate research phase docs (`docs/phase31/`–`docs/phase43h/`) are experiment records, not curriculum.

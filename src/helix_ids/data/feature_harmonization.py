@@ -120,7 +120,9 @@ FLAG_MAP = {
     "rsto": 6,
     "rstr": 7,
     "rstos0": 8,
+    "rstrh": 7,
     "sh": 9,
+    "shr": 9,
     "oth": 10,
     "con": 11,
     "int": 12,
@@ -191,11 +193,28 @@ NSL_STATE_MAP = {
     "rej": "REJ",
     "rsto": "RST",
     "rstr": "RST",
+    "rstrh": "RST",
     "rstos0": "RST",
     "fin": "FIN",
     "con": "CON",
     "int": "INT",
     "oth": "OTH",
+}
+
+TON_IOT_STATE_MAP = {
+    "oth": "OTH",
+    "rej": "REJ",
+    "rsto": "RST",
+    "rstr": "RST",
+    "rstrh": "RST",
+    "rstos0": "RST",
+    "s0": "S0",
+    "s1": "S1",
+    "s2": "S1",
+    "s3": "S1",
+    "sf": "SF",
+    "sh": "OTH",
+    "shr": "OTH",
 }
 
 UNSW_STATE_MAP = {
@@ -516,6 +535,88 @@ def create_cicids_mapping() -> FeatureMapping:
     )
 
 
+def create_ton_iot_mapping() -> FeatureMapping:
+    """Create feature mapping from TON-IoT columns to canonical features."""
+    return FeatureMapping(
+        dataset_name="ton_iot",
+        original_features=[],
+        common_features=COMMON_FEATURES,
+        feature_mapping={
+            # Canonical feature → raw TON-IoT column (candidates)
+            "protocol_type": ["proto"],
+            "src_bytes": ["src_bytes"],
+            "dst_bytes": ["dst_bytes"],
+            "duration": ["duration"],
+            "flag": ["conn_state"],
+            "state": ["conn_state"],
+            "count": ["src_pkts"],
+            "srv_count": ["dst_pkts"],
+            "connection_state": ["connection_state"],
+            "traffic_direction": ["traffic_direction"],
+            "has_rst": ["has_rst"],
+            "service_tier": ["service_tier"],
+        },
+    )
+
+
+def create_bot_iot_mapping() -> FeatureMapping:
+    """Create feature mapping from Bot-IoT (masoltani/bot-iot) to canonical features.
+
+    Bot-IoT provides raw flow features (dur, sbytes, dbytes, proto_number, etc.)
+    as well as pre-computed entropy features that are not used here.
+    """
+    return FeatureMapping(
+        dataset_name="bot_iot",
+        original_features=[],
+        common_features=COMMON_FEATURES,
+        feature_mapping={
+            "duration": ["dur", "duration"],
+            "protocol_type": ["proto_number", "protocol_type"],
+            "protocol": ["proto_number", "protocol_type"],
+            "src_bytes": ["sbytes", "src_bytes"],
+            "dst_bytes": ["dbytes", "dst_bytes"],
+            "flag": ["state_number", "flag"],
+            "state": ["state_number", "flag"],
+            "count": ["spkts", "count"],
+            "srv_count": ["dpkts", "srv_count"],
+            "connection_state": ["connection_state"],
+            "traffic_direction": ["traffic_direction"],
+            "has_rst": ["has_rst"],
+            "service_tier": ["service_tier"],
+        },
+    )
+
+
+def create_cicids2017_mapping() -> FeatureMapping:
+    """Create feature mapping for CIC-IDS2017.
+
+    CIC-IDS2017 uses the same CICFlowMeter v3 column format as CIC-IDS2018,
+    so the standard CICIDS mapping applies.
+    """
+    return FeatureMapping(
+        dataset_name="cicids",
+        original_features=[],
+        common_features=COMMON_FEATURES,
+        feature_mapping={
+            "duration": ["Flow Duration", "duration"],
+            "protocol_type": ["Protocol", "protocol_type"],
+            "protocol": ["Protocol", "protocol_type"],
+            "src_bytes": [CICIDS_FWD_BYTES_COL, "Total Length of Fwd Packets", "src_bytes"],
+            "dst_bytes": [CICIDS_BWD_BYTES_COL, "Total Length of Bwd Packets", "dst_bytes"],
+            "flag": ["flag"],
+            "state": ["flag"],
+            "syn_count": ["SYN Flag Count", "SYN Flag Cnt", "Syn Flag Count", "syn_count"],
+            "rst_count": ["RST Flag Count", "RST Flag Cnt", "Rst Flag Count", "rst_count"],
+            "count": ["count"],
+            "srv_count": ["srv_count"],
+            "connection_state": ["connection_state"],
+            "traffic_direction": ["traffic_direction"],
+            "has_rst": ["has_rst"],
+            "service_tier": ["service_tier"],
+        },
+    )
+
+
 # ============================================================================
 # Invariant Feature Extraction
 # ============================================================================
@@ -739,7 +840,7 @@ def _encode_service_tier(series: pd.Series) -> pd.Series:
 def _derive_service_tier(df: pd.DataFrame, dataset_name: str) -> pd.Series:
     normalized_columns = {normalize_column_name(col): col for col in df.columns}
 
-    if dataset_name in {"nsl_kdd", "unsw_nb15"}:
+    if dataset_name in {"nsl_kdd", "unsw_nb15", "ton_iot"}:
         service_col = _find_column(df, normalized_columns, ["service"])
         if service_col is None:
             raise AssertionError(f"{dataset_name} missing service required for service_tier")
@@ -768,13 +869,26 @@ def _derive_service_tier(df: pd.DataFrame, dataset_name: str) -> pd.Series:
         tier[dst_port.isin({22, 23})] = "auth"
         return tier
 
+    if dataset_name == "bot_iot":
+        dst_port_col = _find_column(df, normalized_columns, ["dport", "Destination Port", "dst_port"])
+        if dst_port_col is None:
+            return pd.Series("other", index=df.index, dtype="object")
+        dst_port = pd.to_numeric(df[dst_port_col], errors="raise").fillna(-1).astype(np.int64)
+        tier = pd.Series("other", index=df.index, dtype="object")
+        tier[dst_port.isin({80, 443, 8080, 8443})] = "web"
+        tier[dst_port.isin({53})] = "dns"
+        tier[dst_port.isin({20, 21})] = "ftp"
+        tier[dst_port.isin({25, 110, 143, 465, 587, 993, 995})] = "mail"
+        tier[dst_port.isin({22, 23})] = "auth"
+        return tier
+
     raise AssertionError(f"Unsupported dataset for service_tier derivation: {dataset_name}")
 
 
 def _derive_traffic_direction(df: pd.DataFrame, dataset_name: str) -> pd.Series:
     normalized_columns = {normalize_column_name(col): col for col in df.columns}
 
-    if dataset_name == "nsl_kdd":
+    if dataset_name in {"nsl_kdd", "ton_iot"}:
         src = _require_numeric(
             df,
             normalized_columns,
@@ -819,6 +933,21 @@ def _derive_traffic_direction(df: pd.DataFrame, dataset_name: str) -> pd.Series:
             dataset_name=dataset_name,
             field_name=CICIDS_BWD_BYTES_COL,
         )
+    elif dataset_name == "bot_iot":
+        src = _require_numeric(
+            df,
+            normalized_columns,
+            ["sbytes", "src_bytes"],
+            dataset_name=dataset_name,
+            field_name="sbytes/src_bytes",
+        )
+        dst = _require_numeric(
+            df,
+            normalized_columns,
+            ["dbytes", "dst_bytes"],
+            dataset_name=dataset_name,
+            field_name="dbytes/dst_bytes",
+        )
     else:
         raise AssertionError(f"Unsupported dataset for traffic_direction derivation: {dataset_name}")
 
@@ -841,12 +970,26 @@ def _derive_has_rst(df: pd.DataFrame, dataset_name: str) -> pd.Series:
         text = df[raw_col].astype(str).str.strip().str.lower()
         return text.str.contains(r"rst|rej", regex=True).astype(np.int64)
 
+    if dataset_name == "ton_iot":
+        raw_col = _find_column(df, normalized_columns, ["conn_state", "state", "flag"])
+        if raw_col is None:
+            raise AssertionError("ton_iot missing conn_state required for has_rst")
+        text = df[raw_col].astype(str).str.strip().str.lower()
+        return text.str.contains(r"rst|rej", regex=True).astype(np.int64)
+
     if dataset_name == "cicids":
-        rst_col = _find_column(df, normalized_columns, [CICIDS_RST_FLAG_COL, "rst_count"])
+        rst_col = _find_column(df, normalized_columns, ["RST Flag Count", "RST Flag Cnt", "Rst Flag Count", "rst_count"])
         if rst_col is None:
             raise AssertionError("cicids missing RST Flag Cnt required for has_rst")
         rst = pd.to_numeric(df[rst_col], errors="raise").fillna(0.0).astype(np.float64)
         return (rst > 0).astype(np.int64)
+
+    if dataset_name == "bot_iot":
+        raw_col = _find_column(df, normalized_columns, ["state_number", "flag", "flgs_number"])
+        if raw_col is None:
+            raise AssertionError("bot_iot missing state_number required for has_rst")
+        state_num = pd.to_numeric(df[raw_col], errors="coerce").fillna(-1).astype(np.int64)
+        return state_num.isin({4, 5}).astype(np.int64)
 
     raise AssertionError(f"Unsupported dataset for has_rst derivation: {dataset_name}")
 
@@ -893,10 +1036,10 @@ def _derive_connection_state(df: pd.DataFrame, dataset_name: str) -> pd.Series:
         return _map_unsw_connection_state(raw_state)
 
     if dataset_name == "cicids":
-        syn_col = _find_column(df, normalized_columns, ["SYN Flag Cnt", "syn_count"])
-        rst_col = _find_column(df, normalized_columns, [CICIDS_RST_FLAG_COL, "rst_count"])
-        ack_col = _find_column(df, normalized_columns, ["ACK Flag Cnt", "ack_count"])
-        fin_col = _find_column(df, normalized_columns, ["FIN Flag Cnt", "fin_count"])
+        syn_col = _find_column(df, normalized_columns, ["SYN Flag Count", "SYN Flag Cnt", "Syn Flag Count", "syn_count"])
+        rst_col = _find_column(df, normalized_columns, ["RST Flag Count", "RST Flag Cnt", "Rst Flag Count", "rst_count"])
+        ack_col = _find_column(df, normalized_columns, ["ACK Flag Count", "ACK Flag Cnt", "ack_count"])
+        fin_col = _find_column(df, normalized_columns, ["FIN Flag Count", "FIN Flag Cnt", "fin_count"])
 
         if syn_col is None or rst_col is None:
             raise AssertionError("cicids missing SYN/RST flag columns required for connection_state")
@@ -919,6 +1062,30 @@ def _derive_connection_state(df: pd.DataFrame, dataset_name: str) -> pd.Series:
         state[(syn > 0) & (ack > 0)] = "S1"
         state[fin > 0] = "FIN"
         state[rst > 0] = "RST"
+        return state
+
+    if dataset_name == "ton_iot":
+        raw_col = _find_column(df, normalized_columns, ["conn_state", "state", "flag"])
+        if raw_col is None:
+            raise AssertionError("ton_iot missing conn_state required for connection_state")
+        state = (
+            df[raw_col]
+            .astype(str)
+            .str.strip()
+            .str.lower()
+            .map(TON_IOT_STATE_MAP)
+            .fillna("OTH")
+        )
+        return state
+
+    if dataset_name == "bot_iot":
+        raw_col = _find_column(df, normalized_columns, ["state_number", "flag"])
+        if raw_col is None:
+            raise AssertionError("bot_iot missing state_number required for connection_state")
+        state_num = pd.to_numeric(df[raw_col], errors="coerce").fillna(-1).astype(np.int64)
+        state = pd.Series("OTH", index=df.index, dtype="object")
+        state[state_num.isin({0, 1})] = "CON"
+        state[state_num.isin({4, 5})] = "REJ"
         return state
 
     raise AssertionError(f"Unsupported dataset for connection_state derivation: {dataset_name}")
@@ -1130,6 +1297,9 @@ def save_feature_mappings(output_dir: Path):
         "nsl_kdd": create_nslkdd_mapping().to_dict(),
         "unsw_nb15": create_unsw_mapping().to_dict(),
         "cicids": create_cicids_mapping().to_dict(),
+        "ton_iot": create_ton_iot_mapping().to_dict(),
+        "bot_iot": create_bot_iot_mapping().to_dict(),
+        "cicids2017": create_cicids2017_mapping().to_dict(),
         "common_features": COMMON_FEATURES,
         "attack_taxonomy_7class": ATTACK_TAXONOMY_7CLASS,
     }

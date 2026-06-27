@@ -227,6 +227,29 @@ CICIDS_2017_CONFIG = DatasetConfig(
     reference="Sharafaldin et al. (2018)",
 )
 
+TON_IOT_CONFIG = DatasetConfig(
+    name="TON-IoT",
+    class_names=[
+        "Normal",
+        "Backdoor",
+        "DDoS",
+        "DoS",
+        "Injection",
+        "Password",
+        "Ransomware",
+        "Scanning",
+        "XSS",
+        "MITM",
+    ],
+    label_column="type",
+    feature_count=44,
+    categorical_columns=["proto", "service", "conn_state"],
+    drop_columns=["src_ip", "dst_ip", "src_port", "dst_port"],
+    paths=[DATA_DIR / "ton_iot" / "raw"],
+    file_pattern=CSV_PATTERN,
+    reference="Moustafa (2021)",
+)
+
 CICIDS_2018_CONFIG = DatasetConfig(
     name="CICIDS-2018",
     class_names=[
@@ -261,4 +284,7 @@ DATASET_CONFIGS: dict[str, DatasetConfig] = {
     "cicids2017": CICIDS_2018_CONFIG,
     "cicids_2018": CICIDS_2018_CONFIG,
     "cicids2018": CICIDS_2018_CONFIG,
+    "ton-iot": TON_IOT_CONFIG,
+    "ton_iot": TON_IOT_CONFIG,
+    "toniot": TON_IOT_CONFIG,
 }

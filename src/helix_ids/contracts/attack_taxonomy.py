@@ -174,6 +174,21 @@ CICIDS_TO_UNIFIED_5CLASS: dict[str, str] = {
     "web attack - xss": "R2L",
 }
 
+# ── TON-IoT → 5-class unified ──────────────────────────────────────────────
+
+TONIOT_TO_UNIFIED_5CLASS: dict[str, str] = {
+    "normal": "Normal",
+    "backdoor": "R2L",
+    "ddos": "DoS",
+    "dos": "DoS",
+    "injection": "R2L",
+    "password": "R2L",
+    "ransomware": "R2L",
+    "scanning": "Probe",
+    "xss": "R2L",
+    "mitm": "R2L",
+}
+
 # ============================================================================
 # Per-dataset raw-name → canonical-name (for 7-class export schema)
 # ============================================================================
@@ -226,6 +241,7 @@ UNSW_TO_7CLASS: dict[str, int] = {
     "Normal": 0,
     "Analysis": 2,
     "Backdoors": 6,
+    "Backdoor": 6,  # UNSW data variant: singular vs plural
     "DoS": 1,
     "Exploits": 3,
     "Fuzzers": 2,
@@ -264,6 +280,43 @@ CICIDS2018_TO_7CLASS: dict[str, int] = {
     "SQL Injection": 3,
     "SSH-Patator": 3,
     "FTP-Patator": 3,
+    # CICFlowMeter label variants (CIC-IDS-2018 day-wise files)
+    "Benign": 0,
+    "DDOS attack-HOIC": 1,
+    "DDOS attack-LOIC-UDP": 1,
+    "DDoS attacks-LOIC-HTTP": 1,
+    "DoS attacks-GoldenEye": 1,
+    "DoS attacks-Hulk": 1,
+    "DoS attacks-SlowHTTPTest": 1,
+    "DoS attacks-Slowloris": 1,
+    "Brute Force -Web": 3,
+    "Brute Force -XSS": 3,
+    "FTP-BruteForce": 3,
+    "SSH-Bruteforce": 3,
+    "Infilteration": 5,
+}
+
+# ── TON-IoT → 7-class ──────────────────────────────────────────────────────
+
+BOTIOT_TO_7CLASS: dict[str, int] = {
+    "normal": 0,
+    "ddos": 1,
+    "dos": 1,
+    "reconnaissance": 2,
+    "theft": 3,
+}
+
+TONIOT_TO_7CLASS: dict[str, int] = {
+    "normal": 0,
+    "backdoor": 6,
+    "ddos": 1,
+    "dos": 1,
+    "injection": 3,
+    "password": 3,
+    "ransomware": 6,
+    "scanning": 2,
+    "xss": 3,
+    "mitm": 6,
 }
 
 # ============================================================================
@@ -308,6 +361,10 @@ def resolve_family(dataset_name: str, attack_type: str) -> str | None:
     elif ds in ("unsw", "unsw-nb15"):
         return UNSW_TO_UNIFIED_5CLASS.get(key)
     elif ds in ("cicids", "cicids-2018", "cicids-2017"):
+        return CICIDS_TO_UNIFIED_5CLASS.get(key)
+    elif ds in ("ton", "ton-iot", "ton_iot", "toniot"):
+        return TONIOT_TO_UNIFIED_5CLASS.get(key)
+    elif ds in ("bot", "bot-iot", "bot_iot", "botiot"):
         return CICIDS_TO_UNIFIED_5CLASS.get(key)
 
     return None
@@ -354,6 +411,7 @@ __all__ = [
     "NSL_KDD_ATTACK_MAPPING",
     "UNSW_TO_UNIFIED_5CLASS",
     "CICIDS_TO_UNIFIED_5CLASS",
+    "TONIOT_TO_UNIFIED_5CLASS",
     # 7-class (export schema)
     "HELIX_CLASSES",
     "HELIX_CLASS_TO_INDEX",
@@ -363,6 +421,8 @@ __all__ = [
     "UNSW_TO_7CLASS",
     "CICIDS_TO_7CLASS",
     "CICIDS2018_TO_7CLASS",
+    "BOTIOT_TO_7CLASS",
+    "TONIOT_TO_7CLASS",
     # Helpers
     "get_all_family_names",
     "validate_family",

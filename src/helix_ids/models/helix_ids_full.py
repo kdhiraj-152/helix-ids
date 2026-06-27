@@ -29,7 +29,7 @@ class HelixFullConfig:
     """Configuration for HelixIDS-Full."""
 
     input_dim: int = 17  # audited invariant feature set (no dataset-origin columns)
-    hidden_dims: tuple[int, ...] = (512, 384, 256, 128)  # Larger for ~500K params
+    hidden_dims: tuple[int, ...] = (512, 384, 256, 256)  # ~500K params, matches existing checkpoints
     dropout_rates: tuple[float, ...] = (0.3, 0.3, 0.25, 0.2)
     activation: str = "relu"
     binary_output_dim: int = 2  # Normal vs Attack
