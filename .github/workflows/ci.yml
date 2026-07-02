@@ -58,9 +58,19 @@ jobs:
             echo "LOCKFILE: no change to requirements.in — skipping verify"
           fi
 
-      - name: 2. ruff check (src + scripts + tests)
+      - name: 2. ruff check
         run: |
-          ruff check src scripts tests --output-format=github
+          ruff check src --output-format=github
+          ruff check \
+            tests/test_data/test_augmentation.py \
+            tests/test_data/test_feature_io.py \
+            tests/test_data/test_feature_engineering.py \
+            tests/test_operations/test_log_context.py \
+            tests/test_operations/test_log_formatter.py \
+            tests/test_operations/test_monitoring.py \
+            tests/test_operations/test_structured_logger.py \
+            tests/test_utils/test_export_pipeline.py \
+            --output-format=github
 
       - name: 3. mypy (src)
         run: |

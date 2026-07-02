@@ -12,10 +12,8 @@ Covers:
 
 from __future__ import annotations
 
-import json
-import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import numpy as np
 import pytest
@@ -23,20 +21,17 @@ import torch
 
 from helix_ids.contracts.schema_contract import runtime_contract_payload
 from helix_ids.utils.export import (
-    ONNXExporter,
+    HELIX_CLASSES,
     ONNX_AVAILABLE,
     ONNXRUNTIME_AVAILABLE,
     ExportMetadata,
-    HELIX_CLASSES,
+    ONNXExporter,
     benchmark_onnx,
     build_export_manifest,
     check_onnx_dependencies,
     export_for_edge,
-    finalize_export_artifact,
     validate_onnx,
-    verify_export_artifact,
 )
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Fixtures

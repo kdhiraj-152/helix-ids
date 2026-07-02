@@ -1,607 +1,372 @@
-"""
-Test suite for HELIX-IDS feature engineering pipeline.
+"""Tests for FeatureEngineer and error rate consolidation.
 
-Tests cover:
-- Rate feature calculations (bytes_per_sec, packets_per_sec)
-- Ratio feature calculations (bytes_ratio, bytes_imbalance)
-- Log transforms
-- Feature count validation (32 features)
-- Edge case handling (zero values, NaN, infinities)
+Covers:
+  - FeatureEngineer initialization
+  - get_attack_features / get_feature_importance
+  - extract_attack_features
+  - throughput features computation
+  - cross-dataset alignment
+  - normalization (standard, minmax, robust)
+  - error rate consolidation
+  - schema helpers
 """
+
+from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import pytest
 
-# =============================================================================
-# Constants
-# =============================================================================
+from helix_ids.data.feature_engineering import (
+    ATTACK_FEATURES,
+    CICIDS_TO_NSL_MAPPING,
+    CONSOLIDATED_ERROR_FEATURES,
+    FEATURE_IMPORTANCE,
+    NSL_KDD_SCHEMA,
+    NSL_KDD_SCHEMA_CONSOLIDATED,
+    REDUNDANT_ERROR_FEATURES,
+    THROUGHPUT_FEATURES,
+    UNSW_TO_NSL_MAPPING,
+    ErrorRateConsolidationConfig,
+    FeatureEngineer,
+    consolidate_error_features,
+    get_schema_with_error_consolidation,
+)
 
-EXPECTED_FEATURE_COUNT = 32
-
-# Rate features that should be computed
-RATE_FEATURES = ["bytes_per_sec", "packets_per_sec"]
-
-# Ratio features that should be computed
-RATIO_FEATURES = ["bytes_ratio", "bytes_imbalance"]
-
-# Log-transformed features
-LOG_FEATURES = ["log_src_bytes", "log_dst_bytes", "log_count", "log_srv_count"]
+# ═══════════════════════════════════════════════════════════════════════════════
+# Fixtures
+# ═══════════════════════════════════════════════════════════════════════════════
 
 
-# =============================================================================
-# Rate Feature Calculation Tests
-# =============================================================================
+@pytest.fixture
+def nsl_sample() -> pd.DataFrame:
+    """Small NSL-KDD-like DataFrame with all 41 features."""
+    rng = np.random.default_rng(42)
+    data = {col: rng.random(20).astype(np.float32) for col in NSL_KDD_SCHEMA}
+    return pd.DataFrame(data)
 
 
-class TestRateFeatures:
-    """Test rate-based feature calculations."""
+@pytest.fixture
+def unsw_sample() -> pd.DataFrame:
+    """Small UNSW-NB15-like DataFrame with mapped columns."""
+    return pd.DataFrame(
+        {
+            "sbytes": [100, 200, 300],
+            "dbytes": [50, 150, 250],
+            "sttl": [64, 128, 255],
+            "ct_srv_src": [1, 2, 3],
+            "ct_dst_ltm": [5, 10, 15],
+            "label": [0, 1, 0],
+        }
+    )
 
-    def test_bytes_per_sec_calculation(self, raw_network_data):
-        """
-        Test bytes_per_sec is calculated as (src_bytes + dst_bytes) / duration.
 
-        Verifies that throughput rate is correctly computed from byte counts
-        and connection duration.
-        """
-        df = raw_network_data.copy()
+@pytest.fixture
+def engineer() -> FeatureEngineer:
+    return FeatureEngineer()
 
-        # Calculate expected bytes_per_sec
-        total_bytes = df["src_bytes"] + df["dst_bytes"]
-        # Avoid division by zero
-        duration_safe = df["duration"].replace(0, 1e-6)
-        expected_bps = total_bytes / duration_safe
 
-        # Compute actual feature
-        df["bytes_per_sec"] = total_bytes / duration_safe
+# ═══════════════════════════════════════════════════════════════════════════════
+# Module-level constants
+# ═══════════════════════════════════════════════════════════════════════════════
 
-        # Verify calculation
-        np.testing.assert_array_almost_equal(
-            df["bytes_per_sec"].values,
-            expected_bps.values,
-            decimal=5
+
+class TestModuleConstants:
+    def test_throughput_features(self) -> None:
+        """THROUGHPUT_FEATURES has expected entries."""
+        assert "bytes_per_sec" in THROUGHPUT_FEATURES
+        assert "packets_per_sec" in THROUGHPUT_FEATURES
+
+    def test_nsl_schema_length(self) -> None:
+        """NSL-KDD schema has 41 features."""
+        assert len(NSL_KDD_SCHEMA) == 41
+
+    def test_nsl_consolidated_length(self) -> None:
+        """Consolidated schema removes 8 error features, adds 2 = 35."""
+        assert len(NSL_KDD_SCHEMA_CONSOLIDATED) == 35
+
+    def test_redundant_error_features(self) -> None:
+        """REDUNDANT_ERROR_FEATURES has 8 entries."""
+        assert len(REDUNDANT_ERROR_FEATURES) == 8
+
+    def test_consolidated_error_features(self) -> None:
+        """CONSOLIDATED_ERROR_FEATURES has 2 entries."""
+        assert len(CONSOLIDATED_ERROR_FEATURES) == 2
+
+    def test_unsw_mapping(self) -> None:
+        """UNSW-to-NSL mapping has expected entries."""
+        assert UNSW_TO_NSL_MAPPING["sbytes"] == "src_bytes"
+        assert UNSW_TO_NSL_MAPPING["ct_srv_src"] == "srv_count"
+
+    def test_cicids_mapping(self) -> None:
+        """CICIDS-to-NSL mapping has expected entries."""
+        assert CICIDS_TO_NSL_MAPPING["Flow Duration"] == "duration"
+        assert CICIDS_TO_NSL_MAPPING["Total Fwd Packets"] == "count"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ErrorRateConsolidationConfig
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestErrorRateConsolidationConfig:
+    def test_default_weights(self) -> None:
+        """Default weights are equal."""
+        cfg = ErrorRateConsolidationConfig()
+        weights = cfg.get_serror_weights()
+        assert all(v == pytest.approx(0.25) for v in weights.values())
+
+    def test_custom_weights(self) -> None:
+        """Custom weights propagate."""
+        cfg = ErrorRateConsolidationConfig(
+            weights={"serror_rate": 0.5, "srv_serror_rate": 0.5}
         )
-
-    def test_bytes_per_sec_zero_duration(self):
-        """
-        Test bytes_per_sec handles zero duration gracefully.
-
-        Should not produce infinity or NaN, but instead use a small epsilon.
-        """
-        df = pd.DataFrame({
-            "src_bytes": [1000.0, 2000.0, 3000.0],
-            "dst_bytes": [500.0, 1000.0, 1500.0],
-            "duration": [0.0, 0.0, 1.0],
-        })
-
-        total_bytes = df["src_bytes"] + df["dst_bytes"]
-        duration_safe = df["duration"].replace(0, 1e-6)
-        df["bytes_per_sec"] = total_bytes / duration_safe
-
-        # Should not have inf or nan
-        assert not df["bytes_per_sec"].isin([np.inf, -np.inf]).any(), \
-            "bytes_per_sec should not contain infinity"
-        assert not df["bytes_per_sec"].isna().any(), \
-            "bytes_per_sec should not contain NaN"
-
-    def test_packets_per_sec_calculation(self, raw_network_data):
-        """
-        Test packets_per_sec calculation from count and duration.
-
-        Verifies packet rate computation handles various durations.
-        """
-        df = raw_network_data.copy()
-
-        # Calculate packets per second
-        duration_safe = df["duration"].replace(0, 1e-6)
-        expected_pps = df["count"] / duration_safe
-
-        df["packets_per_sec"] = df["count"] / duration_safe
-
-        np.testing.assert_array_almost_equal(
-            df["packets_per_sec"].values,
-            expected_pps.values,
-            decimal=5
-        )
-
-    def test_rate_features_positive(self, raw_network_data):
-        """
-        Test that rate features are always non-negative.
-
-        Network traffic rates cannot be negative in valid data.
-        """
-        df = raw_network_data.copy()
-
-        total_bytes = df["src_bytes"] + df["dst_bytes"]
-        duration_safe = df["duration"].replace(0, 1e-6).clip(lower=1e-6)
-
-        df["bytes_per_sec"] = total_bytes / duration_safe
-        df["packets_per_sec"] = df["count"] / duration_safe
-
-        assert (df["bytes_per_sec"] >= 0).all(), "bytes_per_sec should be non-negative"
-        assert (df["packets_per_sec"] >= 0).all(), "packets_per_sec should be non-negative"
-
-
-# =============================================================================
-# Ratio Feature Calculation Tests
-# =============================================================================
-
-
-class TestRatioFeatures:
-    """Test ratio-based feature calculations."""
-
-    def test_bytes_ratio_calculation(self, raw_network_data):
-        """
-        Test bytes_ratio = src_bytes / (src_bytes + dst_bytes).
-
-        Measures the proportion of outbound traffic.
-        """
-        df = raw_network_data.copy()
-
-        total_bytes = df["src_bytes"] + df["dst_bytes"]
-        # Avoid division by zero
-        total_safe = total_bytes.replace(0, 1.0)
-
-        expected_ratio = df["src_bytes"] / total_safe
-        df["bytes_ratio"] = df["src_bytes"] / total_safe
-
-        np.testing.assert_array_almost_equal(
-            df["bytes_ratio"].values,
-            expected_ratio.values,
-            decimal=5
-        )
-
-    def test_bytes_ratio_bounds(self, raw_network_data):
-        """
-        Test bytes_ratio is bounded between 0 and 1.
-
-        As a proportion, it must be in [0, 1] range.
-        """
-        df = raw_network_data.copy()
-
-        total_bytes = df["src_bytes"] + df["dst_bytes"]
-        total_safe = total_bytes.replace(0, 1.0)
-        df["bytes_ratio"] = df["src_bytes"] / total_safe
-
-        assert (df["bytes_ratio"] >= 0).all(), "bytes_ratio should be >= 0"
-        assert (df["bytes_ratio"] <= 1).all(), "bytes_ratio should be <= 1"
-
-    def test_bytes_imbalance_calculation(self, raw_network_data):
-        """
-        Test bytes_imbalance = (src_bytes - dst_bytes) / (src_bytes + dst_bytes).
-
-        Measures traffic asymmetry: +1 = all outbound, -1 = all inbound.
-        """
-        df = raw_network_data.copy()
-
-        total_bytes = df["src_bytes"] + df["dst_bytes"]
-        total_safe = total_bytes.replace(0, 1.0)
-
-        expected_imbalance = (df["src_bytes"] - df["dst_bytes"]) / total_safe
-        df["bytes_imbalance"] = (df["src_bytes"] - df["dst_bytes"]) / total_safe
-
-        np.testing.assert_array_almost_equal(
-            df["bytes_imbalance"].values,
-            expected_imbalance.values,
-            decimal=5
-        )
-
-    def test_bytes_imbalance_bounds(self, raw_network_data):
-        """
-        Test bytes_imbalance is bounded between -1 and 1.
-        """
-        df = raw_network_data.copy()
-
-        total_bytes = df["src_bytes"] + df["dst_bytes"]
-        total_safe = total_bytes.replace(0, 1.0)
-        df["bytes_imbalance"] = (df["src_bytes"] - df["dst_bytes"]) / total_safe
-
-        assert (df["bytes_imbalance"] >= -1).all(), "bytes_imbalance should be >= -1"
-        assert (df["bytes_imbalance"] <= 1).all(), "bytes_imbalance should be <= 1"
-
-    def test_ratio_zero_total_bytes(self):
-        """
-        Test ratio features handle zero total bytes.
-
-        When both src and dst bytes are 0, should produce defined values.
-        """
-        df = pd.DataFrame({
-            "src_bytes": [0.0, 0.0, 100.0],
-            "dst_bytes": [0.0, 0.0, 0.0],
-        })
-
-        total_bytes = df["src_bytes"] + df["dst_bytes"]
-        total_safe = total_bytes.replace(0, 1.0)
-
-        df["bytes_ratio"] = df["src_bytes"] / total_safe
-        df["bytes_imbalance"] = (df["src_bytes"] - df["dst_bytes"]) / total_safe
-
-        # Should not have NaN
-        assert not df["bytes_ratio"].isna().any()
-        assert not df["bytes_imbalance"].isna().any()
-
-
-# =============================================================================
-# Log Transform Tests
-# =============================================================================
-
-
-class TestLogTransforms:
-    """Test log transformation features."""
-
-    def test_log_src_bytes(self, raw_network_data):
-        """
-        Test log transform of src_bytes: log(1 + src_bytes).
-
-        Log transform helps normalize skewed distributions.
-        """
-        df = raw_network_data.copy()
-
-        expected_log = np.log1p(df["src_bytes"])
-        df["log_src_bytes"] = np.log1p(df["src_bytes"])
-
-        np.testing.assert_array_almost_equal(
-            df["log_src_bytes"].values,
-            expected_log.values,
-            decimal=5
-        )
-
-    def test_log_dst_bytes(self, raw_network_data):
-        """
-        Test log transform of dst_bytes: log(1 + dst_bytes).
-        """
-        df = raw_network_data.copy()
-
-        expected_log = np.log1p(df["dst_bytes"])
-        df["log_dst_bytes"] = np.log1p(df["dst_bytes"])
-
-        np.testing.assert_array_almost_equal(
-            df["log_dst_bytes"].values,
-            expected_log.values,
-            decimal=5
-        )
-
-    def test_log_count(self, raw_network_data):
-        """
-        Test log transform of count: log(1 + count).
-        """
-        df = raw_network_data.copy()
-
-        expected_log = np.log1p(df["count"])
-        df["log_count"] = np.log1p(df["count"])
-
-        np.testing.assert_array_almost_equal(
-            df["log_count"].values,
-            expected_log.values,
-            decimal=5
-        )
-
-    def test_log_srv_count(self, raw_network_data):
-        """
-        Test log transform of srv_count: log(1 + srv_count).
-        """
-        df = raw_network_data.copy()
-
-        expected_log = np.log1p(df["srv_count"])
-        df["log_srv_count"] = np.log1p(df["srv_count"])
-
-        np.testing.assert_array_almost_equal(
-            df["log_srv_count"].values,
-            expected_log.values,
-            decimal=5
-        )
-
-    def test_log_transform_zero_values(self):
-        """
-        Test log transform handles zero values correctly.
-
-        log(1 + 0) = 0, should not produce -inf.
-        """
-        df = pd.DataFrame({
-            "src_bytes": [0.0, 0.0, 0.0],
-            "dst_bytes": [0.0, 100.0, 1000.0],
-            "count": [0, 1, 100],
-            "srv_count": [0, 0, 50],
-        })
-
-        df["log_src_bytes"] = np.log1p(df["src_bytes"])
-        df["log_dst_bytes"] = np.log1p(df["dst_bytes"])
-        df["log_count"] = np.log1p(df["count"])
-        df["log_srv_count"] = np.log1p(df["srv_count"])
-
-        for col in ["log_src_bytes", "log_dst_bytes", "log_count", "log_srv_count"]:
-            assert not df[col].isin([np.inf, -np.inf]).any(), f"{col} should not contain infinity"
-            assert not df[col].isna().any(), f"{col} should not contain NaN"
-            assert (df[col] >= 0).all(), f"{col} should be non-negative"
-
-    def test_log_transform_large_values(self):
-        """
-        Test log transform compresses large values.
-        """
-        df = pd.DataFrame({
-            "src_bytes": [1e9, 1e12, 1e15],
-        })
-
-        df["log_src_bytes"] = np.log1p(df["src_bytes"])
-
-        # Log should significantly reduce the range
-        assert df["log_src_bytes"].max() < df["src_bytes"].max()
-        assert df["log_src_bytes"].max() < 50  # log(1e15) ≈ 34.5
-
-
-# =============================================================================
-# Feature Count Tests
-# =============================================================================
-
-
-class TestFeatureCount:
-    """Test that feature engineering produces exactly 32 features."""
-
-    def test_production_feature_count(self, production_feature_names):
-        """
-        Test production model expects exactly 32 features.
-        """
-        assert len(production_feature_names) == EXPECTED_FEATURE_COUNT, \
-            f"Expected {EXPECTED_FEATURE_COUNT} features, got {len(production_feature_names)}"
-
-    def test_feature_names_no_duplicates(self, production_feature_names):
-        """
-        Test feature names are unique.
-        """
-        assert len(production_feature_names) == len(set(production_feature_names)), \
-            "Feature names should be unique"
-
-    def test_rate_features_present(self, production_feature_names):
-        """
-        Test that rate features are in the production feature set.
-        """
-        for feature in RATE_FEATURES:
-            assert feature in production_feature_names, \
-                f"Rate feature '{feature}' should be in production features"
-
-    def test_ratio_features_present(self, production_feature_names):
-        """
-        Test that ratio features are in the production feature set.
-        """
-        for feature in RATIO_FEATURES:
-            assert feature in production_feature_names, \
-                f"Ratio feature '{feature}' should be in production features"
-
-    def test_log_features_present(self, production_feature_names):
-        """
-        Test that log-transformed features are in the production feature set.
-        """
-        for feature in LOG_FEATURES:
-            assert feature in production_feature_names, \
-                f"Log feature '{feature}' should be in production features"
-
-
-# =============================================================================
-# Edge Case Tests
-# =============================================================================
-
-
-class TestEdgeCases:
-    """Test handling of edge cases in feature engineering."""
-
-    def test_all_zeros(self):
-        """
-        Test feature engineering with all-zero input.
-        """
-        df = pd.DataFrame({
-            "src_bytes": [0.0] * 5,
-            "dst_bytes": [0.0] * 5,
-            "duration": [0.0] * 5,
-            "count": [0] * 5,
-            "srv_count": [0] * 5,
-        })
-
-        # Compute features with safe division
-        total_bytes = df["src_bytes"] + df["dst_bytes"]
-        total_safe = total_bytes.replace(0, 1.0)
-        duration_safe = df["duration"].replace(0, 1e-6)
-
-        df["bytes_per_sec"] = total_bytes / duration_safe
-        df["bytes_ratio"] = df["src_bytes"] / total_safe
-        df["bytes_imbalance"] = (df["src_bytes"] - df["dst_bytes"]) / total_safe
-        df["log_src_bytes"] = np.log1p(df["src_bytes"])
-
-        # Should not have any NaN or Inf
-        for col in ["bytes_per_sec", "bytes_ratio", "bytes_imbalance", "log_src_bytes"]:
-            assert not df[col].isna().any(), f"{col} should not have NaN"
-            assert not df[col].isin([np.inf, -np.inf]).any(), f"{col} should not have Inf"
-
-    def test_nan_handling(self, edge_case_network_data):
-        """
-        Test feature engineering handles NaN values.
-
-        NaN should be handled gracefully (filled or propagated consistently).
-        """
-        df = edge_case_network_data.copy()
-
-        # Check that NaN is present in input
-        assert df.isna().any().any(), "Test data should contain NaN"
-
-        # Fill NaN before computation
-        df_filled = df.fillna(0)
-
-        total_bytes = df_filled["src_bytes"] + df_filled["dst_bytes"]
-        total_safe = total_bytes.replace(0, 1.0)
-
-        df_filled["bytes_ratio"] = df_filled["src_bytes"] / total_safe
-
-        # After filling, should not have NaN
-        assert not df_filled["bytes_ratio"].isna().any()
-
-    def test_very_large_values(self):
-        """
-        Test feature engineering with very large values.
-
-        Should handle values up to 1e15 without overflow.
-        """
-        df = pd.DataFrame({
-            "src_bytes": [1e15, 1e14, 1e13],
-            "dst_bytes": [1e14, 1e15, 1e12],
-            "duration": [1.0, 0.001, 1000.0],
-            "count": [1000000, 500000, 100],
-        })
-
-        total_bytes = df["src_bytes"] + df["dst_bytes"]
-        total_safe = total_bytes.replace(0, 1.0)
-        duration_safe = df["duration"].replace(0, 1e-6)
-
-        df["bytes_per_sec"] = total_bytes / duration_safe
-        df["bytes_ratio"] = df["src_bytes"] / total_safe
-        df["log_src_bytes"] = np.log1p(df["src_bytes"])
-
-        # Should not overflow
-        assert not df["bytes_per_sec"].isin([np.inf, -np.inf]).any()
-        assert not df["bytes_ratio"].isna().any()
-        assert (df["bytes_ratio"] >= 0).all() and (df["bytes_ratio"] <= 1).all()
-
-    def test_negative_values_handling(self):
-        """
-        Test feature engineering with negative values.
-
-        Network byte counts should never be negative, but we handle gracefully.
-        """
-        df = pd.DataFrame({
-            "src_bytes": [-100.0, 100.0, 200.0],  # Invalid negative
-            "dst_bytes": [100.0, -50.0, 150.0],   # Invalid negative
-        })
-
-        # Clip negative values to 0
-        df["src_bytes"] = df["src_bytes"].clip(lower=0)
-        df["dst_bytes"] = df["dst_bytes"].clip(lower=0)
-
-        total_bytes = df["src_bytes"] + df["dst_bytes"]
-        total_safe = total_bytes.replace(0, 1.0)
-
-        df["bytes_ratio"] = df["src_bytes"] / total_safe
-
-        assert (df["bytes_ratio"] >= 0).all()
-        assert (df["bytes_ratio"] <= 1).all()
-
-
-# =============================================================================
-# Feature Engineering Pipeline Integration Tests
-# =============================================================================
-
-
-class TestFeatureEngineeringPipeline:
-    """Integration tests for the complete feature engineering pipeline."""
-
-    def test_engineer_features_output_shape(self, raw_network_data):
-        """
-        Test that engineered features have correct shape.
-        """
-        df = raw_network_data.copy()
-        n_samples = len(df)
-
-        # Manually engineer features to simulate pipeline
-        total_bytes = df["src_bytes"] + df["dst_bytes"]
-        total_safe = total_bytes.replace(0, 1.0)
-        duration_safe = df["duration"].replace(0, 1e-6)
-
-        # Add engineered features
-        df["bytes_per_sec"] = total_bytes / duration_safe
-        df["packets_per_sec"] = df["count"] / duration_safe
-        df["bytes_ratio"] = df["src_bytes"] / total_safe
-        df["bytes_imbalance"] = (df["src_bytes"] - df["dst_bytes"]) / total_safe
-        df["log_src_bytes"] = np.log1p(df["src_bytes"])
-        df["log_dst_bytes"] = np.log1p(df["dst_bytes"])
-        df["log_count"] = np.log1p(df["count"])
-        df["log_srv_count"] = np.log1p(df["srv_count"])
-
-        # Check shape preserved
-        assert len(df) == n_samples, "Number of samples should be preserved"
-
-    def test_feature_engineering_deterministic(self, raw_network_data):
-        """
-        Test that feature engineering is deterministic.
-
-        Same input should always produce same output.
-        """
-        df1 = raw_network_data.copy()
-        df2 = raw_network_data.copy()
-
-        # Engineer same features on both
-        for df in [df1, df2]:
-            total_bytes = df["src_bytes"] + df["dst_bytes"]
-            total_safe = total_bytes.replace(0, 1.0)
-            duration_safe = df["duration"].replace(0, 1e-6)
-
-            df["bytes_per_sec"] = total_bytes / duration_safe
-            df["bytes_ratio"] = df["src_bytes"] / total_safe
-            df["log_src_bytes"] = np.log1p(df["src_bytes"])
-
-        # Results should be identical
-        pd.testing.assert_frame_equal(df1, df2)
-
-    def test_feature_engineering_dtype_consistency(self, raw_network_data):
-        """
-        Test that engineered features have consistent dtypes.
-        """
-        df = raw_network_data.copy()
-
-        total_bytes = df["src_bytes"] + df["dst_bytes"]
-        total_safe = total_bytes.replace(0, 1.0)
-        duration_safe = df["duration"].replace(0, 1e-6)
-
-        df["bytes_per_sec"] = total_bytes / duration_safe
-        df["bytes_ratio"] = df["src_bytes"] / total_safe
-        df["log_src_bytes"] = np.log1p(df["src_bytes"])
-
-        # All engineered features should be float
-        assert df["bytes_per_sec"].dtype in [np.float32, np.float64]
-        assert df["bytes_ratio"].dtype in [np.float32, np.float64]
-        assert df["log_src_bytes"].dtype in [np.float32, np.float64]
-
-
-# =============================================================================
-# Feature Importance/Selection Tests
-# =============================================================================
-
-
-class TestFeatureSelection:
-    """Test feature selection and importance."""
-
-    def test_all_32_features_selected(self, production_feature_names):
-        """
-        Verify all 32 production features are included.
-        """
-        expected_count = 32
-        assert len(production_feature_names) == expected_count
-
-    def test_no_target_leakage_features(self, production_feature_names):
-        """
-        Test that no target-leaking features are included.
-
-        Features like 'label', 'attack_type', 'class' should not be present.
-        """
-        leakage_features = ["label", "attack_type", "class", "attack", "target", "y"]
-
-        for feature in leakage_features:
-            assert feature not in production_feature_names, \
-                f"Leakage feature '{feature}' should not be in production features"
-
-    def test_feature_engineering_preserves_data_integrity(self, raw_network_data):
-        """
-        Test that feature engineering does not modify original columns.
-        """
-        df_original = raw_network_data.copy()
-        df = raw_network_data.copy()
-
-        # Engineer features
-        total_bytes = df["src_bytes"] + df["dst_bytes"]
-        total_safe = total_bytes.replace(0, 1.0)
-        df["bytes_ratio"] = df["src_bytes"] / total_safe
-
-        # Original columns should be unchanged
-        np.testing.assert_array_equal(
-            df["src_bytes"].values,
-            df_original["src_bytes"].values
-        )
-        np.testing.assert_array_equal(
-            df["dst_bytes"].values,
-            df_original["dst_bytes"].values
-        )
+        w = cfg.get_serror_weights()
+        assert w["serror_rate"] == 0.5
+
+    def test_disabled_returns_original(self, nsl_sample: pd.DataFrame) -> None:
+        """When config.enabled=False, returns data unchanged."""
+        cfg = ErrorRateConsolidationConfig(enabled=False)
+        result = consolidate_error_features(nsl_sample, config=cfg)
+        assert result.shape == nsl_sample.shape
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# consolidate_error_features
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestConsolidateErrorFeatures:
+    def test_adds_weighted_serror(self, nsl_sample: pd.DataFrame) -> None:
+        """Consolidation adds weighted_serror column."""
+        result = consolidate_error_features(nsl_sample)
+        assert "weighted_serror" in result.columns
+
+    def test_adds_weighted_rerror(self, nsl_sample: pd.DataFrame) -> None:
+        """Consolidation adds weighted_rerror column."""
+        result = consolidate_error_features(nsl_sample)
+        assert "weighted_rerror" in result.columns
+
+    def test_drops_original_by_default(self, nsl_sample: pd.DataFrame) -> None:
+        """Original error features are dropped by default."""
+        result = consolidate_error_features(nsl_sample)
+        for f in REDUNDANT_ERROR_FEATURES:
+            assert f not in result.columns
+
+    def test_keeps_original_when_drop_false(self, nsl_sample: pd.DataFrame) -> None:
+        """When drop_original=False, original features remain."""
+        result = consolidate_error_features(nsl_sample, drop_original=False)
+        for f in REDUNDANT_ERROR_FEATURES:
+            assert f in result.columns
+
+    def test_partial_columns(self) -> None:
+        """Works when only some error features present."""
+        X = pd.DataFrame({"serror_rate": [0.1, 0.2, 0.3]})
+        result = consolidate_error_features(X)
+        assert "weighted_serror" in result.columns
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# get_schema_with_error_consolidation
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestGetSchema:
+    def test_consolidated(self) -> None:
+        """Consolidated schema has 35 features."""
+        assert len(get_schema_with_error_consolidation(True)) == 35
+
+    def test_original(self) -> None:
+        """Original schema has 41 features."""
+        assert len(get_schema_with_error_consolidation(False)) == 41
+
+    def test_returns_copy(self) -> None:
+        """Returns a copy, not the original list."""
+        s1 = get_schema_with_error_consolidation(True)
+        s2 = get_schema_with_error_consolidation(True)
+        assert s1 is not s2
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# FeatureEngineer
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestFeatureEngineerInit:
+    def test_default_init(self) -> None:
+        """Default FeatureEngineer loads expected mappings."""
+        eng = FeatureEngineer()
+        assert "DoS" in eng.attack_features
+        assert "Probe" in eng.attack_features
+        assert not eng._fitted
+
+    def test_custom_attack_features(self) -> None:
+        """Custom attack_features override defaults."""
+        custom = {"CustomAttack": ["src_bytes", "dst_bytes"]}
+        eng = FeatureEngineer(attack_features=custom)
+        assert "CustomAttack" in eng.attack_features
+        assert "DoS" not in eng.attack_features
+
+
+class TestGetAttackFeatures:
+    def test_known_attack(self, engineer: FeatureEngineer) -> None:
+        """Known attack type returns feature list."""
+        features = engineer.get_attack_features("DoS")
+        assert isinstance(features, list)
+        assert "src_bytes" in features
+
+    def test_unknown_attack_raises(self, engineer: FeatureEngineer) -> None:
+        """Unknown attack type raises ValueError."""
+        with pytest.raises(ValueError, match="Unknown attack type"):
+            engineer.get_attack_features("UnknownAttack")
+
+    def test_returns_copy(self, engineer: FeatureEngineer) -> None:
+        """Returns a copy, not internal reference."""
+        f1 = engineer.get_attack_features("DoS")
+        f2 = engineer.get_attack_features("DoS")
+        assert f1 is not f2
+
+
+class TestGetFeatureImportance:
+    def test_specific_attack(self, engineer: FeatureEngineer) -> None:
+        """Returns importance for a specific attack."""
+        imp = engineer.get_feature_importance("U2R")
+        assert "num_root" in imp
+        assert imp["num_root"] == 0.35
+
+    def test_all_attacks(self, engineer: FeatureEngineer) -> None:
+        """Returns combined importance across all attacks."""
+        imp = engineer.get_feature_importance()
+        assert isinstance(imp, dict)
+
+    def test_top_k(self, engineer: FeatureEngineer) -> None:
+        """top_k limits returned features."""
+        imp = engineer.get_feature_importance(top_k=3)
+        assert len(imp) <= 3
+
+    def test_unknown_raises(self, engineer: FeatureEngineer) -> None:
+        """Unknown attack raises ValueError."""
+        with pytest.raises(ValueError, match="Unknown attack type"):
+            engineer.get_feature_importance("Bogus")
+
+
+class TestExtractAttackFeatures:
+    def test_extracts_columns(self, engineer: FeatureEngineer, nsl_sample: pd.DataFrame) -> None:
+        """Extracting DoS features returns only DoS-relevant columns."""
+        extracted = engineer.extract_attack_features(nsl_sample, "DoS")
+        assert extracted.shape[1] > 0
+        assert extracted.shape[1] < nsl_sample.shape[1]
+
+    def test_no_available_cols_raises(self, engineer: FeatureEngineer) -> None:
+        """No matching columns raises ValueError."""
+        X = pd.DataFrame({"unrelated": [1.0, 2.0]})
+        with pytest.raises(ValueError, match="None of the required features"):
+            engineer.extract_attack_features(X, "DoS")
+
+
+class TestComputeThroughputFeatures:
+    def test_adds_throughput_columns(self, nsl_sample: pd.DataFrame) -> None:
+        """Throughput computation adds expected columns."""
+        eng = FeatureEngineer()
+        result = eng.compute_throughput_features(nsl_sample)
+        for col in THROUGHPUT_FEATURES:
+            assert col in result.columns
+
+    def test_no_inf_values(self, nsl_sample: pd.DataFrame) -> None:
+        """Throughput features have no inf values."""
+        eng = FeatureEngineer()
+        result = eng.compute_throughput_features(nsl_sample)
+        for col in THROUGHPUT_FEATURES:
+            assert not result[col].isin([np.inf, -np.inf]).any()
+
+    def test_missing_duration_defaults_to_min(self) -> None:
+        """When duration column is missing, uses min_duration default."""
+        X = pd.DataFrame({"src_bytes": [100, 200]})
+        eng = FeatureEngineer()
+        result = eng.compute_throughput_features(X)
+        assert "bytes_per_sec" in result.columns
+
+
+class TestNormalize:
+    @pytest.mark.parametrize("method", ["standard", "minmax", "robust"])
+    def test_normalize_preserves_shape(self, engineer: FeatureEngineer, nsl_sample: pd.DataFrame, method: str) -> None:
+        """Normalization preserves DataFrame shape."""
+        result = engineer.normalize(nsl_sample, method=method)
+        assert result.shape == nsl_sample.shape
+
+    def test_standard_normalize(self, engineer: FeatureEngineer, nsl_sample: pd.DataFrame) -> None:
+        """Standard normalization produces ~zero mean, unit variance (float32 approx)."""
+        result = engineer.normalize(nsl_sample, method="standard")
+        col = nsl_sample.columns[0]
+        assert abs(result[col].mean()) < 1e-5
+        assert abs(result[col].std() - 1.0) < 0.06
+
+    def test_minmax_range(self, engineer: FeatureEngineer, nsl_sample: pd.DataFrame) -> None:
+        """MinMax normalization produces values in [0, 1]."""
+        result = engineer.normalize(nsl_sample, method="minmax")
+        for col in result.columns:
+            assert result[col].min() >= -1e-6
+            assert result[col].max() <= 1.0 + 1e-6
+
+    def test_transform_without_fit_raises(self, engineer: FeatureEngineer, nsl_sample: pd.DataFrame) -> None:
+        """Calling normalize with fit=False before fitting raises."""
+        with pytest.raises(ValueError, match="Scaler not fitted"):
+            engineer.normalize(nsl_sample, method="standard", fit=False)
+
+    def test_fit_then_transform(self, engineer: FeatureEngineer, nsl_sample: pd.DataFrame) -> None:
+        """Fitted scaler can transform new data."""
+        engineer.normalize(nsl_sample, method="standard", fit=True)
+        new_data = nsl_sample * 2.0
+        result = engineer.normalize(new_data, method="standard", fit=False)
+        assert result.shape == new_data.shape
+
+    def test_unknown_method_raises(self, engineer: FeatureEngineer, nsl_sample: pd.DataFrame) -> None:
+        """Unknown normalization method raises ValueError."""
+        with pytest.raises(ValueError, match="Unknown normalization method"):
+            engineer.normalize(nsl_sample, method="unknown")
+
+    def test_numpy_array_input(self, engineer: FeatureEngineer) -> None:
+        """Numpy array input returns numpy array."""
+        X = np.random.default_rng(42).random((10, 4)).astype(np.float32)
+        result = engineer.normalize(X, method="standard")
+        assert isinstance(result, np.ndarray)
+
+
+class TestAlignFeatures:
+    def test_unsw_alignment(self, engineer: FeatureEngineer, unsw_sample: pd.DataFrame) -> None:
+        """UNSW features align to NSL-KDD schema."""
+        result = engineer.align_features(unsw_sample, source_dataset="unsw")
+        assert result.shape[0] == 3
+        assert "src_bytes" in result.columns
+
+    def test_nsl_alignment(self, engineer: FeatureEngineer, nsl_sample: pd.DataFrame) -> None:
+        """NSL alignment preserves columns."""
+        result = engineer.align_features(nsl_sample, source_dataset="nsl")
+        assert set(result.columns) == set(NSL_KDD_SCHEMA)
+
+    def test_fill_zeros(self, engineer: FeatureEngineer, unsw_sample: pd.DataFrame) -> None:
+        """Missing columns filled with zeros."""
+        result = engineer.align_features(unsw_sample, source_dataset="unsw")
+        # 'hot' is not mapped from UNSW - should be 0
+        if "hot" in result.columns:
+            assert (result["hot"] == 0).all()
+
+    def test_unknown_dataset_raises(self, engineer: FeatureEngineer) -> None:
+        """Unknown source dataset raises ValueError."""
+        X = pd.DataFrame({"a": [1.0]})
+        with pytest.raises(ValueError, match="Unknown source dataset"):
+            engineer.align_features(X, source_dataset="unknown")
+
+
+class TestAttackFeaturesAndImportance:
+    def test_all_attacks_defined(self) -> None:
+        """All 4 attack types have feature lists."""
+        for attack in ["DoS", "Probe", "R2L", "U2R"]:
+            assert attack in ATTACK_FEATURES
+            assert len(ATTACK_FEATURES[attack]) > 0
+
+    def test_all_attacks_have_importance(self) -> None:
+        """All 4 attack types have importance rankings."""
+        for attack in ["DoS", "Probe", "R2L", "U2R"]:
+            assert attack in FEATURE_IMPORTANCE
+            assert len(FEATURE_IMPORTANCE[attack]) > 0

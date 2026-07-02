@@ -14,11 +14,10 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 import pytest
 
-from helix_ids.data.dataset_config import DatasetConfig, NSL_KDD_FEATURE_NAMES
+from helix_ids.data.dataset_config import NSL_KDD_FEATURE_NAMES, DatasetConfig
 from helix_ids.data.feature_io import (
     find_data_files,
     harmonize_cicids_frames,
@@ -26,7 +25,6 @@ from helix_ids.data.feature_io import (
     load_file,
     try_load_split,
 )
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Fixtures

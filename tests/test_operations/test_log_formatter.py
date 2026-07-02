@@ -14,11 +14,8 @@ from __future__ import annotations
 
 import json
 import logging
-from unittest.mock import patch
 
-import pytest
-
-from helix_ids.operations.logging.log_context import LogContext, current_log_context
+from helix_ids.operations.logging.log_context import LogContext
 from helix_ids.operations.logging.log_formatter import StructuredFormatter
 
 
