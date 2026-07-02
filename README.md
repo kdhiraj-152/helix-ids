@@ -101,7 +101,7 @@ Everything else is in `docs/`. For the operating details — how to train, evalu
 | API reference | `docs/api/API_REFERENCE.md` |
 | Governance and ADRs | `docs/architecture/GOVERNANCE.md` |
 | Changelog | `docs/changelog/CHANGELOG.md` |
-| AI agent guidance | `AGENTS.md` (repo root) |
+| AI agent guidance | `AGENTS.md` (repo root) — start here |
 
 ### Archived Components
 
@@ -134,3 +134,80 @@ HELIX-IDS is a research system built for the purpose of demonstrating that effec
 It is an honest attempt to solve a hard problem on hardware that costs single-digit dollars, with every number auditable, every tradeoff documented, and every failure mode understood.
 
 That is the pitch. No marketing. Just the work.
+
+## Technical Quick Reference (for AI agents)
+
+### Essential Commands
+```bash
+# Setup
+python3 -m venv .venv311
+source .venv311/bin/activate
+pip install -r requirements-lock.txt
+
+# Always set PYTHONPATH before running
+export PYTHONPATH=src
+
+# Tests
+pytest -q
+pytest tests/operations -q          # operations subset
+pytest tests/architecture -q        # architecture invariants
+pytest tests/test_models -q         # model tests
+pytest tests/test_data -q           # data pipeline tests
+
+# Lint & type
+ruff check src scripts tests
+mypy src
+
+# Smoke training (fast, bypasses strict governance)
+HELIX_GOV_POLICY_PROFILE=smoke python scripts/training/train_helix_ids_full.py --config config/helix_config.yaml
+
+# Serve
+python scripts/operations/serve_rest.py --checkpoint models/helix_full/helix_full_nsl_kdd_best.pt
+
+# Export (ONNX/TorchScript)
+python scripts/deployment/export_model.py --checkpoint <path> --format onnx
+```
+
+### Critical Architecture Invariants
+| Invariant | Value | Location |
+|-----------|-------|----------|
+| Input features | 17 (CANONICAL_INPUT_DIM) | schema_contract.py |
+| Binary classes | 2 (Normal, Attack) | schema_contract.py |
+| Family classes | 7 (5 + Generic + Backdoor) | schema_contract.py |
+| Schema version | "2026-05-25" | schema_contract.py |
+| Contract version | "1.0.0" | immutable_constants.py |
+
+### File Layout (Key Files)
+```
+AGENTS.md                          ← Master context for Hermes (start here)
+
+src/helix_ids/
+  contracts/schema_contract.py     ← THE immutable schema
+  contracts/attack_taxonomy.py     ← Attack family definitions
+  data/feature_harmonization.py    ← 41→17 feature engineering
+  models/helix_ids_full.py         ← HelixIDSFull model
+  operations/inference_runtime.py  ← Production inference
+  governance/entrypoint.py         ← Governance gate decorator
+  governance/gate_orchestrator.py  ← Stage-based training control
+  governance/provenance.py         ← Artifact manifests & SHA256
+
+scripts/
+  training/train_helix_ids_full.py ← Main training pipeline (4,605 LOC)
+  operations/serve_rest.py         ← FastAPI REST server
+  operations/staging_gate_check.py ← Prometheus promotion gate
+
+config/
+  helix_config.yaml                ← Model & training configuration
+
+docs/
+  architecture/SYSTEM_ARCHITECTURE.md
+  development/TESTING.md
+  operations/DEPLOYMENT.md
+  manuscript/HELIX_submission_ready.md  ← Paper draft
+```
+
+### Governance Gate Sequence
+```
+preload → presplit → pretrain → intrain → posteval → prepromote
+```
+Use `HELIX_GOV_POLICY_PROFILE=smoke` to bypass during development.

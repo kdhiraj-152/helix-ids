@@ -1,0 +1,160 @@
+script,references,size_bytes,classification,notes
+scripts/analysis/_check_alt_datasets.py,0,1661,LOW_REFERENCE,Found 0 references
+scripts/analysis/_check_cache.py,0,736,LOW_REFERENCE,Found 0 references
+scripts/analysis/_check_external_datasets.py,0,1539,LOW_REFERENCE,Found 0 references
+scripts/analysis/_check_internet.py,0,194,LOW_REFERENCE,Found 0 references
+scripts/analysis/_check_iot23_kyoto.py,0,2154,LOW_REFERENCE,Found 0 references
+scripts/analysis/_check_results.py,0,829,LOW_REFERENCE,Found 0 references
+scripts/analysis/_check_results2.py,0,1174,LOW_REFERENCE,Found 0 references
+scripts/analysis/_check_sources_deep.py,0,2872,LOW_REFERENCE,Found 0 references
+scripts/analysis/_explore_external.py,0,2338,LOW_REFERENCE,Found 0 references
+scripts/analysis/architecture_audit_part_a.py,0,13895,LOW_REFERENCE,Found 0 references
+scripts/analysis/phase31_fingerprint_elimination.py,0,39610,LOW_REFERENCE,Found 0 references
+scripts/analysis/phase32_harmonization_redesign.py,0,42786,LOW_REFERENCE,Found 0 references
+scripts/analysis/phase33_analysis.py,0,28614,LOW_REFERENCE,Found 0 references
+scripts/analysis/phase43a_fingerprint_attribution.py,0,31645,LOW_REFERENCE,Found 0 references
+scripts/analysis/phase43b_fingerprint_ablation.py,0,29197,LOW_REFERENCE,Found 0 references
+scripts/analysis/phase43c_coral_domain_alignment.py,0,29068,LOW_REFERENCE,Found 0 references
+scripts/analysis/phase43d_semantic_preservation.py,0,44267,LOW_REFERENCE,Found 0 references
+scripts/analysis/phase43e_cross_dataset_transfer.py,0,34276,LOW_REFERENCE,Found 0 references
+scripts/analysis/phase43g_causal_attribution.py,0,44907,LOW_REFERENCE,Found 0 references
+scripts/analysis/phase43h_failure_mode_taxonomy.py,0,57561,LOW_REFERENCE,Found 0 references
+scripts/analysis/phase44c_diagnostics.py,0,16998,LOW_REFERENCE,Found 0 references
+scripts/analysis/phase44c_transfer_baseline.py,0,9182,LOW_REFERENCE,Found 0 references
+scripts/analysis/phase44c_transfer_coral.py,0,11660,LOW_REFERENCE,Found 0 references
+scripts/analysis/phase45_causal_discovery.py,0,26863,LOW_REFERENCE,Found 0 references
+scripts/analysis/phase45_causal_discovery_step2.py,0,10778,LOW_REFERENCE,Found 0 references
+scripts/analysis/phase47_continue.py,0,28718,LOW_REFERENCE,Found 0 references
+scripts/analysis/phase47_representation_analysis.py,0,50604,LOW_REFERENCE,Found 0 references
+scripts/analysis/phase47_stats.py,0,6654,LOW_REFERENCE,Found 0 references
+scripts/analysis/phase48_analysis_only.py,0,33676,LOW_REFERENCE,Found 0 references
+scripts/analysis/phase48_shared_representation.py,0,75195,LOW_REFERENCE,Found 0 references
+scripts/analysis/phase49_conditional_analysis.py,0,67544,LOW_REFERENCE,Found 0 references
+scripts/analysis/phase50_conditional_representation.py,0,62986,LOW_REFERENCE,Found 0 references
+scripts/analysis/phase51_main.py,0,65004,LOW_REFERENCE,Found 0 references
+scripts/analysis/phase52_main.py,1,81270,UNREFERENCED,No external references found
+scripts/analysis/phase52_run_all.py,0,2962,LOW_REFERENCE,Found 0 references
+scripts/analysis/phase52_standalone_runner.py,0,7155,LOW_REFERENCE,Found 0 references
+scripts/analysis/phase53_main.py,0,65911,LOW_REFERENCE,Found 0 references
+scripts/analysis/phase54_main.py,0,137238,LOW_REFERENCE,Found 0 references
+scripts/analysis/phase55/__init__.py,1,66,UNREFERENCED,No external references found
+scripts/analysis/phase55/phase55_core.py,1,45014,UNREFERENCED,No external references found
+scripts/analysis/phase55/phase55_main.py,0,70983,LOW_REFERENCE,Found 0 references
+scripts/analysis/phase58_main.py,0,53585,LOW_REFERENCE,Found 0 references
+scripts/analysis/phase59_main.py,0,96409,LOW_REFERENCE,Found 0 references
+scripts/analysis/phase60_main.py,0,84126,LOW_REFERENCE,Found 0 references
+scripts/analysis/phase61_main.py,0,101723,LOW_REFERENCE,Found 0 references
+scripts/analysis/phase62_main.py,0,122536,LOW_REFERENCE,Found 0 references
+scripts/analysis/phase63_main.py,0,134423,LOW_REFERENCE,Found 0 references
+scripts/analysis/phase64_main.py,0,89736,LOW_REFERENCE,Found 0 references
+scripts/analysis/test_temp003.py,0,3590,LOW_REFERENCE,Found 0 references
+scripts/audit/domain_generalization_audit.py,0,10264,LOW_REFERENCE,Found 0 references
+scripts/audit/random_label_test.py,0,8336,LOW_REFERENCE,Found 0 references
+scripts/benchmarks/benchmark_pipeline.py,1,259,UNREFERENCED,No external references found
+scripts/benchmarks/check_performance_regression.py,0,5981,LOW_REFERENCE,Found 0 references
+scripts/benchmarks/load_test.py,0,21078,LOW_REFERENCE,Found 0 references
+scripts/benchmarks/soak_inference.py,0,4976,LOW_REFERENCE,Found 0 references
+scripts/benchmarks/soak_logging.py,0,5833,LOW_REFERENCE,Found 0 references
+scripts/benchmarks/soak_monitor.py,0,10502,LOW_REFERENCE,Found 0 references
+scripts/benchmarks/soak_telemetry.py,1,10513,UNREFERENCED,No external references found
+scripts/benchmarks/soak_training.py,0,5811,LOW_REFERENCE,Found 0 references
+scripts/ci/analyze_mutation_results.py,0,1850,LOW_REFERENCE,Found 0 references
+scripts/ci/check_licenses_v2.py,0,9917,LOW_REFERENCE,Found 0 references
+scripts/ci/compute_reliability_score.py,0,1222,LOW_REFERENCE,Found 0 references
+scripts/ci/enforce_skip_governance.py,1,2213,UNREFERENCED,No external references found
+scripts/ci/generate_slsa_provenance.py,0,5086,LOW_REFERENCE,Found 0 references
+scripts/ci/generate_trust_report.py,0,4316,LOW_REFERENCE,Found 0 references
+scripts/ci/validate_benchmark_outputs.py,0,21515,LOW_REFERENCE,Found 0 references
+scripts/ci/validate_governance_consistency.py,0,14096,LOW_REFERENCE,Found 0 references
+scripts/ci/validate_governance_docs.py,0,3836,LOW_REFERENCE,Found 0 references
+scripts/ci/validate_schema_registry.py,0,14314,LOW_REFERENCE,Found 0 references
+scripts/ci/verify_contract_sidecars.py,0,5936,LOW_REFERENCE,Found 0 references
+scripts/ci/verify_slsa_provenance.py,0,4226,LOW_REFERENCE,Found 0 references
+scripts/ci/write_workflow_summary.py,0,1256,LOW_REFERENCE,Found 0 references
+scripts/data/download_datasets.py,0,14295,LOW_REFERENCE,Found 0 references
+scripts/data/download_new_datasets.py,0,5188,LOW_REFERENCE,Found 0 references
+scripts/data/download_subsample.py,0,3191,LOW_REFERENCE,Found 0 references
+scripts/data/phase44c_ingestion.py,0,12168,LOW_REFERENCE,Found 0 references
+scripts/data/process_cicids.py,0,5964,LOW_REFERENCE,Found 0 references
+scripts/data/process_nsl_kdd.py,0,1303,LOW_REFERENCE,Found 0 references
+scripts/data/process_unsw_nb15.py,0,1305,LOW_REFERENCE,Found 0 references
+scripts/debug_ton_iot.py,0,1006,LOW_REFERENCE,Found 0 references
+scripts/deployment/deploy.py,3,9831,REFERENCED,Found 3 references
+scripts/evaluation/benchmark_e2e.py,0,9984,LOW_REFERENCE,Found 0 references
+scripts/evaluation/benchmarks.py,2,54829,LOW_REFERENCE,Found 2 references
+scripts/evaluation/holdout_evaluation.py,0,11709,LOW_REFERENCE,Found 0 references
+scripts/evaluation/prototype_quality_metrics.py,0,20211,LOW_REFERENCE,Found 0 references
+scripts/evaluation/test_phase3_smoke.py,0,3724,LOW_REFERENCE,Found 0 references
+scripts/governance/parse_promotion_gate_logs.py,0,3759,LOW_REFERENCE,Found 0 references
+scripts/operations/export_inference_bundle.py,0,7681,LOW_REFERENCE,Found 0 references
+scripts/operations/freeze_baseline.py,0,1256,LOW_REFERENCE,Found 0 references
+scripts/operations/serve_rest.py,2,13168,LOW_REFERENCE,Found 2 references
+scripts/operations/staging_gate_check.py,2,2832,LOW_REFERENCE,Found 2 references
+scripts/operations/stress_validate_baseline.py,0,7176,LOW_REFERENCE,Found 0 references
+scripts/operations/traffic_expansion_guard.py,0,2278,LOW_REFERENCE,Found 0 references
+scripts/operations/visualize_helix_demo.py,0,10273,LOW_REFERENCE,Found 0 references
+scripts/phase52_experiments.py,0,24445,LOW_REFERENCE,Found 0 references
+scripts/phase52_preprocess.py,0,6123,LOW_REFERENCE,Found 0 references
+scripts/phase56_main.py,1,59849,UNREFERENCED,No external references found
+scripts/phase56_report.py,0,22264,LOW_REFERENCE,Found 0 references
+scripts/phase57_main.py,0,66659,LOW_REFERENCE,Found 0 references
+scripts/run_fg.py,0,951,LOW_REFERENCE,Found 0 references
+scripts/ton_iot_tasks3_6.py,0,16695,LOW_REFERENCE,Found 0 references
+scripts/training/_constants.py,2,529,LOW_REFERENCE,Found 2 references
+scripts/training/adversarial_training.py,0,8946,LOW_REFERENCE,Found 0 references
+scripts/training/core/__init__.py,1,1017,UNREFERENCED,No external references found
+scripts/training/core/recovery_manager.py,0,12163,LOW_REFERENCE,Found 0 references
+scripts/training/core/trainer_facade.py,0,10605,LOW_REFERENCE,Found 0 references
+scripts/training/core/trainer_factory.py,0,3150,LOW_REFERENCE,Found 0 references
+scripts/training/core/trainer_state.py,0,23754,LOW_REFERENCE,Found 0 references
+scripts/training/data/__init__.py,1,2405,UNREFERENCED,No external references found
+scripts/training/data/dataset_builder.py,1,4009,UNREFERENCED,No external references found
+scripts/training/data/samplers.py,1,11271,UNREFERENCED,No external references found
+scripts/training/data/validators.py,2,13270,LOW_REFERENCE,Found 2 references
+scripts/training/diagnostics/__init__.py,1,742,UNREFERENCED,No external references found
+scripts/training/diagnostics/cluster_analyzer.py,0,16096,LOW_REFERENCE,Found 0 references
+scripts/training/diagnostics/geometry_analyzer.py,0,10369,LOW_REFERENCE,Found 0 references
+scripts/training/diagnostics/rep_diagnostics.py,0,18815,LOW_REFERENCE,Found 0 references
+scripts/training/evaluation/__init__.py,1,949,UNREFERENCED,No external references found
+scripts/training/evaluation/evaluation_orchestrator.py,0,8382,LOW_REFERENCE,Found 0 references
+scripts/training/evaluation/evaluator.py,1,31938,UNREFERENCED,No external references found
+scripts/training/execution/__init__.py,1,495,UNREFERENCED,No external references found
+scripts/training/execution/batch_processor.py,0,9585,LOW_REFERENCE,Found 0 references
+scripts/training/execution/epoch_runner.py,0,16747,LOW_REFERENCE,Found 0 references
+scripts/training/execution/training_orchestrator.py,0,6663,LOW_REFERENCE,Found 0 references
+scripts/training/execution/warmup_manager.py,0,9091,LOW_REFERENCE,Found 0 references
+scripts/training/governance/__init__.py,1,2378,UNREFERENCED,No external references found
+scripts/training/governance/ab_testing.py,0,14332,LOW_REFERENCE,Found 0 references
+scripts/training/governance/orchestrator.py,3,7309,REFERENCED,Found 3 references
+scripts/training/governance/promotion.py,3,5085,REFERENCED,Found 3 references
+scripts/training/governance/reporting.py,0,4971,LOW_REFERENCE,Found 0 references
+scripts/training/losses/__init__.py,1,986,UNREFERENCED,No external references found
+scripts/training/losses/contrastive_losses.py,0,14843,LOW_REFERENCE,Found 0 references
+scripts/training/losses/energy_losses.py,0,18852,LOW_REFERENCE,Found 0 references
+scripts/training/losses/loss_registry.py,0,25065,LOW_REFERENCE,Found 0 references
+scripts/training/losses/regularization_losses.py,0,10932,LOW_REFERENCE,Found 0 references
+scripts/training/orchestration/__init__.py,1,5865,UNREFERENCED,No external references found
+scripts/training/orchestration/config_parser.py,0,30206,LOW_REFERENCE,Found 0 references
+scripts/training/orchestration/governance_pipeline.py,0,18859,LOW_REFERENCE,Found 0 references
+scripts/training/orchestration/run_orchestrator.py,0,44228,LOW_REFERENCE,Found 0 references
+scripts/training/prepare_canonical_artifacts.py,0,7578,LOW_REFERENCE,Found 0 references
+scripts/training/representation/__init__.py,1,766,UNREFERENCED,No external references found
+scripts/training/representation/centroid_manager.py,0,5894,LOW_REFERENCE,Found 0 references
+scripts/training/representation/representation_coordinator.py,0,5043,LOW_REFERENCE,Found 0 references
+scripts/training/scheduler/__init__.py,1,1486,UNREFERENCED,No external references found
+scripts/training/scheduler/early_stopping.py,0,10838,LOW_REFERENCE,Found 0 references
+scripts/training/scheduler/freeze_manager.py,0,1139,LOW_REFERENCE,Found 0 references
+scripts/training/scheduler/lr_scheduler.py,0,4074,LOW_REFERENCE,Found 0 references
+scripts/training/scheduler/phase_manager.py,0,16280,LOW_REFERENCE,Found 0 references
+scripts/training/scheduler/phase_orchestrator.py,0,34551,LOW_REFERENCE,Found 0 references
+scripts/training/train_dann_production.py,0,68186,LOW_REFERENCE,Found 0 references
+scripts/training/train_edge_models.py,0,10988,LOW_REFERENCE,Found 0 references
+scripts/training/train_helix_ids_full.py,2,181022,LOW_REFERENCE,Found 2 references
+scripts/training/train_multidataset.py,0,40145,LOW_REFERENCE,Found 0 references
+scripts/training/train_with_coral.py,0,34004,LOW_REFERENCE,Found 0 references
+scripts/training/validation/__init__.py,1,2363,UNREFERENCED,No external references found
+scripts/training/validation/artifacts.py,2,6651,LOW_REFERENCE,Found 2 references
+scripts/training/validation/calibrator.py,1,15553,UNREFERENCED,No external references found
+scripts/training/validation/evaluator.py,1,4045,UNREFERENCED,No external references found
+scripts/training/validation/validation_orchestrator.py,1,8807,UNREFERENCED,No external references found
+scripts/validation_ton_iot_contract.py,0,12083,LOW_REFERENCE,Found 0 references

@@ -153,6 +153,15 @@ docs/figures/*.png
 # ── Superseded archive artifacts (kept for reference in git, not re-generated) ─
 /docs/archive/superseded/*.json
 
+# ── Regeneratable publication snapshots ──────────────────────────────────────
+/releases/
+/releases/*/
+
+# ── Large dataset downloads (not committed — keep raw on disk or in LFS) ─────
+data/iot23_small.tar.gz
+data/iot23/
+data/kyoto2006/
+
 # ── One-off phase analysis scripts (research intermediates; keep latest phases) ─
 /scripts/analysis/phase31_*
 /scripts/analysis/phase32_*

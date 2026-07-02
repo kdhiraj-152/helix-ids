@@ -1,0 +1,9 @@
+category,files_deleted,bytes_saved,notes
+__pycache__ directories,1194,207252916,All pycache removed before pytest rerun
+.pyc files,0,0,Covered by pycache dir removal
+.DS_Store,1,10244,Root .DS_Store
+Duplicate phase52 Y-cache,4,2080556,"SHA256-verified: nsl_kdd_y_test, unsw_nb15_y_train, unsw_nb15_y_test, nsl_kdd_y_train"
+Duplicate phase47 CSV,1,257,pwcca_matrix.csv == svcca_matrix.csv
+Duplicate phase55 labels,1,18234,expF_dim1_labels.npz == expF_dim32_labels.npz
+Duplicate phase59 log,1,11709,phase59_console.log duplicate copy
+TOTAL,1202,209333472,Total reclaimed: 209.33 MB

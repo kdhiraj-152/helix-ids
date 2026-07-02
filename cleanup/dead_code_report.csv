@@ -1,0 +1,76 @@
+module,references,size_bytes,classification,notes
+src/__init__.py,144,275,ACTIVE,Actively referenced
+src/helix_ids/__init__.py,14,844,ACTIVE,Actively referenced
+src/helix_ids/cli.py,0,2088,UNREFERENCED,No imports found from other modules
+src/helix_ids/config/__init__.py,0,609,UNREFERENCED,No imports found from other modules
+src/helix_ids/config/environment.py,0,18886,UNREFERENCED,No imports found from other modules
+src/helix_ids/config/helix_full_config.py,0,6670,UNREFERENCED,No imports found from other modules
+src/helix_ids/config/platform_loader.py,0,1918,UNREFERENCED,No imports found from other modules
+src/helix_ids/contracts/__init__.py,3,2374,ACTIVE,Actively referenced
+src/helix_ids/contracts/attack_taxonomy.py,0,12460,UNREFERENCED,No imports found from other modules
+src/helix_ids/contracts/diagnostic_contract.py,0,2136,UNREFERENCED,No imports found from other modules
+src/helix_ids/contracts/immutable_constants.py,0,617,UNREFERENCED,No imports found from other modules
+src/helix_ids/contracts/schema_contract.py,0,4696,UNREFERENCED,No imports found from other modules
+src/helix_ids/data/__init__.py,6,749,ACTIVE,Actively referenced
+src/helix_ids/data/augmentation.py,0,31796,UNREFERENCED,No imports found from other modules
+src/helix_ids/data/dataset_config.py,1,8378,UNREFERENCED,No imports found from other modules
+src/helix_ids/data/feature_engineering.py,0,51290,UNREFERENCED,No imports found from other modules
+src/helix_ids/data/feature_harmonization.py,3,50882,ACTIVE,Actively referenced
+src/helix_ids/data/feature_io.py,0,7836,UNREFERENCED,No imports found from other modules
+src/helix_ids/data/geometric_representation_fixes.py,0,21434,UNREFERENCED,No imports found from other modules
+src/helix_ids/data/label_mapping.py,1,8655,UNREFERENCED,No imports found from other modules
+src/helix_ids/data/learnability_contract.py,2,81129,LOW_REFERENCE,Minimal usage
+src/helix_ids/data/loader_core.py,1,19999,UNREFERENCED,No imports found from other modules
+src/helix_ids/data/multi_dataset_loader.py,3,75267,ACTIVE,Actively referenced
+src/helix_ids/data/preprocessing.py,0,12411,UNREFERENCED,No imports found from other modules
+src/helix_ids/data/unified_loader.py,2,960,LOW_REFERENCE,Minimal usage
+src/helix_ids/governance/__init__.py,0,3180,UNREFERENCED,No imports found from other modules
+src/helix_ids/governance/ast_validator.py,0,14956,UNREFERENCED,No imports found from other modules
+src/helix_ids/governance/determinism.py,0,2256,UNREFERENCED,No imports found from other modules
+src/helix_ids/governance/entrypoint.py,0,10061,UNREFERENCED,No imports found from other modules
+src/helix_ids/governance/failure_memory.py,0,3040,UNREFERENCED,No imports found from other modules
+src/helix_ids/governance/fingerprinting.py,0,2277,UNREFERENCED,No imports found from other modules
+src/helix_ids/governance/lifecycle_verifier.py,0,26991,UNREFERENCED,No imports found from other modules
+src/helix_ids/governance/orchestrator.py,0,21613,UNREFERENCED,No imports found from other modules
+src/helix_ids/governance/parameters.py,0,3572,UNREFERENCED,No imports found from other modules
+src/helix_ids/governance/promotion.py,0,4514,UNREFERENCED,No imports found from other modules
+src/helix_ids/governance/provenance.py,0,32712,UNREFERENCED,No imports found from other modules
+src/helix_ids/governance/run_registry.py,0,16456,UNREFERENCED,No imports found from other modules
+src/helix_ids/metrics/__init__.py,1,737,UNREFERENCED,No imports found from other modules
+src/helix_ids/metrics/adversarial_test.py,0,17033,UNREFERENCED,No imports found from other modules
+src/helix_ids/metrics/fn_tracker.py,0,15441,UNREFERENCED,No imports found from other modules
+src/helix_ids/metrics/per_class_metrics.py,0,10526,UNREFERENCED,No imports found from other modules
+src/helix_ids/models/__init__.py,4,780,ACTIVE,Actively referenced
+src/helix_ids/models/adaptation/__init__.py,2,1363,LOW_REFERENCE,Minimal usage
+src/helix_ids/models/adaptation/combined_da.py,0,11450,UNREFERENCED,No imports found from other modules
+src/helix_ids/models/adaptation/coral_loss.py,0,5442,UNREFERENCED,No imports found from other modules
+src/helix_ids/models/adaptation/dann.py,0,13136,UNREFERENCED,No imports found from other modules
+src/helix_ids/models/adaptation/label_aware_da.py,0,26993,UNREFERENCED,No imports found from other modules
+src/helix_ids/models/adaptation/mmd_loss.py,0,8260,UNREFERENCED,No imports found from other modules
+src/helix_ids/models/adaptation/transfer_learning.py,1,49535,UNREFERENCED,No imports found from other modules
+src/helix_ids/models/attention.py,0,16096,UNREFERENCED,No imports found from other modules
+src/helix_ids/models/classifier.py,1,20008,UNREFERENCED,No imports found from other modules
+src/helix_ids/models/core.py,0,273,UNREFERENCED,No imports found from other modules
+src/helix_ids/models/full.py,0,413,UNREFERENCED,No imports found from other modules
+src/helix_ids/models/helix_ids.py,1,17370,UNREFERENCED,No imports found from other modules
+src/helix_ids/models/helix_ids_full.py,0,21836,UNREFERENCED,No imports found from other modules
+src/helix_ids/models/loss.py,0,22103,UNREFERENCED,No imports found from other modules
+src/helix_ids/operations/__init__.py,1,419,UNREFERENCED,No imports found from other modules
+src/helix_ids/operations/baseline_freeze.py,0,11931,UNREFERENCED,No imports found from other modules
+src/helix_ids/operations/inference_runtime.py,0,42300,UNREFERENCED,No imports found from other modules
+src/helix_ids/operations/logging/__init__.py,0,564,UNREFERENCED,No imports found from other modules
+src/helix_ids/operations/logging/log_context.py,0,1959,UNREFERENCED,No imports found from other modules
+src/helix_ids/operations/logging/log_formatter.py,0,3527,UNREFERENCED,No imports found from other modules
+src/helix_ids/operations/logging/structured_logger.py,0,8366,UNREFERENCED,No imports found from other modules
+src/helix_ids/operations/monitoring.py,1,8024,UNREFERENCED,No imports found from other modules
+src/helix_ids/operations/recovery/__init__.py,0,301,UNREFERENCED,No imports found from other modules
+src/helix_ids/operations/recovery/restart_manager.py,0,12123,UNREFERENCED,No imports found from other modules
+src/helix_ids/operations/safety/__init__.py,0,516,UNREFERENCED,No imports found from other modules
+src/helix_ids/operations/safety/circuit_breaker.py,0,17461,UNREFERENCED,No imports found from other modules
+src/helix_ids/training/__init__.py,0,69,UNREFERENCED,No imports found from other modules
+src/helix_ids/training/coral_loss.py,0,472,UNREFERENCED,No imports found from other modules
+src/helix_ids/utils/__init__.py,1,1469,UNREFERENCED,No imports found from other modules
+src/helix_ids/utils/callbacks.py,1,30933,UNREFERENCED,No imports found from other modules
+src/helix_ids/utils/entropy_diagnostics.py,0,5428,UNREFERENCED,No imports found from other modules
+src/helix_ids/utils/export.py,0,34099,UNREFERENCED,No imports found from other modules
+src/helix_ids/utils/metrics.py,0,15305,UNREFERENCED,No imports found from other modules

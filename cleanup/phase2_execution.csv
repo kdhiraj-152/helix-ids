@@ -1,0 +1,6 @@
+phase,action,files,original_bytes,archive_bytes,archive_path,sha256,status
+phase48_models,archive,13,401625,349752,/Users/kdhiraj/Downloads/RP-2/cleanup/archives/phase48_models.tar.xz,41605aab8d6914f948e01634349e8db6bfe6c89c0af930eab3605d6808cf0148,archived
+phase50_models,archive,12,455408,385816,/Users/kdhiraj/Downloads/RP-2/cleanup/archives/phase50_models.tar.xz,a68c1b9feef0c9440a703f16c7db79bb81e22bf855c6c96c3900a7afdc28da68,archived
+phase52_encoders,archive,11,1179173,1054296,/Users/kdhiraj/Downloads/RP-2/cleanup/archives/phase52_encoders.tar.xz,e59c76fe27bffc9e3a4856c2ea34b216805602e6ffa74b51b55a93fc943e53d4,archived
+phase55_models,archive,27,1502868,1207112,/Users/kdhiraj/Downloads/RP-2/cleanup/archives/phase55_models.tar.xz,e02567cacb16d17d8116f517fbd058b8deae047ae5cbab3e41ae66581a5d2fc4,archived
+phase58_models,archive,2,149062,129348,/Users/kdhiraj/Downloads/RP-2/cleanup/archives/phase58_models.tar.xz,ab503f633fdd7dd004be95b95fc264d9df9c6391f413f114a0689d0c31f0443e,archived
