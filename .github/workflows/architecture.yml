@@ -2,7 +2,7 @@ name: Architecture Lockdown
 
 on:
   push:
-    branches: [dev]
+    branches: [dev, main]
     paths:
       - "src/**"
       - "scripts/**"
