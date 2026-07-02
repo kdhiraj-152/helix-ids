@@ -391,14 +391,14 @@ These are research outputs, not the curriculum for current development. The acti
 
 ## 13. File Counts & Stats
 
-- **Total tracked files**: ~550 (git)
-- **Python files**: ~315
-- **Markdown docs**: ~170 (archived research phases in `docs/archive/`)
-- **Core package (src/helix_ids/)**: ~40 files over 10 modules
-- **Scripts**: ~85 files across 11 subdirectories
-- **Tests**: ~110 files over 8 test directories
-- **Config**: ~15 config files in `config/` + mutation testing configs
-- **Main training script**: 4,605 LOC (breaches 2,000 LOC CI gate)
+- **Total tracked files**: ~598 (git)
+- **Python files**: 318
+- **Markdown docs**: 227 (archived research phases in `docs/archive/`)
+- **Core package (src/helix_ids/)**: 71 files over 11 modules
+- **Scripts**: 112 files across 12 subdirectories (analysis/, audit/, benchmarks/, ci/, data/, deployment/, evaluation/, governance/, operations/, training/ + training/core,data,diagnostics,evaluation,execution,governance,losses,orchestration,representation,scheduler,validation)
+- **Tests**: 112 files over 10 test directories (architecture/, benchmarks/, config/, fixtures/, test_data/, test_governance/, test_models/, test_operations/, test_utils/, training/)
+- **Config**: 24 config files in `config/` + mutation testing configs
+- **Main training script**: 4,605 LOC (HelixFullTrainer class: 1,929 LOC — passes 2,000 LOC CI gate; extra 2,676 LOC are helpers, constants, __main__)
 
 ### Documentation Structure (docs/)
 
