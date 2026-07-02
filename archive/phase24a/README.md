@@ -7,13 +7,13 @@ This directory contains implementation files and scripts that were part of the a
 
 ## Contents
 
-### `src/helix_ids/adaptation/` (3 files, 911 lines)
+### `code/helix_ids/adaptation/` (3 files, 911 lines)
 Top-level adaptation package containing:
 - `feature_harmonization.py` — Early cross-dataset feature harmonization (superseded by `src/helix_ids/data/feature_harmonization.py`)
 - `online_finetune.py` — Online fine-tuning for domain shift (superseded by production inference pipeline)
 - Both were only referenced by `tests/test_feature_harmonization.py`
 
-### `src/helix_ids/data/data_audit.py` (590 lines)
+### `code/helix_ids/data/data_audit.py` (590 lines)
 - Dataset quality auditing module
 - Only referenced by `tests/test_dataset_corruption.py`
 - Not used in any production training, inference, or evaluation pipeline
