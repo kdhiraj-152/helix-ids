@@ -107,8 +107,8 @@ Everything else is in `docs/`. For the operating details — how to train, evalu
 
 **Code archives:** Historical implementations not part of the active production system are preserved under `archive/phase24a/`. These include:
 
-- `src/helix_ids/adaptation/` — Early cross-dataset adaptation (superseded by `data/feature_harmonization.py`)
-- `src/helix_ids/data/data_audit.py` — Dataset quality auditing (not used in production pipelines)
+- `code/helix_ids/adaptation/` — Early cross-dataset adaptation (superseded by `data/feature_harmonization.py`)
+- `code/helix_ids/data/data_audit.py` — Dataset quality auditing (not used in production pipelines)
 - `scripts/training/train_unified_rebalanced.py` — Direct adaptation training (production uses `train_helix_ids_full.py`)
 - `scripts/training/train_unsw_only.py` — UNSW-only training (deleted — zero production references)
 

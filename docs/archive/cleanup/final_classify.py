@@ -4,7 +4,7 @@ import csv
 import os
 from pathlib import Path
 
-REPO = "/Users/kdhiraj/Downloads/RP-2"
+REPO = "/Users/kdhiraj/Downloads/helix-ids"
 CACHE_SKIP = {".git", ".venv311", ".venv", "node_modules"}
 
 def get_classification(rel, fp):

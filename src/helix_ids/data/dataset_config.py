@@ -25,7 +25,7 @@ NSL_KDD_ATTACK_MAPPING: dict[str, str] = NSL_KDD_ATTACK_MAPPING
 UNSW_TO_UNIFIED_5CLASS: dict[str, str] = UNSW_TO_UNIFIED_5CLASS
 CICIDS_TO_UNIFIED_5CLASS: dict[str, str] = CICIDS_TO_UNIFIED_5CLASS
 
-PROJECT_ROOT = Path(__file__).parent.parent.parent.parent  # src/helix_ids/data -> RP-2
+PROJECT_ROOT = Path(__file__).parent.parent.parent.parent  # src/helix_ids/data -> helix-ids
 DATA_DIR = PROJECT_ROOT / "data"
 ARCHIVE_DIR = PROJECT_ROOT / "archive"
 ARCHIVE2_DIR = PROJECT_ROOT / "archive-2"

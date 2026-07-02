@@ -7,7 +7,7 @@ import os
 import subprocess
 from pathlib import Path
 
-REPO = "/Users/kdhiraj/Downloads/RP-2"
+REPO = "/Users/kdhiraj/Downloads/helix-ids"
 
 def sha256_file(path):
     h = hashlib.sha256()

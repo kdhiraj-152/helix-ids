@@ -6,7 +6,7 @@ Implements the four Phase 36 quality metrics and runs them on:
     NSL-KDD, UNSW-NB15, CICIDS2018, TON-IoT
 
 Usage:
-    cd RP-2
+    cd helix-ids
     source .venv311/bin/activate
     PYTHONPATH=src python scripts/evaluation/prototype_quality_metrics.py
 

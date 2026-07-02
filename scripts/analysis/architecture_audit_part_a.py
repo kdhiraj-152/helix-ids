@@ -12,7 +12,7 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-PROJECT_ROOT = Path("/Users/kdhiraj/Downloads/RP-2").resolve()
+PROJECT_ROOT = Path("/Users/kdhiraj/Downloads/helix-ids").resolve()
 
 EXCLUDE_DIRS = {
     ".venv311", ".git", "__pycache__", ".mypy_cache",

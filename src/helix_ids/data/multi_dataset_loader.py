@@ -172,11 +172,11 @@ class MultiDatasetLoader:
         Initialize loader.
 
         Args:
-            project_root: Root path to RP-2 project (auto-detected if None)
+            project_root: Root path to helix-ids project (auto-detected if None)
             random_state: For reproducible splits
         """
         if project_root is None:
-            project_root = Path(__file__).parent.parent.parent.parent  # src/helix_ids/data -> RP-2
+            project_root = Path(__file__).parent.parent.parent.parent  # src/helix_ids/data -> helix-ids
 
         self.project_root = Path(project_root)
         self.data_dir = self.project_root / "data"

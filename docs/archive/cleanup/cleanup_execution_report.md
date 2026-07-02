@@ -1,7 +1,7 @@
 # Cleanup Execution Report — Phase 1 (Safe Actions Only)
 
 **Date**: 2026-07-02
-**Repository**: /Users/kdhiraj/Downloads/RP-2
+**Repository**: /Users/kdhiraj/Downloads/helix-ids
 **Repository Size Before**: 7.3G
 **Repository Size After**: 7.1G (core) + ~200MB untracked new data
 **Total Space Reclaimed**: ~209.33 MB

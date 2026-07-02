@@ -6,7 +6,7 @@ import ast
 import subprocess
 from pathlib import Path
 
-REPO = "/Users/kdhiraj/Downloads/RP-2"
+REPO = "/Users/kdhiraj/Downloads/helix-ids"
 
 # ============================================================
 # Section 1: Unused Scripts Analysis

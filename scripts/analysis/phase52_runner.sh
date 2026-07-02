@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-cd /Users/kdhiraj/Downloads/RP-2
+cd /Users/kdhiraj/Downloads/helix-ids
 source .venv311/bin/activate
 export PYTHONPATH=src
 export PYTORCH_ENABLE_MPS_FALLBACK=1

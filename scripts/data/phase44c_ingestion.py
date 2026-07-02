@@ -8,7 +8,7 @@ Loads and harmonizes all 6 datasets, generates:
 - entropy report
 
 Usage:
-    cd /Users/kdhiraj/Downloads/RP-2
+    cd /Users/kdhiraj/Downloads/helix-ids
     source .venv311/bin/activate
     PYTHONPATH=src python scripts/data/phase44c_ingestion.py
 """
