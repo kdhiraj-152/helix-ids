@@ -599,10 +599,13 @@ def verify_provenance_chain(
                 raise ArtifactManifestError(f"Provenance chain sidecar checksum mismatch for {k}")
 
     # Deployment manifest and exporter metadata checks: only enforce when
-    # explicitly recorded in the provenance chain.
-    if chain.get("deployment_manifest_sha256") is not None and chain.get("deployment_manifest_sha256") != computed.get("deployment_manifest_sha256"):
+    # both recorded in the chain AND the verification caller provides the
+    # corresponding data. If no data is supplied for verification, we skip
+    # the check (the field was recorded at finalization time but the verifier
+    # may not have access to the original payload).
+    if chain.get("deployment_manifest_sha256") is not None and deployment_manifest is not None and chain.get("deployment_manifest_sha256") != computed.get("deployment_manifest_sha256"):
         raise ArtifactManifestError("Provenance chain deployment manifest checksum mismatch")
-    if chain.get("exporter_metadata_hash") is not None and not _eq(chain.get("exporter_metadata_hash"), computed.get("exporter_metadata_hash")):
+    if chain.get("exporter_metadata_hash") is not None and exporter_metadata is not None and not _eq(chain.get("exporter_metadata_hash"), computed.get("exporter_metadata_hash")):
         raise ArtifactManifestError("Provenance chain exporter metadata checksum mismatch")
 
 

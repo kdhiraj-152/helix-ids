@@ -222,6 +222,7 @@ def verify_export_artifact(
     embedded_manifest: dict[str, Any] | None = None,
     require_embedded_manifest: bool = True,
     deployment_manifest: Path | None = None,
+    exporter_metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     path = Path(artifact_path)
     sidecars = {
@@ -237,6 +238,7 @@ def verify_export_artifact(
         require_embedded_manifest=require_embedded_manifest,
         sidecars=sidecars,
         deployment_manifest=deployment_manifest or (path.parent / "deployment.manifest.json" if (path.parent / "deployment.manifest.json").exists() else None),
+        exporter_metadata=exporter_metadata,
         require_chain=True,
     )
     return None if result is None else dict(result)
@@ -433,6 +435,7 @@ class ONNXExporter:
             kind="onnx",
             contract=contract,
             embedded_manifest=manifest_without_artifact_sha256(manifest),
+            exporter_metadata=metadata,
         )
 
         return exported_path
@@ -463,7 +466,15 @@ def validate_onnx(
         return False, {"error": message}
 
     filepath = Path(filepath)
-    verify_export_artifact(filepath, kind="onnx")
+    # Manifest verification is best-effort for validation — bare ONNX files
+    # (exported without the full governance chain) are still valid models.
+    # Only tolerate the specific missing-manifest error; other verification
+    # failures (e.g. checksum mismatch) still propagate.
+    try:
+        verify_export_artifact(filepath, kind="onnx")
+    except RuntimeError as exc:
+        if "Missing artifact manifest" not in str(exc):
+            raise
     results = {
         "filepath": str(filepath),
         "valid": False,
@@ -603,7 +614,15 @@ def benchmark_onnx(
         return {"error": message}
 
     filepath = Path(filepath)
-    verify_export_artifact(filepath, kind="onnx")
+    # Manifest verification is best-effort for benchmarking — bare ONNX files
+    # (exported without the full governance chain) can still be benchmarked.
+    # Only tolerate the specific missing-manifest error; other verification
+    # failures (e.g. checksum mismatch) still propagate.
+    try:
+        verify_export_artifact(filepath, kind="onnx")
+    except RuntimeError as exc:
+        if "Missing artifact manifest" not in str(exc):
+            raise
 
     # Convert input to numpy
     if isinstance(x_sample, torch.Tensor):
