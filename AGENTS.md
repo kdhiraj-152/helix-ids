@@ -377,7 +377,7 @@ All dataset → 5-class mapping is in `src/helix_ids/contracts/attack_taxonomy.p
 
 ## 12. Research Context
 
-The project has undergone extensive research phases (documented in `docs/phase31/` through `docs/phase43h/`). Key findings:
+The project has undergone extensive research phases (documented in `docs/archive/phase31/` through `docs/archive/phase43/`). Key findings:
 
 - **Phase 32/44C**: 0/30 cross-dataset transfer directions achieved MF1≥0.25 baseline without adaptation
 - **CORAL**: 15/30 directions improved, mean ΔMF1=+0.025 (Outcome B)
@@ -391,13 +391,27 @@ These are research outputs, not the curriculum for current development. The acti
 
 ## 13. File Counts & Stats
 
-- **Total tracked files**: 546 (git)
+- **Total tracked files**: ~550 (git)
 - **Python files**: ~315
-- **Markdown docs**: ~170 (many in archive)
-- **Core package (src/helix_ids/)**: ~40 files
-- **Scripts**: ~80 files
-- **Tests**: ~110 files
+- **Markdown docs**: ~170 (archived research phases in `docs/archive/`)
+- **Core package (src/helix_ids/)**: ~40 files over 10 modules
+- **Scripts**: ~85 files across 11 subdirectories
+- **Tests**: ~110 files over 8 test directories
+- **Config**: ~15 config files in `config/` + mutation testing configs
 - **Main training script**: 4,605 LOC (breaches 2,000 LOC CI gate)
+
+### Documentation Structure (docs/)
+
+| Directory | Contents |
+|-----------|----------|
+| `docs/architecture/` | System architecture, data flow, decisions, governance |
+| `docs/development/` | Coding standards, testing guide, release process, contributing |
+| `docs/operations/` | Deployment, monitoring, recovery, soak testing |
+| `docs/api/` | API reference |
+| `docs/manuscript/` | IEEE paper drafts (submission-ready + variant) |
+| `docs/changelog/` | Changelog |
+| `docs/figures/` | Architecture diagrams (PNG) |
+| `docs/archive/` | **Research phase documentation** (phase4 through phase43, final results, releases, red-team reports) |
 
 ---
 
