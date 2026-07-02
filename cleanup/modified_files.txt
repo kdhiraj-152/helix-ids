@@ -1,4 +1,0 @@
-D	.dockerignore
-M	AGENTS.md
-D	Dockerfile
-M	README.md

@@ -1,7 +1,0 @@
-path_or_pattern,size,reason_kept
-data/processed/multi_dataset_v1/y_val_cicids.npy,124MB,MEDIUM risk — excluded from Phase 1 by user decision
-results/phase48/models/decoder_*.pt (x6),~56KB each,Intermediate models — archive phase
-results/phase50/models/classifier_*.pt (x6),~7-22KB each,Intermediate models — archive phase
-results/phase52/latents/encoder_supcon_*.pt (x10),~5-280KB each,Ablation encoders — archive phase
-results/phase55/models/exp*.pt (x20+),~49-57KB each,Ablation checkpoints — archive phase
-results/phase58/models/*.pt (x2),~37-111KB each,Intermediate models — archive phase
