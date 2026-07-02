@@ -351,3 +351,4 @@ class TestExportForEdge:
         )
         content = result["example"].read_text()
         assert "onnx" in content or "import" in content
+
