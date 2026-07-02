@@ -76,23 +76,23 @@ jobs:
         run: |
           mypy src --ignore-missing-imports
 
-      - name: 4. pytest (fast subset — modules targeted by Phases 1-4)
+      - name: 4. pytest (fast subset)
         run: |
           python -m pytest -q \
             tests/test_utils/test_export_pipeline.py \
             tests/test_data/test_augmentation.py \
             tests/test_data/test_feature_io.py \
             tests/test_data/test_feature_engineering.py \
-            tests/test_data/test_phase1_harmonization.py \
-            tests/test_data/test_feature_harmonization.py \
             tests/test_data/test_schema_contract.py \
             tests/test_data/test_unified_loader.py \
-            tests/test_data/test_unsw_learnability_contract.py \
-            tests/test_data/test_data_loading.py \
             tests/test_models/test_loss.py \
-            tests/test_models/test_helix_full.py \
             tests/test_utils/test_metrics.py \
-            tests/test_e2e_smoke.py \
             --ignore=tests/architecture \
             --ignore=tests/training \
-            --ignore=tests/operations
+            --ignore=tests/operations \
+            --ignore=tests/test_data/test_feature_harmonization.py \
+            --ignore=tests/test_data/test_data_loading.py \
+            --ignore=tests/test_data/test_unsw_learnability_contract.py \
+            --ignore=tests/test_data/test_phase1_harmonization.py \
+            --ignore=tests/test_models/test_helix_full.py \
+            --ignore=tests/test_e2e_smoke.py
