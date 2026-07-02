@@ -101,7 +101,7 @@ def generate_report(output_dir: Path) -> dict:
         "overall": "PASSED" if all_passed else "FAILED",
     }
 
-    report_path = output_dir / "trust-report.json"
+    report_path = output_dir / "trust_report.json"
     with open(report_path, "w") as f:
         json.dump(report, f, indent=2)
 
@@ -111,7 +111,7 @@ def generate_report(output_dir: Path) -> dict:
 
 
 def main() -> int:
-    output_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("results/trust-report")
+    output_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("results/trust_report")
     output_dir.mkdir(parents=True, exist_ok=True)
     report = generate_report(output_dir)
     return 0 if report["overall"] == "PASSED" else 1
