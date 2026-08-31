@@ -1463,9 +1463,9 @@ ml-dtypes==0.5.4 \
     --hash=sha256:d81fdb088defa30eb37bf390bb7dde35d3a83ec112ac8e33d75ab28cc29dd8b0 \
     --hash=sha256:f21c9219ef48ca5ee78402d5cc831bd58ea27ce89beda894428bc67a52da5328
     # via onnx
-mlflow==3.14.0 \
-    --hash=sha256:5a1f818fa003035c724162096ce3ded7bc7bc47a1cae595df6173961983f4718 \
-    --hash=sha256:dbf77f7cdb5b5c0ec59b4671c61730b1b914b4dff7a2892e267a547cb5454f56
+mlflow==3.15.2 \
+    --hash=sha256:7aa59664351aaa6f63478cf3c26977c185dba60d28bca8b9a5125be3a2b4311c \
+    --hash=sha256:b46867789bd9a3b882973713371c933a42268bd17dd8eaa49f941bebe2d69f03
     # via
     #   helix-ids
     #   helix-ids (pyproject.toml)
